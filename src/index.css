@@ -1,0 +1,389 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+ /* Switzer Font Family - Self Hosted */
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Thin.otf') format('opentype');
+   font-weight: 100;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-ThinItalic.otf') format('opentype');
+   font-weight: 100;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Extralight.otf') format('opentype');
+   font-weight: 200;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-ExtralightItalic.otf') format('opentype');
+   font-weight: 200;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Light.otf') format('opentype');
+   font-weight: 300;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-LightItalic.otf') format('opentype');
+   font-weight: 300;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Regular.otf') format('opentype');
+   font-weight: 400;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Italic.otf') format('opentype');
+   font-weight: 400;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Medium.otf') format('opentype');
+   font-weight: 500;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-MediumItalic.otf') format('opentype');
+   font-weight: 500;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Semibold.otf') format('opentype');
+   font-weight: 600;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-SemiboldItalic.otf') format('opentype');
+   font-weight: 600;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Bold.otf') format('opentype');
+   font-weight: 700;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-BoldItalic.otf') format('opentype');
+   font-weight: 700;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Extrabold.otf') format('opentype');
+   font-weight: 800;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-ExtraboldItalic.otf') format('opentype');
+   font-weight: 800;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-Black.otf') format('opentype');
+   font-weight: 900;
+   font-style: normal;
+   font-display: swap;
+ }
+ 
+ @font-face {
+   font-family: 'Switzer';
+   src: url('/fonts/Switzer-BlackItalic.otf') format('opentype');
+   font-weight: 900;
+   font-style: italic;
+   font-display: swap;
+ }
+ 
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 233 80% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 168 85% 39%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 233 80% 42%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar specific */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 233 80% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 233 80% 42%;
+
+    /* Custom colors */
+    --gradient-primary: linear-gradient(10deg, hsl(233, 80%, 42%) 0%, hsl(168, 85%, 39%) 100%);
+    --gradient-button: linear-gradient(135deg, hsl(233, 80%, 50%) 0%, hsl(233, 80%, 42%) 100%);
+    --shadow-glow: 0 4px 24px -4px hsl(233 80% 42% / 0.3);
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 220 14% 96%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 220 14% 96%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 220 14% 96%;
+
+    --primary: 233 80% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 40% 18%;
+    --secondary-foreground: 220 14% 96%;
+
+    --muted: 222 40% 18%;
+    --muted-foreground: 220 9% 65%;
+
+    --accent: 168 85% 39%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 40% 18%;
+    --input: 222 40% 18%;
+    --ring: 233 80% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+     font-family: 'Switzer', sans-serif;
+  }
+}
+
+@layer components {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-button {
+    background: var(--gradient-button);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+   /* Scroll animations for podcast showcase */
+   @keyframes scroll {
+     0% { transform: translateX(0); }
+     100% { transform: translateX(-50%); }
+   }
+
+   @keyframes scroll-reverse {
+     0% { transform: translateX(-50%); }
+     100% { transform: translateX(0); }
+   }
+
+   .animate-scroll {
+     animation: scroll 40s linear infinite;
+   }
+
+   .animate-scroll-reverse {
+     animation: scroll-reverse 40s linear infinite;
+   }
+
+   .animate-scroll-slow {
+     animation: scroll 50s linear infinite;
+   }
+
+   .pause-animation:hover {
+     animation-play-state: paused;
+   }
+
+   .hover-lift {
+     @apply transition-all duration-300;
+   }
+
+   .hover-lift:hover {
+     @apply -translate-y-1 shadow-lg;
+   }
+ 
+   /* RTL-aware icon flipping */
+   [dir="rtl"] .rtl-flip {
+     transform: scaleX(-1);
+   }
+ 
+   /* RTL-aware slide animations */
+   @keyframes slide-in-left {
+     from {
+       opacity: 0;
+       transform: translateX(-20px);
+     }
+     to {
+       opacity: 1;
+       transform: translateX(0);
+     }
+   }
+ 
+   @keyframes slide-in-right {
+     from {
+       opacity: 0;
+       transform: translateX(20px);
+     }
+     to {
+       opacity: 1;
+       transform: translateX(0);
+     }
+   }
+ 
+   @keyframes slide-out-left {
+     from {
+       opacity: 1;
+       transform: translateX(0);
+     }
+     to {
+       opacity: 0;
+       transform: translateX(-20px);
+     }
+   }
+ 
+   .animate-slide-in-left {
+     animation: slide-in-left 0.3s ease-out;
+   }
+ 
+   .animate-slide-in-right {
+     animation: slide-in-right 0.3s ease-out;
+   }
+ 
+   .animate-slide-out-left {
+     animation: slide-out-left 0.3s ease-out;
+   }
+ 
+   /* RTL-aware animation swapping */
+   [dir="rtl"] .animate-slide-in-right {
+     animation-name: slide-in-left;
+   }
+ 
+   [dir="rtl"] .animate-slide-out-left {
+     animation-name: slide-out-right;
+   }
+ }
+ 
+ /* Arabic typography optimization */
+ [dir="rtl"] {
+   font-feature-settings: "ss01", "ss02";
+ }
+ 
+ /* Arabic font stack */
+ .font-arabic {
+   font-family: 'Noto Sans Arabic', 'Switzer', system-ui, sans-serif;
+}
