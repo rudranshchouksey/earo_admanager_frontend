@@ -15,6 +15,7 @@ import spotifyLogo from "@/assets/logos/spotify.svg";
 import anghamiLogo from "@/assets/logos/anghami.svg";
 import mbcLogo from "@/assets/logos/mbc.svg";
 import arnLogo from "@/assets/logos/arn.png";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [userRole, setUserRole] = useState("ACCOUNT_ADMIN");
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -129,8 +131,9 @@ export default function Auth() {
     const signupSchema = z
       .object({
         email: z.string().trim().email(t("auth.invalid_email")),
-        password: z.string().min(6, t("auth.password_min_length")),
-        confirmPassword: z.string(),
+        password: z.string().min(8, t("auth.password_min_length")),
+        confirmPassword: z.string().min(8, t("auth.password_min_length")),
+        role: z.enum(["ACCOUNT_ADMIN", "ORG_ADMIN"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
         message: t("auth.passwords_dont_match"),
@@ -153,7 +156,7 @@ export default function Auth() {
 
         setIsLoading(true);
         const { error } = await api.auth.signInWithPassword({
-          email: email.trim(),
+          email: email,
           password,
         });
 
@@ -180,6 +183,7 @@ export default function Auth() {
           email,
           password,
           confirmPassword,
+          role: userRole,
         });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -193,14 +197,12 @@ export default function Auth() {
         }
 
         setIsLoading(true);
-        const redirectUrl = `${window.location.origin}/`;
 
-        const { error } = await api.auth.signUp({
+        const { error } = await api.auth.signUpWithPassword({
           email: email.trim(),
           password,
-          options: {
-            emailRedirectTo: redirectUrl,
-          },
+          confirmPassword,
+          role: userRole,
         });
 
         if (error) {
@@ -457,6 +459,29 @@ export default function Auth() {
                     {errors.confirmPassword}
                   </p>
                 )}
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="userRole">
+                  I am <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <Select
+                    value={userRole}
+                    onValueChange={(value) => setUserRole(value)}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("auth.select_user_role")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACCOUNT_ADMIN">SME</SelectItem>
+                      <SelectItem value="ORG_ADMIN">Agency</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 

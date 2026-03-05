@@ -4,8 +4,10 @@
  * Replace with real auth when connecting to a backend.
  */
 
+import { api } from "./api";
+
 export interface AuthUser {
-  id: number;
+  id: string;
   email: string;
   app_metadata?: {
     isPro: boolean;
@@ -17,6 +19,7 @@ export interface AuthUser {
 export interface AuthSession {
   user: AuthUser;
   access_token: string;
+  refresh_token?: string;
   expires_at?: number;
 }
 
@@ -24,75 +27,6 @@ const STORAGE_KEY = 'nextads_auth_session';
 const DEMO_EMAIL = 'demo@example.com';
 const DEMO_PASSWORD = 'demo123456';
 
-/** Test users: password is "test123" for all */
-const TEST_USERS = [
-  {
-    id: 1,
-    name: "New Express",
-    email: 'new_express@test.com',
-    password: 'test123',
-    isAgency: false,
-    isPro: false,
-    userType: 'new',
-  },
-  {
-    id: 2,
-    name: "New Pro",
-    email: 'new_pro@test.com',
-    password: 'test123',
-    isAgency: false,
-    isPro: true,
-    userType: 'new',
-  },
-  {
-    id: 3,
-    name: "Old Express",
-    email: 'old_express@test.com',
-    password: 'test123',
-    isAgency: false,
-    isPro: false,
-    userType: 'existing',
-  },
-  {
-    id: 4,
-    name: "Old Pro",
-    email: 'old_pro@test.com',
-    password: 'test123',
-    isAgency: false,
-    isPro: true,
-    userType: 'existing',
-  },
-  {
-    id: 5,
-    name: "Agency",
-    email: 'new_agency@test.com',
-    password: 'test123',
-    isAgency: true,
-    isPro: true,
-    userType: 'new',
-  },
-  {
-    id: 6,
-    name: "Agency",
-    email: 'old_agency@test.com',
-    password: 'test123',
-    isAgency: true,
-    isPro: true,
-    userType: 'existing',
-  }
-] as const;
-
-const TEST_PASSWORD = 'test123';
-
-function getTestUserMetadata(email: string): AuthUser['app_metadata'] | undefined {
-  const normalized = email.toLowerCase().trim();
-  const user = TEST_USERS.find(user => user.email.toLowerCase() === normalized);
-  if (!user) return undefined;
-  const isPro = user.isPro;
-  const isAgency = user.isAgency;
-  const userState = user.userType;
-  return { isPro, userState, isAgency };
-}
 
 type AuthListener = (event: string, session: AuthSession | null) => void;
 
@@ -118,7 +52,7 @@ function setStoredSession(session: AuthSession | null) {
     localStorage.removeItem(STORAGE_KEY);
     return;
   }
-  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
   const toStore = { ...session, expires_at: expiresAt };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
 }
@@ -138,76 +72,94 @@ export const auth = {
     password: string;
   }): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
     const email = params.email.trim().toLowerCase();
-    const testUser = TEST_USERS.find(user => user.email.toLowerCase() === email);
-
-    // Test users: must use password "test123"
-    if (testUser) {
-      if (params.password !== TEST_PASSWORD) {
+    const password = params.password.trim();
+  
+    if (!email || !password) {
+      return { data: null, error: new Error('Email and password are required') };
+    }
+  
+    try {
+      const response = await api.login(email, password);
+      console.log('response', response);
+      if (response.error || !response.data) {
         return {
           data: null,
-          error: new Error('Invalid login credentials'),
+          error: new Error(response.message ?? 'Invalid login credentials'),
         };
       }
-      const metadata = getTestUserMetadata(params.email)!;
+
+      const data = response.data as { id?: string; email?: string; access_token?: string; refresh_token?: string };
       const session: AuthSession = {
         user: {
-          id: testUser.id,
-          email: params.email.trim(),
-          app_metadata: metadata,
+          id: data.id ?? '',
+          email: data.email ?? email,
+          app_metadata: {
+            isPro: false,
+            userState: 'existing',
+            isAgency: false,
+          },
         },
-        access_token: `mock_${crypto.randomUUID()}`,
+        access_token: data.access_token ?? '',
+        refresh_token: data.refresh_token,
       };
-      setStoredSession(session);
+  
+      await setStoredSession(session); 
       notifyListeners('SIGNED_IN', session);
+  
       return { data: { session }, error: null };
+    } catch (e) {
+      return { data: null, error: e instanceof Error ? e : new Error('Unknown login error') };
     }
-
-    // Demo or any other email (password >= 6 chars)
-    if (params.email === DEMO_EMAIL && params.password === DEMO_PASSWORD) {
-      const session: AuthSession = {
-        user: {
-          id: testUser.id,
-          email: params.email,
-        },
-        access_token: `mock_${crypto.randomUUID()}`,
-      };
-      setStoredSession(session);
-      notifyListeners('SIGNED_IN', session);
-      return { data: { session }, error: null };
-    }
-
-    return {
-      data: null,
-      error: new Error('Invalid login credentials'),
-    };
   },
-  signUp: async (params: {
+
+  
+  signUpWithPassword: async (params: {
     email: string;
     password: string;
-    options?: { emailRedirectTo?: string };
+    confirmPassword: string;
+    role: string;
   }): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
     const email = params.email.trim().toLowerCase();
-    const testUser = TEST_USERS.find(user => user.email.toLowerCase() === email);
+    const password = params.password.trim();
+    const confirmPassword = params.confirmPassword.trim();
+    const role = params.role.trim();
 
-    if (testUser) {
+    if (!email || !password || !confirmPassword || !role) {
+      return { data: null, error: new Error('All fields are required') };
+    }
+
+    if (password.length < 8) {
       return {
         data: null,
-        error: new Error('User already exists'),
+        error: new Error('Password must be at least 8 characters'),
       };
     }
 
-    if (params.password.length < 6) {
+    if (password !== confirmPassword) {
       return {
         data: null,
-        error: new Error('Password must be at least 6 characters'),
+        error: new Error('Passwords do not match'),
       };
     }
+
+    const response = await api.signup(email, password, confirmPassword, role);
+    if (response.error || !response.data) {
+      return { data: null, error: new Error(response.message ?? 'Signup failed') };
+    }
+
+    const data = response.data as { id?: string; access_token?: string; refresh_token?: string };
     const session: AuthSession = {
       user: {
-        id: Math.floor(Math.random() * 1000000),
-        email: params.email,
+        id: data.id ?? '',
+        email,
+        app_metadata: {
+          isPro: false,
+          userState: 'existing',
+          isAgency: false,
+        },
       },
-      access_token: `mock_${crypto.randomUUID()}`,
+      access_token: data.access_token ?? '',
+      refresh_token: data.refresh_token,
     };
     setStoredSession(session);
     notifyListeners('SIGNED_IN', session);
@@ -215,9 +167,17 @@ export const auth = {
   },
 
   signOut: async () => {
-    const session = getStoredSession();
     setStoredSession(null);
     notifyListeners('SIGNED_OUT', null);
+  },
+
+  /** Updates only tokens after refresh - keeps user, notifies listeners */
+  updateTokensFromRefresh: async (access_token: string, refresh_token?: string) => {
+    const session = getStoredSession();
+    if (!session) return;
+    const updated: AuthSession = { ...session, access_token, refresh_token };
+    setStoredSession(updated);
+    notifyListeners('TOKEN_REFRESHED', updated);
   },
 
   updateUser: async (params: { password?: string }): Promise<{
@@ -235,10 +195,11 @@ export const auth = {
     return { data: { user: session.user }, error: null };
   },
 
-  setSession: async (tokens: { access_token: string; refresh_token?: string }) => {
+  setSession: async (tokens: { access_token: string; refresh_token?: string }, userId: string, email: string) => {
     const session: AuthSession = {
-      user: { id: crypto.randomUUID(), email: 'oauth@example.com' },
+      user: { id: userId, email: email },
       access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
     };
     setStoredSession(session);
     notifyListeners('SIGNED_IN', session);

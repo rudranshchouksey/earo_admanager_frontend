@@ -1,15 +1,132 @@
 /**
- * API Service - Centralized service for all API calls.
- * Currently returns dummy/mock responses.
- * Replace the implementation with real HTTP calls when connecting to a backend.
+ * API Service - Production-grade centralized API client.
+ * Handles auth failures, token refresh, and concurrent request coordination.
  */
 
-import { auth, type AuthSession } from './auth';
+import { auth } from './auth';
 import { MOCK_VOICES } from '@/data/mockVoices';
 import { MOCK_TRACKS } from '@/data/mockMusic';
 
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+
 // Re-export auth for consumers that need session
 export { auth };
+
+// --- Auth error for consumers to handle redirects ---
+export class ApiAuthError extends Error {
+  readonly status = 401;
+  constructor(message = 'Session expired') {
+    super(message);
+    this.name = 'ApiAuthError';
+  }
+}
+
+// --- Refresh coordination: only one refresh in flight, others wait ---
+let refreshPromise: Promise<boolean> | null = null;
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  const { data } = await auth.getSession();
+  const session = data.session;
+  if (!session?.refresh_token) return false;
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/auth/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: session.user.id, refreshToken: session.refresh_token }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return false;
+    const access_token = json.issueTokens?.accessToken;
+    const refresh_token = json.issueTokens?.refreshToken;
+    if (!access_token || !refresh_token) return false;
+    await auth.updateTokensFromRefresh(access_token, refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureValidToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = attemptTokenRefresh();
+  try {
+    const ok = await refreshPromise;
+    return ok;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+export type RequestConfig = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: unknown;
+  headers?: Record<string, string>;
+  skipAuth?: boolean;
+  skipRefreshRetry?: boolean;
+};
+
+/** Core authenticated request - handles 401, refresh, and retry. Use for protected endpoints. */
+export async function request<T = unknown>(
+  path: string,
+  config: RequestConfig = {}
+): Promise<{ data: T | null; error: Error | null }> {
+  const {
+    method = 'GET',
+    body,
+    headers: customHeaders = {},
+    skipAuth = false,
+    skipRefreshRetry = false,
+  } = config;
+
+  const { data } = await auth.getSession();
+  const token = data.session?.access_token;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...customHeaders,
+  };
+  if (!skipAuth && token) headers['Authorization'] = `Bearer ${token}`;
+
+  const url = path.startsWith('http') ? path : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+
+  const doFetch = async (): Promise<Response> =>
+    fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  let res = await doFetch();
+
+  if (res.status === 401 && !skipAuth && !skipRefreshRetry) {
+    const refreshed = await ensureValidToken();
+    if (!refreshed) {
+      await auth.signOut();
+      throw new ApiAuthError('Session expired. Please sign in again.');
+    }
+    const { data: next } = await auth.getSession();
+    const nextToken = next.session?.access_token;
+    if (nextToken) headers['Authorization'] = `Bearer ${nextToken}`;
+    res = await doFetch();
+  }
+
+  const text = await res.text();
+  let data_: T | null = null;
+  if (text) {
+    try {
+      data_ = JSON.parse(text) as T;
+    } catch {
+      data_ = text as unknown as T;
+    }
+  }
+
+  if (!res.ok) {
+    const errMsg = (data_ as { message?: string })?.message ?? `Request failed: ${res.status}`;
+    return { data: null, error: new Error(errMsg) };
+  }
+  return { data: data_, error: null };
+}
 
 // --- Dummy data ---
 
@@ -86,7 +203,7 @@ const MOCK_ADS = [
     duration_seconds: 15,
     tone: 'professional',
     user_id: 4,
-  },,
+  },
   {
     id: 'ad-2',
     product_name: 'Summer Launch Ad',
@@ -125,7 +242,60 @@ export const api = {
     return auth.getSession();
   },
 
-  // Campaigns
+  async login(email: string, password: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message ?? 'Login failed') };
+      }
+      return json;
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  async signup(email: string, password: string, confirmPassword: string, role: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, confirmPassword, role }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message ?? 'Signup failed') };
+      }
+      return json;
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  async refreshToken(userId: string, refreshToken: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/refresh-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, refreshToken }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message ?? 'Token refresh failed') };
+      }
+      return { data: json.data ?? json, error: null };
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  request,
+
+  // Campaigns (mock; when real: return request('/api/v1/campaigns'))
   async getCampaigns() {
     await delay();
     return { data: MOCK_CAMPAIGNS, error: null };
@@ -159,7 +329,7 @@ export const api = {
   async getAds(userId: string) {
     await delay();
     console.log('userId', userId);
-    return { data: MOCK_ADS.filter((a) => a.user_id === userId || !userId), error: null };
+    return { data: MOCK_ADS.filter((a) => String(a.user_id) === String(userId) || !userId), error: null };
   },
 
   async getCampaignsForAds(userId: string) {
@@ -192,10 +362,14 @@ export const api = {
     return { publicUrl: `blob:https://example.com/${path}` };
   },
 
-  // User profiles
+  // User profile (authenticated; uses request for 401/refresh handling)
   async getUserProfile(userId: string) {
-    await delay();
-    return { data: { ...MOCK_USER_PROFILE }, error: null };
+    const { data, error } = await request<typeof MOCK_USER_PROFILE>(
+      `/api/v1/users/${userId}/profile`,
+      { method: 'GET' }
+    );
+    if (error) return { data: null, error };
+    return { data: data ?? { ...MOCK_USER_PROFILE }, error: null };
   },
 
   async updateUserProfile(
