@@ -293,6 +293,24 @@ export const api = {
     }
   },
 
+  async signInWithGoogle(token: string, role: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, role }),
+      });
+    
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { data: null, error: new Error(json.message ?? 'Google login failed') };
+    }
+    return json;
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
   request,
 
   // Campaigns (mock; when real: return request('/api/v1/campaigns'))

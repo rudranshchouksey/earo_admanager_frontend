@@ -112,6 +112,35 @@ export const auth = {
     }
   },
 
+  signInWithGoogle: async (token: string, role: string): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
+    const response = await api.signInWithGoogle(token, role);
+    if (response.error || !response.data) {
+      return { data: null, error: new Error(response.message ?? 'Google login failed') };
+    }
+    if (response.error || !response.data) {
+      return { data: null, error: new Error(response.message ?? 'Signup failed') };
+    }
+
+    const data = response.data as { id?: string; email?: string; access_token?: string; refresh_token?: string };
+    const session: AuthSession = {
+      user: {
+        id: data.id ?? '',
+        email: data.email,
+        app_metadata: {
+          isPro: false,
+          userState: 'existing',
+          isAgency: false,
+        },
+      },
+      access_token: data.access_token ?? '',
+      refresh_token: data.refresh_token,
+    };
+    setStoredSession(session);
+    notifyListeners('SIGNED_IN', session);
+    return { data: { session }, error: null };
+
+
+  },
   
   signUpWithPassword: async (params: {
     email: string;
@@ -144,7 +173,7 @@ export const auth = {
 
     const response = await api.signup(email, password, confirmPassword, role);
     if (response.error || !response.data) {
-      return { data: null, error: new Error(response.message ?? 'Signup failed') };
+      return { data: null, error: new Error(response.error?.message ?? 'Signup failed') };
     }
 
     const data = response.data as { id?: string; access_token?: string; refresh_token?: string };
