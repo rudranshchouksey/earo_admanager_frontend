@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "@/contexts/TranslationContext";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Store, Users, Check } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import spotifyLogo from "@/assets/logos/spotify.svg";
 import anghamiLogo from "@/assets/logos/anghami.svg";
 import mbcLogo from "@/assets/logos/mbc.svg";
 import arnLogo from "@/assets/logos/arn.png";
+import { cn } from "@/lib/utils";
+import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -29,6 +31,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [userRole, setUserRole] = useState("ACCOUNT_ADMIN");
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -117,6 +120,32 @@ export default function Auth() {
     );
   }
 
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    setIsLoading(true);
+    try {
+      const {credential} = credentialResponse;
+      const { error } = await api.auth.signInWithGoogle(credential, userRole);
+      if (error) {
+        toast({
+          title: t("common.error"),
+          description: error.message  || "Something went wrong",
+          variant: "destructive",
+        });
+      }else {
+
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      toast({
+        title: t("common.error"),
+        description: t("auth.unexpected_error"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -129,8 +158,9 @@ export default function Auth() {
     const signupSchema = z
       .object({
         email: z.string().trim().email(t("auth.invalid_email")),
-        password: z.string().min(6, t("auth.password_min_length")),
-        confirmPassword: z.string(),
+        password: z.string().min(8, t("auth.password_min_length")),
+        confirmPassword: z.string().min(8, t("auth.password_min_length")),
+        role: z.enum(["ACCOUNT_ADMIN", "ORG_ADMIN"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
         message: t("auth.passwords_dont_match"),
@@ -153,17 +183,19 @@ export default function Auth() {
 
         setIsLoading(true);
         const { error } = await api.auth.signInWithPassword({
-          email: email.trim(),
+          email: email,
           password,
         });
 
         if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              title: t("auth.login_failed"),
-              description: t("auth.invalid_credentials"),
-              variant: "destructive",
+          if (error.message.includes("Email does not exist!")) {
+            setErrors({
+              email: t("auth.email_does_not_exist"),
             });
+          } else if (error.message.includes("Invalid credentials!")) {
+              setErrors({
+                password: t("auth.invalid_credentials"),
+              });
           } else {
             toast({
               title: t("auth.login_failed"),
@@ -180,6 +212,7 @@ export default function Auth() {
           email,
           password,
           confirmPassword,
+          role: userRole,
         });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -193,22 +226,22 @@ export default function Auth() {
         }
 
         setIsLoading(true);
-        const redirectUrl = `${window.location.origin}/`;
 
-        const { error } = await api.auth.signUp({
+        const { error } = await api.auth.signUpWithPassword({
           email: email.trim(),
           password,
-          options: {
-            emailRedirectTo: redirectUrl,
-          },
+          confirmPassword,
+          role: userRole,
         });
 
         if (error) {
-          if (error.message.includes("already registered")) {
-            toast({
-              title: t("auth.account_exists"),
-              description: t("auth.account_exists_desc"),
-              variant: "destructive",
+          if (error.message.includes("Email already exists")) {
+            setErrors({
+              email: t("auth.email_already_exists"),
+            });
+          } else if (error.message.includes("Password must be")) {
+            setErrors({
+              password: t("auth.password_must_be_at_least_8_characters"),
             });
           } else {
             toast({
@@ -336,6 +369,12 @@ export default function Auth() {
 
           {/* Social login */}
           <div className="space-y-3">
+            <GoogleOAuthProvider clientId="182678201673-5tm3q5bqpq0e4mkg3eovuiqtorfuc5gb.apps.googleusercontent.com">
+              <GoogleLogin  
+                onSuccess={handleGoogleLogin}
+                onError={() => console.log('Login Failed')}
+              />
+            </GoogleOAuthProvider>
             <Button
               type="button"
               variant="outline"
@@ -457,6 +496,82 @@ export default function Auth() {
                     {errors.confirmPassword}
                   </p>
                 )}
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="space-y-3">
+                <Label>
+                  {t("auth.i_am")} <span className="text-destructive">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => !isLoading && setUserRole("ACCOUNT_ADMIN")}
+                    disabled={isLoading}
+                    className={cn(
+                      "group relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200",
+                      "hover:border-primary/50 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
+                      userRole === "ACCOUNT_ADMIN"
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                        userRole === "ACCOUNT_ADMIN" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                      )}
+                    >
+                      <Store className="h-5 w-5" />
+                    </div>
+                    <div className="w-full space-y-0.5">
+                      <span className="block font-semibold text-foreground">{t("auth.role_sme")}</span>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {t("auth.role_sme_desc")}
+                      </p>
+                    </div>
+                    {userRole === "ACCOUNT_ADMIN" && (
+                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => !isLoading && setUserRole("ORG_ADMIN")}
+                    disabled={isLoading}
+                    className={cn(
+                      "group relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200",
+                      "hover:border-primary/50 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
+                      userRole === "ORG_ADMIN"
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                        userRole === "ORG_ADMIN" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                      )}
+                    >
+                      <Users className="h-5 w-5" />
+                    </div>
+                    <div className="w-full space-y-0.5">
+                      <span className="block font-semibold text-foreground">{t("auth.role_agency")}</span>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {t("auth.role_agency_desc")}
+                      </p>
+                    </div>
+                    {userRole === "ORG_ADMIN" && (
+                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
