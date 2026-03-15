@@ -17,6 +17,7 @@ import mbcLogo from "@/assets/logos/mbc.svg";
 import arnLogo from "@/assets/logos/arn.png";
 import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { OtpModal } from "@/components/ui/otp-modal";
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -27,15 +28,16 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [session, setSession] = useState<AuthSession | null>(null);
-
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [userRole, setUserRole] = useState("ACCOUNT_ADMIN");
+  const [userOrgType, setUserOrgType] = useState("SME");
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
     confirmPassword?: string;
+    otp?: string;
   }>({});
 
   // Check if user is already logged in
@@ -124,7 +126,7 @@ export default function Auth() {
     setIsLoading(true);
     try {
       const {credential} = credentialResponse;
-      const { error } = await api.auth.signInWithGoogle(credential, userRole);
+      const { error } = await api.auth.signInWithGoogle(credential, userOrgType);
       if (error) {
         toast({
           title: t("common.error"),
@@ -160,7 +162,7 @@ export default function Auth() {
         email: z.string().trim().email(t("auth.invalid_email")),
         password: z.string().min(8, t("auth.password_min_length")),
         confirmPassword: z.string().min(8, t("auth.password_min_length")),
-        role: z.enum(["ACCOUNT_ADMIN", "ORG_ADMIN"]),
+        orgType: z.enum(["SME", "AGENCY"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
         message: t("auth.passwords_dont_match"),
@@ -196,7 +198,13 @@ export default function Auth() {
               setErrors({
                 password: t("auth.invalid_credentials"),
               });
-          } else {
+          } else  if(error.message.includes("Please verify your email")){
+            toast({
+              title: t("auth.login_failed"),
+              description: "Please verify your email",
+              variant: "destructive",
+            });
+          } else{
             toast({
               title: t("auth.login_failed"),
               description: error.message,
@@ -212,7 +220,7 @@ export default function Auth() {
           email,
           password,
           confirmPassword,
-          role: userRole,
+          orgType: userOrgType,
         });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -231,7 +239,7 @@ export default function Auth() {
           email: email.trim(),
           password,
           confirmPassword,
-          role: userRole,
+          orgType: userOrgType,
         });
 
         if (error) {
@@ -252,6 +260,8 @@ export default function Auth() {
           }
           return;
         }
+        setIsOtpModalOpen(true);
+
       }
     } catch (err) {
       toast({
@@ -291,6 +301,25 @@ export default function Auth() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOtpComplete = async (otp: string) => {
+    console.log('otp', otp);
+    setErrors({});
+    const { error } = await api.auth.verifySignupOtp(email, otp);
+    if (error) {
+      setErrors({
+        otp: error.message,
+      });
+      return;
+    }
+    toast({
+      title: t("auth.otp_verified"),
+      description: t("auth.otp_verified_description"),
+      variant: "default",
+    });
+    setIsLogin(true);
+    setIsOtpModalOpen(false);
   };
 
   return (
@@ -373,6 +402,7 @@ export default function Auth() {
               <GoogleLogin  
                 onSuccess={handleGoogleLogin}
                 onError={() => console.log('Login Failed')}
+                shape="square"
               />
             </GoogleOAuthProvider>
             <Button
@@ -507,13 +537,13 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => !isLoading && setUserRole("ACCOUNT_ADMIN")}
+                    onClick={() => !isLoading && setUserOrgType("SME")}
                     disabled={isLoading}
                     className={cn(
                       "group relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200",
                       "hover:border-primary/50 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                       "disabled:cursor-not-allowed disabled:opacity-60",
-                      userRole === "ACCOUNT_ADMIN"
+                      userOrgType === "SME"
                         ? "border-primary bg-primary/10 shadow-sm"
                         : "border-border bg-card"
                     )}
@@ -521,7 +551,7 @@ export default function Auth() {
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                        userRole === "ACCOUNT_ADMIN" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                        userOrgType === "SME" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
                       )}
                     >
                       <Store className="h-5 w-5" />
@@ -532,7 +562,7 @@ export default function Auth() {
                         {t("auth.role_sme_desc")}
                       </p>
                     </div>
-                    {userRole === "ACCOUNT_ADMIN" && (
+                    {userOrgType === "SME" && (
                       <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </div>
@@ -540,13 +570,13 @@ export default function Auth() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => !isLoading && setUserRole("ORG_ADMIN")}
+                    onClick={() => !isLoading && setUserOrgType("AGENCY")}
                     disabled={isLoading}
                     className={cn(
                       "group relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200",
                       "hover:border-primary/50 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                       "disabled:cursor-not-allowed disabled:opacity-60",
-                      userRole === "ORG_ADMIN"
+                      userOrgType === "AGENCY"
                         ? "border-primary bg-primary/10 shadow-sm"
                         : "border-border bg-card"
                     )}
@@ -554,7 +584,7 @@ export default function Auth() {
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                        userRole === "ORG_ADMIN" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                        userOrgType === "AGENCY" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
                       )}
                     >
                       <Users className="h-5 w-5" />
@@ -565,7 +595,7 @@ export default function Auth() {
                         {t("auth.role_agency_desc")}
                       </p>
                     </div>
-                    {userRole === "ORG_ADMIN" && (
+                    {userOrgType === "AGENCY" && (
                       <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </div>
@@ -621,6 +651,14 @@ export default function Auth() {
           </p>
         </div>
       </div>
+      <OtpModal
+        open={isOtpModalOpen}
+        onOpenChange={setIsOtpModalOpen}
+        onComplete={handleOtpComplete}
+        length={6}
+        sentToEmail={true}
+        errorMessage={errors.otp}
+      />
     </div>
   );
 }

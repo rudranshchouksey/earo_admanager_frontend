@@ -259,16 +259,50 @@ export const api = {
     }
   },
 
-  async signup(email: string, password: string, confirmPassword: string, role: string) {
+  async signup(email: string, password: string, confirmPassword: string, orgType: string) {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, confirmPassword, role }),
+        body: JSON.stringify({ email, password, confirmPassword, orgType }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         return { data: null, error: new Error(json.message ?? 'Signup failed') };
+      }
+      return json;
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  async verifyOtp(email: string, otp: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/verifyOtp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message ?? 'OTP verification failed') };
+      }
+      return json;
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  async sendOtp(email: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/sendEmailOtp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message ?? 'OTP sending failed') };
       }
       return json;
     } catch {

@@ -13,6 +13,9 @@ export interface AuthUser {
     isPro: boolean;
     userState: 'new' | 'existing';
     isAgency: boolean;
+    status: string;
+    mfaEnabled: boolean;
+    mfaSkipUntil: string;
   };
 }
 
@@ -81,14 +84,15 @@ export const auth = {
     try {
       const response = await api.login(email, password);
       console.log('response', response);
-      if (response.error || !response.data) {
+      if (response.error || !response.tokens) {
         return {
           data: null,
           error: new Error(response.message ?? 'Invalid login credentials'),
         };
       }
 
-      const data = response.data as { id?: string; email?: string; access_token?: string; refresh_token?: string };
+      const data = response.data as { id?: string; email?: string; status?: string, mfaEnabled?: boolean, mfaSkipUntil?: string };
+      const tokens = response.tokens as { access_token?: string; refresh_token?: string };
       const session: AuthSession = {
         user: {
           id: data.id ?? '',
@@ -97,10 +101,13 @@ export const auth = {
             isPro: false,
             userState: 'existing',
             isAgency: false,
+            status: data.status ?? 'active',
+            mfaEnabled: data.mfaEnabled ?? false,
+            mfaSkipUntil: data.mfaSkipUntil ?? '',
           },
         },
-        access_token: data.access_token ?? '',
-        refresh_token: data.refresh_token,
+        access_token: tokens.access_token ?? '',
+        refresh_token: tokens.refresh_token,
       };
   
       await setStoredSession(session); 
@@ -146,14 +153,14 @@ export const auth = {
     email: string;
     password: string;
     confirmPassword: string;
-    role: string;
+    orgType: string;
   }): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
     const email = params.email.trim().toLowerCase();
     const password = params.password.trim();
     const confirmPassword = params.confirmPassword.trim();
-    const role = params.role.trim();
+    const orgType = params.orgType.trim();
 
-    if (!email || !password || !confirmPassword || !role) {
+    if (!email || !password || !confirmPassword || !orgType) {
       return { data: null, error: new Error('All fields are required') };
     }
 
@@ -171,28 +178,44 @@ export const auth = {
       };
     }
 
-    const response = await api.signup(email, password, confirmPassword, role);
+    const response = await api.signup(email, password, confirmPassword, orgType);
     if (response.error || !response.data) {
       return { data: null, error: new Error(response.error?.message ?? 'Signup failed') };
     }
 
     const data = response.data as { id?: string; access_token?: string; refresh_token?: string };
-    const session: AuthSession = {
-      user: {
-        id: data.id ?? '',
-        email,
-        app_metadata: {
-          isPro: false,
-          userState: 'existing',
-          isAgency: false,
-        },
-      },
-      access_token: data.access_token ?? '',
-      refresh_token: data.refresh_token,
-    };
-    setStoredSession(session);
-    notifyListeners('SIGNED_IN', session);
-    return { data: { session }, error: null };
+    // const session: AuthSession = {
+    //   user: {
+    //     id: data.id ?? '',
+    //     email,
+    //     app_metadata: {
+    //       isPro: false,
+    //       userState: 'existing',
+    //       isAgency: false,
+    //     },
+    //   },
+    //   access_token: data.access_token ?? '',
+    //   refresh_token: data.refresh_token,
+    // };
+    // setStoredSession(session);
+    // notifyListeners('SIGNED_IN', session);
+    return { data: { session: null }, error: null };
+  },
+
+  verifySignupOtp: async (email: string, otp: string): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
+    const response = await api.verifyOtp(email, otp);
+    if (response.error) {
+      return { data: null, error: new Error(response.error?.message ?? 'OTP verification failed') };
+    }
+    return { data: { session: null }, error: null };
+  },
+
+  sendSignupOtp: async (email: string): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
+    const response = await api.sendOtp(email);
+    if (response.error) {
+      return { data: null, error: new Error(response.error?.message ?? 'OTP sending failed') };
+    }
+    return { data: { session: null }, error: null };
   },
 
   signOut: async () => {
