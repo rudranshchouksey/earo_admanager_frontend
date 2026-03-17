@@ -27,20 +27,20 @@ let refreshPromise: Promise<boolean> | null = null;
 async function attemptTokenRefresh(): Promise<boolean> {
   const { data } = await auth.getSession();
   const session = data.session;
-  if (!session?.refresh_token) return false;
+  if (!session?.refreshToken) return false;
 
   try {
     const res = await fetch(`${BASE_URL}/api/v1/auth/refresh-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: session.user.id, refreshToken: session.refresh_token }),
+      body: JSON.stringify({ userId: session.user.id, refreshToken: session.refreshToken }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) return false;
-    const access_token = json.issueTokens?.accessToken;
-    const refresh_token = json.issueTokens?.refreshToken;
-    if (!access_token || !refresh_token) return false;
-    await auth.updateTokensFromRefresh(access_token, refresh_token);
+    const accessToken = json.issueTokens?.accessToken;
+    const refreshToken = json.issueTokens?.refreshToken;
+    if (!accessToken || !refreshToken) return false;
+    await auth.updateTokensFromRefresh(accessToken, refreshToken);
     return true;
   } catch {
     return false;
@@ -80,7 +80,8 @@ export async function request<T = unknown>(
   } = config;
 
   const { data } = await auth.getSession();
-  const token = data.session?.access_token;
+  const token = data.session?.accessToken;
+  console.log('token', token);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -106,7 +107,7 @@ export async function request<T = unknown>(
       throw new ApiAuthError('Session expired. Please sign in again.');
     }
     const { data: next } = await auth.getSession();
-    const nextToken = next.session?.access_token;
+    const nextToken = next.session?.accessToken;
     if (nextToken) headers['Authorization'] = `Bearer ${nextToken}`;
     res = await doFetch();
   }
@@ -293,19 +294,20 @@ export const api = {
     }
   },
 
-  async sendOtp(email: string) {
+  async resendOtp(email: string) {
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/auth/sendEmailOtp`, {
-        method: 'POST',
+      const res = await request(`${BASE_URL}/api/v1/auth/resendVerifyEmail?email=${email}`, {
+        method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return { data: null, error: new Error(json.message ?? 'OTP sending failed') };
+      const data = res.data as { status?: number; message?: string };
+      console.log({data})
+      if (res.error || (data && data.status === 400)) {
+        return { data: null, error: new Error(res.error?.message || data?.message || 'OTP sending failed') };
       }
-      return json;
-    } catch {
+      return { data: res.data, error: null };
+    } catch (error) {
+      console.log({error})
       return { data: null, error: new Error('Network error or server unreachable') };
     }
   },

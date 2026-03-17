@@ -16,13 +16,12 @@ export interface AuthUser {
 
 export interface AuthSession {
   user: AuthUser;
-  access_token: string;
-  refresh_token?: string;
+  accessToken: string;
+  refreshToken?: string;
   expires_at?: number;
 }
 
 const STORAGE_KEY = 'nextads_auth_session';
-let _memoryToken: string | null = null;
 
 type AuthListener = (event: string, session: AuthSession | null) => void;
 
@@ -33,14 +32,15 @@ function getStoredSession(): AuthSession | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw);
+
     if (user?.expires_at && user.expires_at < Date.now()) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
     return {
       user,
-      access_token: _memoryToken,
-      refresh_token: Cookies.get("refreshToken")
+      accessToken: Cookies.get("accessToken"),
+      refreshToken: Cookies.get("refreshToken")
     };
   } catch {
     return null;
@@ -55,12 +55,17 @@ function setStoredSession(session: AuthSession | null) {
   }
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
 
-  _memoryToken = session.access_token;
+  Cookies.set("accessToken", session.accessToken, {
+    expires: 1, // 15 minutes
+    secure: window.location.protocol === 'https:',
+    sameSite: 'strict',
+    path: '/'
+  });
 
-  if (session.refresh_token) {
-    Cookies.set("refreshToken", session.refresh_token, {
+  if (session.refreshToken) {
+    Cookies.set("refreshToken", session.refreshToken, {
       expires: 7, // 30 days
-      secure: true, // Only over HTTPS
+      secure: window.location.protocol === 'https:', // Only over HTTPS
       sameSite: 'strict', // Protects against CSRF
       path: '/'
     });
@@ -92,7 +97,6 @@ export const auth = {
   
     try {
       const response = await api.login(email, password);
-      console.log('response', response);
       if (response.error || !response.tokens) {
         return {
           data: null,
@@ -101,7 +105,7 @@ export const auth = {
       }
 
       const data = response.data as { id?: string; email?: string; status?: string, mfaEnabled?: boolean, mfaSkipUntil?: string };
-      const tokens = response.tokens as { access_token?: string; refresh_token?: string };
+      const tokens = response.tokens as { accessToken?: string; refreshToken?: string };
       const session: AuthSession = {
         user: {
           id: data.id ?? '',
@@ -115,8 +119,8 @@ export const auth = {
             mfaSkipUntil: data.mfaSkipUntil ?? '',
           },
         },
-        access_token: tokens.access_token ?? '',
-        refresh_token: tokens.refresh_token,
+        accessToken: tokens.accessToken ?? '',
+        refreshToken: tokens.refreshToken,
       };
   
       await setStoredSession(session); 
@@ -137,7 +141,7 @@ export const auth = {
       return { data: null, error: new Error(response.message ?? 'Signup failed') };
     }
 
-    const data = response.data as { id?: string; email?: string; access_token?: string; refresh_token?: string };
+    const data = response.data as { id?: string; email?: string; accessToken?: string; refreshToken?: string };
     const session: AuthSession = {
       user: {
         id: data.id ?? '',
@@ -148,8 +152,8 @@ export const auth = {
           isAgency: false,
         },
       },
-      access_token: data.access_token ?? '',
-      refresh_token: data.refresh_token,
+      accessToken: data.accessToken ?? '',
+      refreshToken: data.refreshToken,
     };
     setStoredSession(session);
     notifyListeners('SIGNED_IN', session);
@@ -188,13 +192,12 @@ export const auth = {
     }
 
     const response = await api.signup(email, password, confirmPassword, orgType);
-    console.log({response})
     if (response.error || !response.tokens) {
       return { data: null, error: new Error( response?.error?.message || response?.message ||  'Signup failed') };
     }
 
     const data = response.data as { id?: string; status?: string; mfaEnabled?: boolean; mfaSkipUntil: string;};
-    const tokens = response.tokens as { access_token?: string; refresh_token?: string };
+    const tokens = response.tokens as { accessToken?: string; refreshToken?: string };
     const session: AuthSession = {
       user: {
         id: data.id ?? '',
@@ -208,8 +211,8 @@ export const auth = {
           mfaSkipUntil: data.mfaSkipUntil
         },
       },
-      access_token: tokens.access_token ?? '',
-      refresh_token: tokens.refresh_token,
+      accessToken: tokens.accessToken ?? '',
+      refreshToken: tokens.refreshToken,
     };
     setStoredSession(session);
     notifyListeners('SIGNED_IN', session);
@@ -221,12 +224,23 @@ export const auth = {
     if (response.error) {
       return { data: null, error: new Error(response.error?.message ?? 'OTP verification failed') };
     }
+
+    const session = getStoredSession();
+    session.user.app_metadata.status = 'ACTIVE';
+    setStoredSession(session);
+    notifyListeners('USER_UPDATED', session);
     return { data: { session: null }, error: null };
   },
 
   sendSignupOtp: async (email: string): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
-    const response = await api.sendOtp(email);
+    const response = await api.resendOtp(email);
     if (response.error) {
+      if(response.error?.message === "Email already verified"){
+        const session = getStoredSession();
+        session.user.app_metadata.status = 'ACTIVE';
+        setStoredSession(session);
+        notifyListeners('USER_UPDATED', session);
+      } 
       return { data: null, error: new Error(response.error?.message ?? 'OTP sending failed') };
     }
     return { data: { session: null }, error: null };
@@ -238,10 +252,10 @@ export const auth = {
   },
 
   /** Updates only tokens after refresh - keeps user, notifies listeners */
-  updateTokensFromRefresh: async (access_token: string, refresh_token?: string) => {
+  updateTokensFromRefresh: async (accessToken: string, refreshToken?: string) => {
     const session = getStoredSession();
     if (!session) return;
-    const updated: AuthSession = { ...session, access_token, refresh_token };
+    const updated: AuthSession = { ...session, accessToken, refreshToken };
     setStoredSession(updated);
     notifyListeners('TOKEN_REFRESHED', updated);
   },
@@ -261,11 +275,11 @@ export const auth = {
     return { data: { user: session.user }, error: null };
   },
 
-  setSession: async (tokens: { access_token: string; refresh_token?: string }, userId: string, email: string) => {
+  setSession: async (tokens: { accessToken: string; refreshToken?: string }, userId: string, email: string) => {
     const session: AuthSession = {
       user: { id: userId, email: email },
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
     setStoredSession(session);
     notifyListeners('SIGNED_IN', session);
