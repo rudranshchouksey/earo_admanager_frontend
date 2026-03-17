@@ -154,14 +154,23 @@ export default function Auth() {
 
     const loginSchema = z.object({
       email: z.string().trim().email(t("auth.invalid_email")),
-      password: z.string().min(6, t("auth.password_min_length")),
+      password: z
+        .string()
+        .min(8, t("auth.password_min_length"))
+        .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
     });
 
     const signupSchema = z
       .object({
         email: z.string().trim().email(t("auth.invalid_email")),
-        password: z.string().min(8, t("auth.password_min_length")),
-        confirmPassword: z.string().min(8, t("auth.password_min_length")),
+        password: z
+          .string()
+          .min(8, t("auth.password_min_length"))
+          .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
+        confirmPassword: z
+          .string()
+          .min(8, t("auth.password_min_length"))
+          .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
         orgType: z.enum(["SME", "AGENCY"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
@@ -260,38 +269,8 @@ export default function Auth() {
           }
           return;
         }
-        setIsOtpModalOpen(true);
 
       }
-    } catch (err) {
-      toast({
-        title: t("common.error"),
-        description: t("auth.unexpected_error"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await api.auth.signInWithPassword({
-        email: "demo@example.com",
-        password: "demo123456",
-      });
-
-      if (error) {
-        toast({
-          title: t("auth.demo_login_failed"),
-          description: t("auth.demo_not_available"),
-          variant: "destructive",
-        });
-        return;
-      }
-
-      navigate("/dashboard");
     } catch (err) {
       toast({
         title: t("common.error"),
@@ -405,16 +384,6 @@ export default function Auth() {
                 shape="square"
               />
             </GoogleOAuthProvider>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              size="lg"
-              onClick={handleDemoLogin}
-              disabled={isLoading}
-            >
-              {t("auth.continue_demo")}
-            </Button>
           </div>
 
           {/* Divider */}

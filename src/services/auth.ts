@@ -1,10 +1,5 @@
-/**
- * Mock Auth Service
- * Replaces Supabase auth with localStorage-based dummy auth for development.
- * Replace with real auth when connecting to a backend.
- */
-
 import { api } from "./api";
+import Cookies from "js-cookie";
 
 export interface AuthUser {
   id: string;
@@ -27,9 +22,7 @@ export interface AuthSession {
 }
 
 const STORAGE_KEY = 'nextads_auth_session';
-const DEMO_EMAIL = 'demo@example.com';
-const DEMO_PASSWORD = 'demo123456';
-
+let _memoryToken: string | null = null;
 
 type AuthListener = (event: string, session: AuthSession | null) => void;
 
@@ -39,12 +32,16 @@ function getStoredSession(): AuthSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed?.expires_at && parsed.expires_at < Date.now()) {
+    const user = JSON.parse(raw);
+    if (user?.expires_at && user.expires_at < Date.now()) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return parsed;
+    return {
+      user,
+      access_token: _memoryToken,
+      refresh_token: Cookies.get("refreshToken")
+    };
   } catch {
     return null;
   }
@@ -53,11 +50,23 @@ function getStoredSession(): AuthSession | null {
 function setStoredSession(session: AuthSession | null) {
   if (!session) {
     localStorage.removeItem(STORAGE_KEY);
+    Cookies.remove("refreshToken", { path: '/' });
     return;
   }
-  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-  const toStore = { ...session, expires_at: expiresAt };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  _memoryToken = session.access_token;
+
+  if (session.refresh_token) {
+    Cookies.set("refreshToken", session.refresh_token, {
+      expires: 7, // 30 days
+      secure: true, // Only over HTTPS
+      sameSite: 'strict', // Protects against CSRF
+      path: '/'
+    });
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({...session.user, expires_at: expiresAt}));
 }
 
 function notifyListeners(event: string, session: AuthSession | null) {
@@ -179,27 +188,32 @@ export const auth = {
     }
 
     const response = await api.signup(email, password, confirmPassword, orgType);
-    if (response.error || !response.data) {
-      return { data: null, error: new Error(response.error?.message ?? 'Signup failed') };
+    console.log({response})
+    if (response.error || !response.tokens) {
+      return { data: null, error: new Error( response?.error?.message || response?.message ||  'Signup failed') };
     }
 
-    const data = response.data as { id?: string; access_token?: string; refresh_token?: string };
-    // const session: AuthSession = {
-    //   user: {
-    //     id: data.id ?? '',
-    //     email,
-    //     app_metadata: {
-    //       isPro: false,
-    //       userState: 'existing',
-    //       isAgency: false,
-    //     },
-    //   },
-    //   access_token: data.access_token ?? '',
-    //   refresh_token: data.refresh_token,
-    // };
-    // setStoredSession(session);
-    // notifyListeners('SIGNED_IN', session);
-    return { data: { session: null }, error: null };
+    const data = response.data as { id?: string; status?: string; mfaEnabled?: boolean; mfaSkipUntil: string;};
+    const tokens = response.tokens as { access_token?: string; refresh_token?: string };
+    const session: AuthSession = {
+      user: {
+        id: data.id ?? '',
+        email,
+        app_metadata: {
+          isPro: false,
+          userState: 'existing',
+          isAgency: orgType === "AGENCY",
+          status: data.status,
+          mfaEnabled: data.mfaEnabled,
+          mfaSkipUntil: data.mfaSkipUntil
+        },
+      },
+      access_token: tokens.access_token ?? '',
+      refresh_token: tokens.refresh_token,
+    };
+    setStoredSession(session);
+    notifyListeners('SIGNED_IN', session);
+    return { data: { session }, error: null };
   },
 
   verifySignupOtp: async (email: string, otp: string): Promise<{ data: { session: AuthSession } | null; error: Error | null }> => {
