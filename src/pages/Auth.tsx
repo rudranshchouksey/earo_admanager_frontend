@@ -75,6 +75,14 @@ export default function Auth() {
     };
   }, [navigate]);
 
+  // clear the fields if user toggles between login and signup
+  useEffect(() => {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setUserOrgType("SME");
+  }, [isLogin]);
+
   // Show loading state during initial auth check
   if (isInitializing) {
     return (
