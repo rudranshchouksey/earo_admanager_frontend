@@ -315,7 +315,7 @@ export default function Auth() {
           description: t("auth.reset_password_sent_description"),
           variant: "default",
         });
-
+        setEmail("");
       }
     } catch (err) {
       toast({
