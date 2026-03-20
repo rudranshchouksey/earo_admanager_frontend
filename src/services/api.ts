@@ -329,6 +329,45 @@ export const api = {
     }
   },
 
+  async resetPassword(email: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/forgotPassword`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || res.status === 400 || json.status === 400) {
+        return { data: null, error: new Error(json.message || json.error || 'Reset password failed') };
+      }
+      return { data: json.data ?? json, error: null };
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
+  /**
+   * Reset password using a reset token from URL.
+   * Expected backend: POST /api/v1/auth/resetPassword
+   * Body: { token: string, password: string }
+   */
+  async resetPasswordWithToken(token: string, password: string) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/auth/resetPassword`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { data: null, error: new Error(json.message || json.error || 'Reset password failed') };
+      }
+      return { data: json.data ?? json, error: null };
+    } catch {
+      return { data: null, error: new Error('Network error or server unreachable') };
+    }
+  },
+
   async signInWithGoogle(token: string, role: string) {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/auth/google`, {

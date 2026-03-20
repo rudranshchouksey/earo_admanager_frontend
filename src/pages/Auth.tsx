@@ -22,7 +22,7 @@ import { OtpModal } from "@/components/ui/otp-modal";
 export default function Auth() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
+  const [step, setStep] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +81,7 @@ export default function Auth() {
     setPassword("");
     setConfirmPassword("");
     setUserOrgType("SME");
-  }, [isLogin]);
+  }, [step]);
 
   // Show loading state during initial auth check
   if (isInitializing) {
@@ -186,8 +186,12 @@ export default function Auth() {
         path: ["confirmPassword"],
       });
 
+    const resetPasswordSchema = z.object({
+      email: z.string().trim().email(t("auth.invalid_email")),
+    });
+
     try {
-      if (isLogin) {
+      if (step === 'login') {
         const result = loginSchema.safeParse({ email, password });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -232,7 +236,7 @@ export default function Auth() {
         }
 
         navigate("/dashboard");
-      } else {
+      } else if(step === 'signup') {
         const result = signupSchema.safeParse({
           email,
           password,
@@ -278,6 +282,40 @@ export default function Auth() {
           return;
         }
 
+      } else {
+        const result = resetPasswordSchema.safeParse({ email });
+        if (!result.success) {
+          const fieldErrors: typeof errors = {};
+          result.error.errors.forEach((err) => {
+            if (err.path[0]) {
+              fieldErrors[err.path[0] as keyof typeof errors] = err.message;
+            }
+          });
+        }
+        setIsLoading(true);
+        const { error } = await api.resetPassword(email);
+        if (error) {
+
+          if(error.message.includes("Email does not exist")) {
+            setErrors({
+              email: t("auth.email_does_not_exist"),
+            });
+          } else {
+            toast({
+              title: t("auth.reset_password_failed"),
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
+        toast({
+          title: t("auth.reset_password_sent"),
+          description: t("auth.reset_password_sent_description"),
+          variant: "default",
+        });
+
       }
     } catch (err) {
       toast({
@@ -305,7 +343,7 @@ export default function Auth() {
       description: t("auth.otp_verified_description"),
       variant: "default",
     });
-    setIsLogin(true);
+    setStep('login');
     setIsOtpModalOpen(false);
   };
 
@@ -376,31 +414,34 @@ export default function Auth() {
           {/* Header */}
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold text-foreground">
-              {isLogin ? t("auth.welcome_back") : t("auth.create_account")}
+              {step === 'login' ? t("auth.welcome_back") : step === 'signup' ? t("auth.create_account") : t("auth.reset_password")}
             </h2>
             <p className="text-muted-foreground">
-              {isLogin ? t("auth.login_details") : t("auth.details_to_start")}
+              {step === 'login' ? t("auth.login_details") : step === 'signup' ? t("auth.details_to_start") : t("auth.reset_password_details")}
             </p>
           </div>
 
           {/* Social login */}
-          <div className="space-y-3">
-            <GoogleOAuthProvider clientId="182678201673-5tm3q5bqpq0e4mkg3eovuiqtorfuc5gb.apps.googleusercontent.com">
-              <GoogleLogin  
-                onSuccess={handleGoogleLogin}
-                onError={() => console.log('Login Failed')}
-                shape="square"
-              />
-            </GoogleOAuthProvider>
-          </div>
-
-          {/* Divider */}
-          <div className="relative">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-4 text-sm text-muted-foreground">
-              {t("common.or")}
-            </span>
-          </div>
+          {step === 'login' || step === 'signup' && (
+            <>
+              <div className="space-y-3">
+                <GoogleOAuthProvider clientId="182678201673-5tm3q5bqpq0e4mkg3eovuiqtorfuc5gb.apps.googleusercontent.com">
+                  <GoogleLogin  
+                    onSuccess={handleGoogleLogin}
+                    onError={() => console.log('Login Failed')}
+                    shape="square"
+                  />
+                </GoogleOAuthProvider>
+              </div>
+              {/* Divider */}
+              <div className="relative">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-4 text-sm text-muted-foreground">
+                  {t("common.or")}
+                </span>
+              </div>            
+            </>
+          )}
 
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -423,16 +464,19 @@ export default function Auth() {
               )}
             </div>
 
+            {(step === 'login' || step === 'signup') && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">
                   {t("auth.password_label")} <span className="text-destructive">*</span>
                 </Label>
-                {isLogin && (
+                {step === 'login' && (
                   <button
                     type="button"
                     className="text-sm text-primary hover:underline"
-                    onClick={() => {}}
+                    onClick={() => {
+                      setStep('reset-password');
+                    ``}}
                   >
                     {t("auth.forgot_password")}
                   </button>
@@ -466,8 +510,9 @@ export default function Auth() {
                 <p className="text-sm text-destructive">{errors.password}</p>
               )}
             </div>
+            )}
 
-            {!isLogin && (
+            {step === 'signup' && (
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">
                   {t("auth.confirm_password_label")} <span className="text-destructive">*</span>
@@ -506,7 +551,7 @@ export default function Auth() {
               </div>
             )}
 
-            {!isLogin && (
+            {step === 'signup' && (
               <div className="space-y-3">
                 <Label>
                   {t("auth.i_am")} <span className="text-destructive">*</span>
@@ -591,30 +636,32 @@ export default function Auth() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isLogin ? t("auth.logging_in") : t("auth.creating_account")}
+                  {step === 'login' ? t("auth.logging_in") : step === 'signup' ? t("auth.creating_account") : t("auth.resetting_password")}
                 </>
-              ) : isLogin ? (
+              ) : step === 'login' ? (
                 t("auth.log_in")
-              ) : (
+              ) : step === 'signup' ? (
                 t("auth.sign_up")
+              ) : (
+                t("auth.reset_password")
               )}
             </Button>
           </form>
 
           {/* Toggle login/signup */}
           <p className="text-center text-sm text-muted-foreground">
-            {isLogin ? t("auth.no_account") : t("auth.has_account")}
+            {step === 'login' ? t("auth.no_account") : t("auth.has_account")}
             <button
               type="button"
               onClick={() => {
-                setIsLogin(!isLogin);
+                setStep(step === 'login' ? 'signup' : 'login');
                 setErrors({});
                 setPassword("");
                 setConfirmPassword("");
               }}
               className="text-primary font-medium hover:underline"
             >
-              {isLogin ? t("auth.sign_up_now") : t("auth.log_in")}
+              {step === 'login' ? t("auth.sign_up_now") : t("auth.log_in")}
             </button>
           </p>
 
