@@ -21,7 +21,7 @@ export default function DashboardHome() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
-
+  const [otpErrorMessage, setOtpErrorMessage] = useState<string | null>(null);
   const mockStats = { impressions: 124500, spend: 2340, reach: 48200 };
 
   useEffect(() => {
@@ -125,15 +125,12 @@ export default function DashboardHome() {
             description={sessionEmail ? `Enter the 6-digit code sent to ${sessionEmail}.` : 'Enter the 6-digit code.'}
             onComplete={async (otp) => {
               if (!sessionEmail) return;
+              setOtpErrorMessage('');
               setOtpLoading(true);
               const { error } = await api.auth.verifySignupOtp(sessionEmail, otp);
               setOtpLoading(false);
               if (error) {
-                toast({
-                  title: t('common.error'),
-                  description: error.message,
-                  variant: 'destructive',
-                });
+                setOtpErrorMessage(error.message || 'OTP verification failed');                
                 return;
               }
               toast({
@@ -143,6 +140,7 @@ export default function DashboardHome() {
               setOtpOpen(false);
               setVerificationPending(false);
             }}
+            errorMessage={otpErrorMessage}
           />
         </>
       )}

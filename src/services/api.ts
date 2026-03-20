@@ -285,8 +285,8 @@ export const api = {
         body: JSON.stringify({ email, otp }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return { data: null, error: new Error(json.message ?? 'OTP verification failed') };
+      if (!res.ok || res.status === 400 || json.status === 400) {
+        return { data: null, error: new Error(json.message || json.error || 'OTP verification failed') };
       }
       return json;
     } catch {
