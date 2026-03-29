@@ -18,7 +18,7 @@ export interface SetupMFAModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   length?: number;
-  onComplete?: (value: { error: Error | null, status: number, message: string, data: any }) => void;
+  onComplete?: (type: string, value: { error: Error | null, status: number, message: string, data: any }) => void;
   onChange?: (value: string) => void;
   title?: string;
   description?: string;
@@ -50,11 +50,11 @@ export function SetupMFAModal({
   defaultStep = "scan",
   onScanBack,
   methodBackLabel = "Back",
-  userId,
+  userId
 }: SetupMFAModalProps) {
   const [value, setValue] = React.useState("");
   const [step, setStep] = React.useState<"scan" | "verify">(defaultStep);
-  const navigate = useNavigate();
+
   React.useEffect(() => {
     if (!open) {
       setStep(defaultStep);
@@ -90,10 +90,10 @@ export function SetupMFAModal({
   const verify2FA = async (code: string) => {
     const { error, status, message, data } = await userApi.verify2fa(userId, code);
     if (error || status !== 200) {
-      onComplete({error, status, message, data });
+      onComplete("MFA",{error, status, message, data });
       return;
     }
-    onComplete({error: null, status, message, data });
+    onComplete("MFA", {error: null, status, message, data });
   }
 
   return (

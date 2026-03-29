@@ -236,6 +236,7 @@ export const auth = {
 
   /** OTP & Verification Flows */
   verifySignupOtp: async (email: string, otp: string) => {
+    console.log("verifySignupOtp", email, otp);
     const { error, status, message } = await request('/api/v1/auth/verifyOtp', {
       method: 'POST',
       body: { email, otp }

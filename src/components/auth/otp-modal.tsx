@@ -20,7 +20,7 @@ export interface OtpModalProps {
   /** Number of OTP digit fields (default: 6) */
   length?: number;
   /** Called when user submits/completes OTP */
-  onComplete?: (value: { error: Error | null, status: number, message: string }) => void;
+  onComplete?: (type: string, value: { error: Error | null, status: number, message: string }) => void;
   /** Called on each change (optional) */
   onChange?: (value: string) => void;
   title?: string;
@@ -60,8 +60,9 @@ export function OtpModal({
 
 
   const verifyOtp = async (otp: string) => {
+    console.log("verifyOtp", email, otp);
     const { error, status, message } = await auth.verifySignupOtp(email, otp);
-    onComplete({
+    onComplete("OTP", {
       error,
       status,
       message

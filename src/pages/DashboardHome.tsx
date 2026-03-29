@@ -77,6 +77,25 @@ export default function DashboardHome() {
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
 
+  const onEmailVerificationComplete = (type: string, value: { error: Error | null, status: number, message: string, data: any }) => {
+    console.log("onEmailVerificationComplete", type, value);
+    if (value.error || value.status !== 200) {
+      toast({
+        title: t('common.error'),
+        description: value.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: t('common.success'),
+      description: 'Email verified successfully',
+      variant: 'default',
+    });
+    setOtpOpen(false);
+    setVerificationPending(false);
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
 
@@ -138,25 +157,9 @@ export default function DashboardHome() {
             loading={otpLoading}
             title="Verify your email"
             description={sessionEmail ? `Enter the 6-digit code sent to ${sessionEmail}.` : 'Enter the 6-digit code.'}
-            onComplete={async (otp) => {
-              if (!sessionEmail) return;
-              setOtpErrorMessage('');
-              setOtpLoading(true);
-              const { status, error, message } = await auth.verifySignupOtp(sessionEmail, otp);
-              console.log({status, error, message})
-              setOtpLoading(false);
-              if (error || status !== 200) {
-                setOtpErrorMessage(message || 'OTP verification failed');                
-                return;
-              }
-              toast({
-                title: 'Email verified',
-                description: 'Thanks! Your email has been verified.',
-              });
-              setOtpOpen(false);
-              setVerificationPending(false);
-            }}
+            onComplete={onEmailVerificationComplete}
             errorMessage={otpErrorMessage}
+            email={sessionEmail ?? ''}
           />
         </>
       )}

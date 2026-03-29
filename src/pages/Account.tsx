@@ -121,22 +121,6 @@ export default function Account() {
 
       const organizationId = session?.currentOrganizationId;
 
-      // const {
-      //   data: advertisers,
-      //   status: advertisersStatus,
-      //   message: advertisersMessage,
-      // } = await advertiserApi.getAdvertisers(organizationId);
-      // if (advertisersStatus !== 200) {
-      //   toast({
-      //     title: t("common.error"),
-      //     description: advertisersMessage || "Failed to load advertisers",
-      //     variant: "destructive",
-      //   });
-      //   return;
-      // }
-
-      // console.log({ advertisers });
-
       const {
         data: organizationDetails,
         status: organizationDetailsStatus,
@@ -289,7 +273,7 @@ export default function Account() {
     console.log(checked);
     if(checked){
       // enable mfa 
-      const { error, status, message, data } = await userApi.setup2fa(profile.userId);
+      const { error, status, message, data } = await userApi.setup2fa(profile.id);
       if (error || status !== 200) {
         toast({
           title: t("common.error"),
@@ -307,23 +291,24 @@ export default function Account() {
 
   }
 
-  const verify2FA = async (code: string) => {
-    const { error, status, message, data } = await userApi.verify2fa(profile.userId, code);
-    if (error || status !== 200) {
+
+  const verifyMFAComplete = (type: string, value: { error: Error | null, status: number, message: string, data: any }) => {
+    if (value.error || value.status !== 200) {
       toast({
         title: t("common.error"),
-        description: message || "Failed to verify MFA",
+        description: value.message || "Failed to verify " + type,
         variant: "destructive",
       });
       return;
     }
     toast({
       title: t("common.success"),
-      description: "MFA verified successfully",
+      description: type + " verified successfully",
       variant: "default",
     });
     setIsMfaModalOpen(false);
-    setProfile((p) => ({ ...p, mfaEnabled: true }));
+    if(type === "MFA")
+      setProfile((p) => ({ ...p, mfaEnabled: true }));
   }
 
   const update = (field: keyof UserProfile, value: any) =>
@@ -956,9 +941,9 @@ export default function Account() {
         open={isMfaModalOpen}
         onOpenChange={(open) => setIsMfaModalOpen(open)}
         qrCode={qrCode}
-        onComplete={(code) => verify2FA(code)}
+        onComplete={verifyMFAComplete}
         onChange={(code) => console.log("mfa code", code)}
-        userId={profile.userId}
+        userId={profile.id}
       />
 
 

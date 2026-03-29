@@ -349,7 +349,7 @@ export default function Auth() {
     }
   };
 
-  const handleMfaComplete = (value: { error: Error | null, status: number, message: string, data: any }) => {
+  const handleMfaComplete = (type: string,value: { error: Error | null, status: number, message: string, data: any }) => {
     
     console.log("handleMfaComplete ", value);
     if (value.error || value.status !== 200) {
