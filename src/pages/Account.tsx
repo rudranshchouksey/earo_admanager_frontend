@@ -272,6 +272,7 @@ export default function Account() {
   const updateMFASetup =  async(checked: boolean) => {
     console.log(checked);
     if(checked){
+      setIsMfaModalOpen(true);
       // enable mfa 
       const { error, status, message, data } = await userApi.setup2fa(profile.id);
       if (error || status !== 200) {
