@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { api } from '@/services/api';
+import { campaignApi } from '@/services/campaign';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent } from 'ag-grid-community';
@@ -74,8 +74,8 @@ export default function CampaignsList() {
 
   useEffect(() => {
     const fetchCampaigns = async () => {
-      const { data } = await api.getCampaigns();
-      setCampaigns(data && data.length > 0 ? data : mockCampaigns);
+      const { data } = await campaignApi.getCampaigns();
+      // setCampaigns(data && data.length > 0 ? data : mockCampaigns);
       setLoading(false);
     };
     fetchCampaigns();

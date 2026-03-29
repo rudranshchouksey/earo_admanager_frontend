@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, AlertCircle, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api } from '@/services/api';
+import { Alert, systemApi } from '@/services/system';
 
-interface Alert {
-  id: string;
-  title: string;
-  message: string;
-  alert_type: string;
-  cta_label: string | null;
-  cta_url: string | null;
-}
 
 const iconMap: Record<string, React.ElementType> = {
   info: Info,
@@ -30,7 +22,7 @@ export default function AlertBar() {
 
   useEffect(() => {
     const fetchAlerts = async () => {
-      const { data } = await api.getSystemAlerts();
+      const { data } = await systemApi.getSystemAlerts();
       if (data) setAlerts(data);
     };
     fetchAlerts();
@@ -38,7 +30,7 @@ export default function AlertBar() {
 
   const dismiss = async (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
-    await api.dismissAlert(id);
+    await systemApi.dismissAlert(id);
   };
 
   if (alerts.length === 0) return null;

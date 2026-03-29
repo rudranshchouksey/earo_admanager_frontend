@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Volume2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
+import { adsApi } from '@/services/ads';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { useTranslation } from '@/contexts/TranslationContext';
 
@@ -36,9 +37,9 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
 
   useEffect(() => {
     const fetchAds = async () => {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) return;
-      const { data: adsData } = await api.getAds(session.user.id);
+      const { data: adsData } = await adsApi.getAds(session.user.id);
       if (adsData) setAds(adsData);
     };
     fetchAds();

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Pencil, Loader2, Share2, RefreshCw } from 'lucide-react';
+import { Play, Pause, Pencil, Loader2, Share2, RefreshCw, Mic2 } from 'lucide-react';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
+import { adsApi, Voice } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
 import type { GeneratedAd } from '@/types/landing';
 import ProCustomizations, {
@@ -46,6 +47,9 @@ interface AdCreatorFormProps {
   onProMusicSettingsChange?: (v: ProMusicSettings) => void;
   proContentSettings?: ProContentSettings;
   onProContentSettingsChange?: (v: ProContentSettings) => void;
+  voices: Voice[];
+  getVoices: (gender: string, language: string, tone: string) => void;
+  voicesLoading: boolean;
 }
 
 const goalPlaceholders: Record<string, string> = {
@@ -67,6 +71,7 @@ export default function AdCreatorForm({
   proVoiceSettings, onProVoiceSettingsChange,
   proMusicSettings, onProMusicSettingsChange,
   proContentSettings, onProContentSettingsChange,
+  voices, getVoices, voicesLoading,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
   const canSubmit = description.trim().length > 0;
@@ -82,7 +87,6 @@ export default function AdCreatorForm({
   const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
-
   // Reset dirty flag when a new ad is generated
   useEffect(() => {
     if (generatedAd) {
@@ -148,27 +152,27 @@ export default function AdCreatorForm({
   const handleConfirmSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) {
         toast({ title: t('ad_creator.not_authenticated'), variant: 'destructive' });
         return;
       }
-      const { error } = await api.createAd({
-        product_name: adName.trim() || generatedAd!.brandName,
-        brand_name: generatedAd!.brandName,
-        script: editedScript,
-        audio_url: generatedAd!.audioUrl,
-        duration_seconds: generatedAd!.duration,
-        tone: generatedAd!.tone,
-        status: 'completed',
-        source_type: 'dashboard',
-        user_id: session.user.id,
-        ai_category: generatedAd!.category,
-        ai_target_audience: generatedAd!.targetAudience,
-        voice_settings: { voiceId: generatedAd!.voiceId },
-        music_settings: { musicId: generatedAd!.musicId },
-      });
-      if (error) throw error;
+      // const { error } = await adsApi.createAd({
+      //   product_name: adName.trim() || generatedAd!.brandName,
+      //   brand_name: generatedAd!.brandName,
+      //   script: editedScript,
+      //   audio_url: generatedAd!.audioUrl,
+      //   duration_seconds: generatedAd!.duration,
+      //   tone: generatedAd!.tone,
+      //   status: 'completed',
+      //   source_type: 'dashboard',
+      //   user_id: session.user.id,
+      //   ai_category: generatedAd!.category,
+      //   ai_target_audience: generatedAd!.targetAudience,
+      //   voice_settings: { voiceId: generatedAd!.voiceId },
+      //   music_settings: { musicId: generatedAd!.musicId },
+      // });
+      // if (error) throw error;
       setShowSaveModal(false);
       onSaved();
     } catch (err) {
@@ -178,6 +182,13 @@ export default function AdCreatorForm({
       setIsSaving(false);
     }
   };
+
+
+
+  useEffect(() => {
+    getVoices(voice.split("-")[0], voice.split("-")[1], tone);
+  }, [voice, tone]);
+
 
   return (
     <div className="space-y-6">
@@ -270,6 +281,65 @@ export default function AdCreatorForm({
                   </Select>
                 </div>
               </div>
+              {voicesLoading ? (
+                <div className="flex items-center justify-center h-12">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : (
+                voices.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
+                    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch">
+                      <div className="relative mx-auto w-full max-w-[200px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-w-[140px]">
+                        <div className="aspect-square w-full">
+                          {voices[0].imageUrl ? (
+                            <img
+                              src={voices[0].imageUrl}
+                              alt={voices[0].name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-muted">
+                              <Mic2 className="h-10 w-10 text-muted-foreground/60" aria-hidden />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {
+                            voices[0].name ? (
+                              <p className="text-sm font-semibold text-foreground px-2">
+                                {voices[0].name}
+                              </p>
+                            ) : null
+                          }
+                          {voices[0].language ? (
+                            <Badge variant="secondary" className="font-normal">
+                              {voices[0].language}
+                            </Badge>
+                          ) : null}
+                          {voices[0].accent ? (
+                            <Badge variant="outline" className="font-normal">
+                              {voices[0].accent}
+                            </Badge>
+                          ) : null}
+                          {voices[0].gender ? (
+                            <Badge variant="outline" className="font-normal">
+                              {voices[0].gender}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <audio
+                          src={voices[0].audioUrl}
+                          preload="metadata"
+                          controls
+                          className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
           )}
 

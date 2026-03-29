@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { auth } from "@/services/auth";
+import { request } from "@/services/api";
 import type { AuthSession } from "@/services/auth";
 import { Headphones } from "lucide-react";
 import spotifyLogo from "@/assets/logos/spotify.svg";
@@ -16,23 +17,30 @@ import anghamiLogo from "@/assets/logos/anghami.svg";
 import mbcLogo from "@/assets/logos/mbc.svg";
 import arnLogo from "@/assets/logos/arn.png";
 import { cn } from "@/lib/utils";
-import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
-import { OtpModal } from "@/components/ui/otp-modal";
+import {
+  GoogleOAuthProvider,
+  GoogleLogin,
+  CredentialResponse,
+} from "@react-oauth/google";
+import { OtpModal } from "@/components/auth/otp-modal";
+import { MfaSelector } from "@/components/auth/mfa-selector";
 
 export default function Auth() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [step, setStep] = useState('login');
+  const [step, setStep] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [showMfaSelector, setShowMfaSelector] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [userOrgType, setUserOrgType] = useState("SME");
+  const [userId, setuserId] = useState("");
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -47,7 +55,7 @@ export default function Auth() {
     // Listener for ONGOING auth changes
     const {
       data: { subscription },
-    } = api.auth.onAuthStateChange((event, nextSession) => {
+    } = auth.onAuthStateChange((event, nextSession) => {
       if (!isMounted) return;
       setSession(nextSession);
       if (event === "SIGNED_IN" && nextSession?.user) {
@@ -59,7 +67,7 @@ export default function Auth() {
       try {
         const {
           data: { session: initialSession },
-        } = await api.auth.getSession();
+        } = await auth.getSession();
         if (!isMounted) return;
         setSession(initialSession);
       } finally {
@@ -118,7 +126,7 @@ export default function Auth() {
               className="w-full"
               variant="outline"
               onClick={async () => {
-                await api.auth.signOut();
+                await auth.signOut();
                 setSession(null);
               }}
             >
@@ -133,16 +141,15 @@ export default function Auth() {
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
     setIsLoading(true);
     try {
-      const {credential} = credentialResponse;
-      const { error } = await api.auth.signInWithGoogle(credential, userOrgType);
+      const { credential } = credentialResponse;
+      const { error } = await auth.signInWithGoogle(credential, userOrgType);
       if (error) {
         toast({
           title: t("common.error"),
-          description: error.message  || "Something went wrong",
+          description: error.message || "Something went wrong",
           variant: "destructive",
         });
-      }else {
-
+      } else {
         navigate("/dashboard");
       }
     } catch (err) {
@@ -165,7 +172,10 @@ export default function Auth() {
       password: z
         .string()
         .min(8, t("auth.password_min_length"))
-        .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
+        .regex(
+          /^(?=.*[A-Za-z])(?=.*\d).+$/,
+          t("auth.password_must_be_at_least_8_characters"),
+        ),
     });
 
     const signupSchema = z
@@ -174,11 +184,17 @@ export default function Auth() {
         password: z
           .string()
           .min(8, t("auth.password_min_length"))
-          .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
+          .regex(
+            /^(?=.*[A-Za-z])(?=.*\d).+$/,
+            t("auth.password_must_be_at_least_8_characters"),
+          ),
         confirmPassword: z
           .string()
           .min(8, t("auth.password_min_length"))
-          .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t("auth.password_must_be_at_least_8_characters")),
+          .regex(
+            /^(?=.*[A-Za-z])(?=.*\d).+$/,
+            t("auth.password_must_be_at_least_8_characters"),
+          ),
         orgType: z.enum(["SME", "AGENCY"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
@@ -191,7 +207,7 @@ export default function Auth() {
     });
 
     try {
-      if (step === 'login') {
+      if (step === "login") {
         const result = loginSchema.safeParse({ email, password });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -205,30 +221,37 @@ export default function Auth() {
         }
 
         setIsLoading(true);
-        const { error } = await api.auth.signInWithPassword({
-          email: email,
+        const { error, status, message, data } = await auth.signInWithPassword(
+          email,
           password,
-        });
+        );
+        console.log({ error, status, message , data});
 
-        if (error) {
-          if (error.message.includes("Email does not exist!")) {
+        if (status !== 200) {
+          if (status === 400 && data?.mfaRequired) {
+            setuserId(data.data?.id);
+            setShowMfaSelector(true);
+            return;
+          }
+
+          if (message.includes("Email does not exist!")) {
             setErrors({
               email: t("auth.email_does_not_exist"),
             });
-          } else if (error.message.includes("Invalid credentials!")) {
-              setErrors({
-                password: t("auth.invalid_credentials"),
-              });
-          } else  if(error.message.includes("Please verify your email")){
+          } else if (message.includes("Invalid credentials!")) {
+            setErrors({
+              password: t("auth.invalid_credentials"),
+            });
+          } else if (message.includes("Please verify your email")) {
             toast({
               title: t("auth.login_failed"),
               description: "Please verify your email",
               variant: "destructive",
             });
-          } else{
+          } else {
             toast({
               title: t("auth.login_failed"),
-              description: error.message,
+              description: message,
               variant: "destructive",
             });
           }
@@ -236,7 +259,7 @@ export default function Auth() {
         }
 
         navigate("/dashboard");
-      } else if(step === 'signup') {
+      } else if (step === "signup") {
         const result = signupSchema.safeParse({
           email,
           password,
@@ -256,32 +279,31 @@ export default function Auth() {
 
         setIsLoading(true);
 
-        const { error } = await api.auth.signUpWithPassword({
-          email: email.trim(),
-          password,
-          confirmPassword,
-          orgType: userOrgType,
+        const { data, error, status, message } = await auth.signUpWithPassword({
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+          confirmPassword: confirmPassword.trim(),
+          orgType: userOrgType.trim().toUpperCase(),
         });
 
-        if (error) {
-          if (error.message.includes("Email already exists")) {
+        if (status !== 200) {
+          if (message.includes("Email already exists")) {
             setErrors({
               email: t("auth.email_already_exists"),
             });
-          } else if (error.message.includes("Password must be")) {
+          } else if (message.includes("Password must be")) {
             setErrors({
               password: t("auth.password_must_be_at_least_8_characters"),
             });
           } else {
             toast({
               title: t("auth.signup_failed"),
-              description: error.message,
+              description: message,
               variant: "destructive",
             });
           }
           return;
         }
-
       } else {
         const result = resetPasswordSchema.safeParse({ email });
         if (!result.success) {
@@ -293,17 +315,16 @@ export default function Auth() {
           });
         }
         setIsLoading(true);
-        const { error } = await api.resetPassword(email);
-        if (error) {
-
-          if(error.message.includes("Email does not exist")) {
+        const { error, status, message } = await auth.forgotPassword(email);
+        if (status !== 200) {
+          if (message.includes("Email does not exist")) {
             setErrors({
               email: t("auth.email_does_not_exist"),
             });
           } else {
             toast({
               title: t("auth.reset_password_failed"),
-              description: error.message,
+              description: message,
               variant: "destructive",
             });
           }
@@ -328,24 +349,25 @@ export default function Auth() {
     }
   };
 
-  const handleOtpComplete = async (otp: string) => {
-    console.log('otp', otp);
-    setErrors({});
-    const { error } = await api.auth.verifySignupOtp(email, otp);
-    if (error) {
-      setErrors({
-        otp: error.message,
+  const handleMfaComplete = (value: { error: Error | null, status: number, message: string, data: any }) => {
+    
+    console.log("handleMfaComplete ", value);
+    if (value.error || value.status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: value.message,
+        variant: "destructive",
       });
       return;
     }
     toast({
-      title: t("auth.otp_verified"),
-      description: t("auth.otp_verified_description"),
+      title: t("common.success"),
+      description: value.message,
       variant: "default",
     });
-    setStep('login');
-    setIsOtpModalOpen(false);
-  };
+    setShowMfaSelector(false);
+    navigate("/dashboard");
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -360,7 +382,9 @@ export default function Auth() {
           <div>
             <Link to="/" className="flex items-center gap-2">
               <Headphones className="h-6 w-6 text-white" />
-              <span className="text-xl font-bold text-white">{t("auth.brand_name")}</span>
+              <span className="text-xl font-bold text-white">
+                {t("auth.brand_name")}
+              </span>
             </Link>
           </div>
 
@@ -407,28 +431,38 @@ export default function Auth() {
           <div className="lg:hidden mb-8">
             <Link to="/" className="flex items-center gap-2">
               <Headphones className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold text-foreground">{t("auth.brand_name")}</span>
+              <span className="text-xl font-bold text-foreground">
+                {t("auth.brand_name")}
+              </span>
             </Link>
           </div>
 
           {/* Header */}
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold text-foreground">
-              {step === 'login' ? t("auth.welcome_back") : step === 'signup' ? t("auth.create_account") : t("auth.reset_password")}
+              {step === "login"
+                ? t("auth.welcome_back")
+                : step === "signup"
+                  ? t("auth.create_account")
+                  : t("auth.reset_password")}
             </h2>
             <p className="text-muted-foreground">
-              {step === 'login' ? t("auth.login_details") : step === 'signup' ? t("auth.details_to_start") : t("auth.reset_password_details")}
+              {step === "login"
+                ? t("auth.login_details")
+                : step === "signup"
+                  ? t("auth.details_to_start")
+                  : t("auth.reset_password_details")}
             </p>
           </div>
 
           {/* Social login */}
-          {step === 'login' || step === 'signup' && (
+          {(step === "login" || step === "signup") && (
             <>
               <div className="space-y-3">
                 <GoogleOAuthProvider clientId="182678201673-5tm3q5bqpq0e4mkg3eovuiqtorfuc5gb.apps.googleusercontent.com">
-                  <GoogleLogin  
+                  <GoogleLogin
                     onSuccess={handleGoogleLogin}
-                    onError={() => console.log('Login Failed')}
+                    onError={() => console.log("Login Failed")}
                     shape="square"
                   />
                 </GoogleOAuthProvider>
@@ -439,7 +473,7 @@ export default function Auth() {
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-4 text-sm text-muted-foreground">
                   {t("common.or")}
                 </span>
-              </div>            
+              </div>
             </>
           )}
 
@@ -464,58 +498,61 @@ export default function Auth() {
               )}
             </div>
 
-            {(step === 'login' || step === 'signup') && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">
-                  {t("auth.password_label")} <span className="text-destructive">*</span>
-                </Label>
-                {step === 'login' && (
+            {(step === "login" || step === "signup") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">
+                    {t("auth.password_label")}{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  {step === "login" && (
+                    <button
+                      type="button"
+                      className="text-sm text-primary hover:underline"
+                      onClick={() => {
+                        setStep("reset-password");
+                        ``;
+                      }}
+                    >
+                      {t("auth.forgot_password")}
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder={t("auth.password_placeholder")}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={
+                      errors.password ? "border-destructive pr-10" : "pr-10"
+                    }
+                    disabled={isLoading}
+                  />
                   <button
                     type="button"
-                    className="text-sm text-primary hover:underline"
-                    onClick={() => {
-                      setStep('reset-password');
-                    ``}}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {t("auth.forgot_password")}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password}</p>
                 )}
               </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder={t("auth.password_placeholder")}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={
-                    errors.password ? "border-destructive pr-10" : "pr-10"
-                  }
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
             )}
 
-            {step === 'signup' && (
+            {step === "signup" && (
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">
-                  {t("auth.confirm_password_label")} <span className="text-destructive">*</span>
+                  {t("auth.confirm_password_label")}{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative">
                   <Input
@@ -551,7 +588,7 @@ export default function Auth() {
               </div>
             )}
 
-            {step === 'signup' && (
+            {step === "signup" && (
               <div className="space-y-3">
                 <Label>
                   {t("auth.i_am")} <span className="text-destructive">*</span>
@@ -567,19 +604,23 @@ export default function Auth() {
                       "disabled:cursor-not-allowed disabled:opacity-60",
                       userOrgType === "SME"
                         ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border bg-card"
+                        : "border-border bg-card",
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                        userOrgType === "SME" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                        userOrgType === "SME"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary",
                       )}
                     >
                       <Store className="h-5 w-5" />
                     </div>
                     <div className="w-full space-y-0.5">
-                      <span className="block font-semibold text-foreground">{t("auth.role_sme")}</span>
+                      <span className="block font-semibold text-foreground">
+                        {t("auth.role_sme")}
+                      </span>
                       <p className="text-xs text-muted-foreground leading-snug">
                         {t("auth.role_sme_desc")}
                       </p>
@@ -600,19 +641,23 @@ export default function Auth() {
                       "disabled:cursor-not-allowed disabled:opacity-60",
                       userOrgType === "AGENCY"
                         ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border bg-card"
+                        : "border-border bg-card",
                     )}
                   >
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                        userOrgType === "AGENCY" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                        userOrgType === "AGENCY"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary",
                       )}
                     >
                       <Users className="h-5 w-5" />
                     </div>
                     <div className="w-full space-y-0.5">
-                      <span className="block font-semibold text-foreground">{t("auth.role_agency")}</span>
+                      <span className="block font-semibold text-foreground">
+                        {t("auth.role_agency")}
+                      </span>
                       <p className="text-xs text-muted-foreground leading-snug">
                         {t("auth.role_agency_desc")}
                       </p>
@@ -636,11 +681,15 @@ export default function Auth() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {step === 'login' ? t("auth.logging_in") : step === 'signup' ? t("auth.creating_account") : t("auth.resetting_password")}
+                  {step === "login"
+                    ? t("auth.logging_in")
+                    : step === "signup"
+                      ? t("auth.creating_account")
+                      : t("auth.resetting_password")}
                 </>
-              ) : step === 'login' ? (
+              ) : step === "login" ? (
                 t("auth.log_in")
-              ) : step === 'signup' ? (
+              ) : step === "signup" ? (
                 t("auth.sign_up")
               ) : (
                 t("auth.reset_password")
@@ -650,18 +699,18 @@ export default function Auth() {
 
           {/* Toggle login/signup */}
           <p className="text-center text-sm text-muted-foreground">
-            {step === 'login' ? t("auth.no_account") : t("auth.has_account")}
+            {step === "login" ? t("auth.no_account") : t("auth.has_account")}
             <button
               type="button"
               onClick={() => {
-                setStep(step === 'login' ? 'signup' : 'login');
+                setStep(step === "login" ? "signup" : "login");
                 setErrors({});
                 setPassword("");
                 setConfirmPassword("");
               }}
               className="text-primary font-medium hover:underline"
             >
-              {step === 'login' ? t("auth.sign_up_now") : t("auth.log_in")}
+              {step === "login" ? t("auth.sign_up_now") : t("auth.log_in")}
             </button>
           </p>
 
@@ -675,13 +724,13 @@ export default function Auth() {
           </p>
         </div>
       </div>
-      <OtpModal
-        open={isOtpModalOpen}
-        onOpenChange={setIsOtpModalOpen}
-        onComplete={handleOtpComplete}
-        length={6}
-        sentToEmail={true}
-        errorMessage={errors.otp}
+
+      <MfaSelector
+        open={showMfaSelector}
+        onOpenChange={(open) => setShowMfaSelector(open)}
+        email={email}
+        userId={userId}
+        onComplete={handleMfaComplete}
       />
     </div>
   );

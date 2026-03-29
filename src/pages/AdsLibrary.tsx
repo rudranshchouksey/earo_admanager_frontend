@@ -19,12 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type ICellRendererParams } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
+import { adsApi } from '@/services/ads';
+import { campaignApi } from '@/services/campaign';
 
 interface Ad {
   id: string;
@@ -63,12 +65,12 @@ export default function AdsLibrary() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const fetchAds = async () => {
-    const { data: { session } } = await api.auth.getSession();
+    const { data: { session } } = await auth.getSession();
     if (!session) return;
 
     const [adsRes, campaignsRes] = await Promise.all([
-      api.getAds(session.user.id),
-      api.getCampaignsForAds(session.user.id),
+      adsApi.getAds(session.user.id),
+      campaignApi.getCampaigns(),
     ]);
 
     if (adsRes.data) setAds(adsRes.data);
@@ -105,7 +107,7 @@ export default function AdsLibrary() {
   }, [playingId]);
 
   const handleDelete = async (id: string) => {
-    const { error } = await api.deleteAd(id);
+    const { error } = await adsApi.deleteAd(id);
     if (error) {
       toast({ title: t('ads.delete_failed'), variant: 'destructive' });
     } else {

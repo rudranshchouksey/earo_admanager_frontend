@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { useTranslation } from '@/contexts/TranslationContext';
 import AlertBar from '@/components/dashboard/AlertBar';
@@ -83,13 +83,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const accountItem = { path: '/dashboard/account', label: t('layout.nav_account'), icon: Settings };
 
   useEffect(() => {
-    api.auth.getSession().then(({ data: { session } }) => {
+    auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
     });
   }, []);
 
   const handleSignOut = async () => {
-    await api.auth.signOut();
+    await auth.signOut();
     navigate('/login');
   };
 

@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { api } from '@/services/api';
+import { campaignApi } from '@/services/campaign';
 import { useTranslation } from '@/contexts/TranslationContext';
 import StatCard from '@/components/dashboard/StatCard';
 import { Eye, Users, Target, DollarSign, TrendingUp, BarChart3, Percent, Download, CalendarIcon } from 'lucide-react';
@@ -257,8 +257,8 @@ export default function Reports() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data } = await api.getReportsData();
-      setAllCampaigns(data && data.length > 0 ? data : mockCampaigns);
+      const { data } = await campaignApi.getCampaigns();
+      // setAllCampaigns(data && data.length > 0 ? data : mockCampaigns);
       setLoading(false);
     };
     fetchData();

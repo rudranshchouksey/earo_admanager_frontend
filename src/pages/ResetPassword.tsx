@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { auth } from "@/services/auth";
 import spotifyLogo from "@/assets/logos/spotify.svg";
 import anghamiLogo from "@/assets/logos/anghami.svg";
 import mbcLogo from "@/assets/logos/mbc.svg";
@@ -72,11 +72,11 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     try {
-      const { error } = await api.resetPasswordWithToken(token, password);
-      if (error) {
+      const { error, status, message } = await auth.resetPassword(token, password);
+      if (status !== 200) {
         toast({
           title: t("auth.reset_password_failed"),
-          description: error.message,
+          description: message,
           variant: "destructive",
         });
         return;

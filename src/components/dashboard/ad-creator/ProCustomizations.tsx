@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { api } from '@/services/api';
+import { adsApi } from '@/services/ads';
 import type { Voice } from '@/data/mockVoices';
 import type { MusicTrack } from '@/data/mockMusic';
 
@@ -97,14 +97,14 @@ export default function ProCustomizations({
   const [playingMusicId, setPlayingMusicId] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getVoices().then((res) => {
+    adsApi.getVoices().then((res) => {
       if (res.data?.voices) setVoices(res.data.voices);
       setVoicesLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    api.getMusic().then((res) => {
+    adsApi.getMusic().then((res) => {
       if (res.data?.tracks) setMusicList(res.data.tracks);
       setMusicLoading(false);
     });

@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { cn } from "@/lib/utils";
+import { auth } from "@/services/api";
+import { toast } from "@/hooks/use-toast";
 
 export interface OtpModalProps {
   open: boolean;
@@ -18,7 +20,7 @@ export interface OtpModalProps {
   /** Number of OTP digit fields (default: 6) */
   length?: number;
   /** Called when user submits/completes OTP */
-  onComplete?: (value: string) => void;
+  onComplete?: (value: { error: Error | null, status: number, message: string }) => void;
   /** Called on each change (optional) */
   onChange?: (value: string) => void;
   title?: string;
@@ -30,6 +32,10 @@ export interface OtpModalProps {
   className?: string;
   sentToEmail?: boolean;
   errorMessage?: string;
+  /** Return to method picker (e.g. from MfaSelector) */
+  onBack?: () => void;
+  backLabel?: string;
+  email: string;
 }
 
 export function OtpModal({
@@ -46,19 +52,32 @@ export function OtpModal({
   className,
   sentToEmail = false,
   errorMessage,
+  onBack,
+  backLabel = "Back",
+  email
 }: OtpModalProps) {
   const [value, setValue] = React.useState("");
 
+
+  const verifyOtp = async (otp: string) => {
+    const { error, status, message } = await auth.verifySignupOtp(email, otp);
+    onComplete({
+      error,
+      status,
+      message
+    })
+  };
+
   const handleComplete = (otpValue: string) => {
     if (otpValue.length === length && onComplete) {
-      onComplete(otpValue);
+      verifyOtp(otpValue);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (value.length === length && onComplete) {
-      onComplete(value);
+      verifyOtp(value);
     }
   };
 
@@ -67,7 +86,29 @@ export function OtpModal({
     onOpenChange(next);
   };
 
-  const descriptionText = sentToEmail ? "We've sent a code to your email. Enter it below." : "We've sent a code to your device. Enter it below.";
+
+  React.useEffect(() => {
+    if (email && open) {
+      const sendEmailVerificationOTP = async () => {
+      const { error, status, message } = await auth.resendOtp(email);
+      if (error || status !== 200) {
+        toast({
+          title: "Error",
+          description: message,
+          variant: "destructive",
+        });
+        }
+      };
+      sendEmailVerificationOTP();
+    }
+
+  }, [email, open]);
+
+
+  const fallbackDescription = sentToEmail
+    ? "We've sent a code to your email. Enter it below."
+    : "We've sent a code to your device. Enter it below.";
+  const descriptionText = description ?? fallbackDescription;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -96,10 +137,10 @@ export function OtpModal({
             </InputOTP>
           </div>
           {errorMessage && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
+            <p className="text-sm text-destructive text-center p-2">{errorMessage}</p>
           )}
           {showSubmitButton && (
-            <DialogFooter>
+            <DialogFooter className={cn(onBack && "flex-col gap-2 sm:flex-col")}>
               <Button
                 type="submit"
                 disabled={value.length !== length || loading}
@@ -114,6 +155,11 @@ export function OtpModal({
                   submitLabel
                 )}
               </Button>
+              {onBack && (
+                <Button type="button" variant="ghost" className="w-full" disabled={loading} onClick={onBack}>
+                  {backLabel}
+                </Button>
+              )}
             </DialogFooter>
           )}
         </form>

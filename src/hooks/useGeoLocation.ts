@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { getGeoData } from '@/services/geo';
 import type { GeoData } from '@/types/landing';
 
 const defaultGeoData: GeoData = {
@@ -23,7 +23,7 @@ export function useGeoLocation() {
   useEffect(() => {
     async function detectLocation() {
       try {
-        const { data, error: err } = await api.invokeGeoDetect();
+        const { data, error: err } = await getGeoData();
         if (err) {
           console.error('Geo detection error:', err);
           setGeoData(defaultGeoData);

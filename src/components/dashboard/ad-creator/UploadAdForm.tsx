@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
+import { adsApi } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
 
 const MAX_SIZE_MB = 10;
@@ -85,17 +86,17 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     if (!file || !adName.trim()) return;
     setIsSaving(true);
     try {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) {
         toast({ title: t('ad_creator.not_authenticated'), variant: 'destructive' });
         return;
       }
 
       const path = `${session.user.id}/${Date.now()}.mp3`;
-      await api.uploadAudio(path, file);
-      const finalAudioUrl = audioUrl || api.getPublicUrl(path).publicUrl;
+      await adsApi.uploadAudio(file);
+      const finalAudioUrl = audioUrl;
 
-      const { error: dbError } = await api.createAd({
+      const { error: dbError } = await adsApi.createAd({
         product_name: adName.trim(),
         brand_name: adName.trim(),
         audio_url: finalAudioUrl,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
 
 const STORAGE_KEY = 'nextads_dev_flags';
 
@@ -47,9 +47,9 @@ export function useSessionFlags(): SessionFlags {
       }
     };
 
-    api.auth.getSession().then(({ data: { session } }) => applySession(session));
+    auth.getSession().then(({ data: { session } }) => applySession(session));
 
-    const { data: { subscription } } = api.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
       applySession(session);
     });
 

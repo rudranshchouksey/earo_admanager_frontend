@@ -5,7 +5,8 @@ import { useGeoLocation } from '@/hooks/useGeoLocation';
 import type { LocationData } from '@/components/dashboard/campaign-wizard/CampaignInventoryStep';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
+import { campaignApi } from '@/services/campaign';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
@@ -246,10 +247,10 @@ export default function CampaignWizard() {
   const saveCampaign = async (status: 'draft' | 'active') => {
     setSaving(true);
     try {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { error } = await api.createCampaign({
+      const { error } = await campaignApi.createCampaign({
         user_id: session.user.id,
         ad_id: setup.adId,
         name: setup.campaignName,

@@ -5,12 +5,13 @@ import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/dashboard/StatCard';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { OtpModal } from '@/components/ui/otp-modal';
+import { OtpModal } from '@/components/auth/otp-modal';
 import { toast } from '@/hooks/use-toast';
+import { userApi, UserProfile } from '@/services/user';
 
 export default function DashboardHome() {
   const { t } = useTranslation();
@@ -23,20 +24,34 @@ export default function DashboardHome() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpErrorMessage, setOtpErrorMessage] = useState<string | null>(null);
   const mockStats = { impressions: 124500, spend: 2340, reach: 48200 };
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     
     const checkVerificationStatus = async () => {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       const status = session?.user?.app_metadata?.status;
       setVerificationPending(status === 'VERIFICATION_PENDING');
       setSessionEmail(session?.user?.email ?? null);
     };
+
+    const getUserProfile = async () => {
+      const { data } = await userApi.getUserProfile();
+      if (data && data.data) {
+        setUserProfile(data.data);
+        if(data.data.isVerified === false) {
+          setVerificationPending(true);
+          setSessionEmail(data.data.email);
+        }
+        console.log({data});
+      }
+    };
   
     checkVerificationStatus();
+    getUserProfile();
 
 
-    api.auth.onAuthStateChange((_event, session) => {
+    auth.onAuthStateChange((_event, session) => {
       if(_event === 'USER_UPDATED') {
         checkVerificationStatus();
       }
@@ -92,7 +107,7 @@ export default function DashboardHome() {
                     return;
                   }
                   setOtpLoading(true);
-                  const { error } = await api.auth.sendSignupOtp(sessionEmail);
+                  const { error } = await auth.resendOtp(sessionEmail);
                   console.log({error})
                   setOtpLoading(false);
                   if (error) {
@@ -127,10 +142,11 @@ export default function DashboardHome() {
               if (!sessionEmail) return;
               setOtpErrorMessage('');
               setOtpLoading(true);
-              const { error } = await api.auth.verifySignupOtp(sessionEmail, otp);
+              const { status, error, message } = await auth.verifySignupOtp(sessionEmail, otp);
+              console.log({status, error, message})
               setOtpLoading(false);
-              if (error) {
-                setOtpErrorMessage(error.message || 'OTP verification failed');                
+              if (error || status !== 200) {
+                setOtpErrorMessage(message || 'OTP verification failed');                
                 return;
               }
               toast({
