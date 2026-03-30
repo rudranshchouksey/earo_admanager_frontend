@@ -36,6 +36,7 @@ export interface OtpModalProps {
   onBack?: () => void;
   backLabel?: string;
   email: string;
+  userId: string;
 }
 
 export function OtpModal({
@@ -54,14 +55,15 @@ export function OtpModal({
   errorMessage,
   onBack,
   backLabel = "Back",
-  email
+  email,
+  userId
 }: OtpModalProps) {
   const [value, setValue] = React.useState("");
 
 
   const verifyOtp = async (otp: string) => {
-    console.log("verifyOtp", email, otp);
-    const { error, status, message } = await auth.verifySignupOtp(email, otp);
+    console.log("verifyOtp", userId, otp);
+    const { error, status, message } = await auth.verifyEmailVerificationOtp2fa(userId, otp);
     onComplete("OTP", {
       error,
       status,
@@ -89,9 +91,11 @@ export function OtpModal({
 
 
   React.useEffect(() => {
-    if (email && open) {
+
+    console.log("useEffect", userId, open);
+    if (userId && open) {
       const sendEmailVerificationOTP = async () => {
-      const { error, status, message } = await auth.resendOtp(email);
+      const { error, status, message } = await auth.sendEmailVerificationOtp2fa(userId);
       if (error || status !== 200) {
         toast({
           title: "Error",
@@ -103,7 +107,7 @@ export function OtpModal({
       sendEmailVerificationOTP();
     }
 
-  }, [email, open]);
+  }, [userId, open]);
 
 
   const fallbackDescription = sentToEmail

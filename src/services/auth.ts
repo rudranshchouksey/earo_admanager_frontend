@@ -253,6 +253,40 @@ export const auth = {
     return { error: null, status, message };
   },
 
+
+  sendEmailVerificationOtp2fa: (userId: string) => 
+    request(`/api/v1/auth/sendEmailOtp`, { body: { userId }, method: "POST" }),
+
+
+  verifyEmailVerificationOtp2fa: async (userId: string, otp: string) => {
+
+    const { error, status, message, data } = await request<any>(`/api/v1/auth/verifyEmailOtp`, { body: { userId, otp }, method: "POST" });
+    if (error || status !== 200 || !data.tokens) return { error, status, message};
+    const currentOrganizationId = data.data.organizations[0].orgId;
+
+    const session: AuthSession = {
+      user: {
+        id: userId,
+        email: data.email,
+        app_metadata: {
+          isPro: false,
+          userState: 'new',
+          isAgency: data.data.organizations[0].orgType === "AGENCY",
+          status: data.data.status,
+        }
+      },
+      currentOrganizationId: currentOrganizationId,
+      currentAdvertiserId: "",
+      accessToken: data.tokens.accessToken,
+      refreshToken: data.tokens.refreshToken
+    };
+
+    setStoredSession(session);
+    notify('SIGNED_IN', session);
+    return { data: { session }, error: null, status, message };
+
+  },
+
   resendOtp: (email: string) => 
     request(`/api/v1/auth/resendVerifyEmail`, { params: { email } }),
 

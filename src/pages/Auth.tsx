@@ -367,6 +367,7 @@ export default function Auth() {
     });
     setShowMfaSelector(false);
     navigate("/dashboard");
+    console.log("navigating to dashboard");
   }
 
   return (

@@ -65,7 +65,7 @@ export type RequestConfig = {
 export async function request<T = unknown>(
   path: string,
   config: RequestConfig = {}
-): Promise<{ data: T | null; error: Error | null; status: number; message: string | null }> {
+): Promise<{ data: T | null; error: Error | null; status: number; message: string | null; }> {
   const {
     method = 'GET',
     body,
@@ -125,9 +125,10 @@ export async function request<T = unknown>(
   }
 
   if (!res.ok) {
-    const message = responseData?.message || `Error ${res.status}: ${res.statusText}`;
+    const message = responseData?.message?.message || responseData?.message || `Error ${res.status}: ${res.statusText}`;
     return { data: null, error: new Error(message), status: responseData.status || res.status, message: message };
   }
 
-  return { data: responseData as T, error: null, status: responseData.status || res.status, message: responseData?.message || null };
+
+  return { data: responseData as T, error: null, status: responseData.status || res.status, message: responseData?.message?.message || responseData?.message || null };
 }

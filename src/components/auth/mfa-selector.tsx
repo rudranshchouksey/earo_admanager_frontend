@@ -28,7 +28,7 @@ export interface MfaSelectorProps {
   authenticatorLoading?: boolean;
   authenticatorErrorMessage?: string;
   email: string;
-  onComplete: (value: { error: Error | null, status: number, message: string, data: any }) => void;
+  onComplete: (type: string, value: { error: Error | null, status: number, message: string, data: any }) => void;
   userId: string;
 }
 
@@ -118,6 +118,7 @@ export function MfaSelector({
         onBack={goBackToSelect}
         backLabel={t("auth.mfa_back")}
         email={email}
+        userId={userId}
       />
 
       <SetupMFAModal
