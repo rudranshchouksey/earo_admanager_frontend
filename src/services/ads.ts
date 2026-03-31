@@ -2,7 +2,7 @@ import { request } from './api';
 
 export interface Ad {
   id: string;
-  type: number;
+  type?: number;
   advertiserId: string;
   campaignGoal: string;
   prompt: string;
@@ -40,7 +40,17 @@ export interface VoiceResponse {
   }
 }
 
-
+export interface MusicResponse {
+  "status": number,
+  "message": string,
+  "data": Music[],
+  "pagination": {
+      "total": number,
+      "page": number,
+      "limit": number,
+      "totalPages": number
+  }
+}
 export interface Music {
   id: string;
   title: string;
@@ -61,6 +71,15 @@ export interface MusicTrack {
   rhythms: string[];
 }
 
+export interface musicFilter {
+  page?: number;
+  limit?: number;
+  mood?: string;
+  genre?: string;
+  instrument?: string;
+  rhythm?: string;
+}
+
 export interface voiceFilter {
   page?: number;
   limit?: number;
@@ -76,7 +95,7 @@ export const adsApi = {
 
   /** Standard ad creation */
   createAd: (payload: Partial<Ad>) => 
-    request<Ad>('/api/v1/creatives/createAds', { method: 'POST', body: payload }),
+    request<Ad>('/api/v1/creatives/createAds', { method: 'POST', body: {...payload, voice: payload.voiceId, music: payload.musicId} }),
 
   checkAdStatus: (jobId: string) =>
     request<Ad>('/api/v1/creatives/checkAdStatus', { method: 'POST', body: { jobId: jobId } }),
@@ -89,6 +108,6 @@ export const adsApi = {
 
   getVoices: (filter: voiceFilter) => request<VoiceResponse>('/api/v1/creatives/searchVoice', {method: "POST", body: filter}),
 
-  getMusic: () => request<Music[]>('/api/v1/creative/searchMusic'),
+  getMusics: (filter: musicFilter) => request<MusicResponse>('/api/v1/creatives/searchMusic', {method: "POST", body: filter}),
 
 };

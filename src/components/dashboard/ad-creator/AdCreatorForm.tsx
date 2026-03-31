@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Pencil, Loader2, Share2, RefreshCw, Mic2 } from 'lucide-react';
+import { Play, Pause, Pencil, Loader2, Share2, RefreshCw, Mic2, MusicIcon } from 'lucide-react';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { auth } from '@/services/auth';
-import { adsApi, Voice } from '@/services/ads';
+import { adsApi, Music, Voice } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
 import type { GeneratedAd } from '@/types/landing';
 import ProCustomizations, {
@@ -50,6 +50,9 @@ interface AdCreatorFormProps {
   voices: Voice[];
   getVoices: (gender: string, language: string, tone: string) => void;
   voicesLoading: boolean;
+  musics: Music[];
+  getMusics: (mood: string) => void;
+  musicsLoading: boolean;
 }
 
 const goalPlaceholders: Record<string, string> = {
@@ -71,7 +74,7 @@ export default function AdCreatorForm({
   proVoiceSettings, onProVoiceSettingsChange,
   proMusicSettings, onProMusicSettingsChange,
   proContentSettings, onProContentSettingsChange,
-  voices, getVoices, voicesLoading,
+  voices, getVoices, voicesLoading, musics, getMusics, musicsLoading,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
   const canSubmit = description.trim().length > 0;
@@ -189,6 +192,9 @@ export default function AdCreatorForm({
     getVoices(voice.split("-")[0], voice.split("-")[1], tone);
   }, [voice, tone]);
 
+  useEffect(() => {
+    getMusics(music);
+  }, [music]);
 
   return (
     <div className="space-y-6">
@@ -273,10 +279,11 @@ export default function AdCreatorForm({
                   <Select value={music} onValueChange={onMusicChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="upbeat">{t('ad_creator.music_upbeat')}</SelectItem>
-                      <SelectItem value="corporate">{t('ad_creator.music_corporate')}</SelectItem>
-                      <SelectItem value="chill">{t('ad_creator.music_chill')}</SelectItem>
-                      <SelectItem value="none">{t('ad_creator.music_none')}</SelectItem>
+                      {
+                        ["ambient", "calm", "chill", "dark", "energetic", "happy", "hopeful", "optimistic", "passionate"].map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))
+                      }
                     </SelectContent>
                   </Select>
                 </div>
@@ -340,6 +347,45 @@ export default function AdCreatorForm({
                   </div>
                 )
               )}
+
+              {
+                musicsLoading ? (
+                  <div className="flex items-center justify-center h-12">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  musics.length > 0 && (
+                    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
+                    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center" >
+                      <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
+                        <div className="aspect-square w-full">
+                        <div className="flex h-full w-full items-center justify-center bg-muted">
+                              <MusicIcon className="h-4 w-4 text-muted-foreground/60" aria-hidden />
+                            </div>
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {
+                            musics[0].title ? (
+                              <p className="text-sm font-semibold text-foreground px-2">
+                                {musics[0].title}
+                              </p>
+                            ) : null
+                          }
+                        </div>
+                        <audio
+                          src={musics[0].audio_url}
+                          preload="metadata"
+                          controls
+                          className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  )
+                )
+              }
             </div>
           )}
 

@@ -44,5 +44,5 @@ export interface OrganizationDetailsResponse {
     getOrganizationsWithAdvertisers: (organizationId: string)  => request<OrganizationWithAdvertiser[]>('/api/v1/users/getOrganizationsWithAdvertisers' , {method:"GET",}),
     getOrganizationDetails: (organizationId: string)  => request<OrganizationDetailsResponse>('/api/v1/users/getOrganizationDetails' , {method:"POST", body: { orgId: organizationId }}),
     updateOrganizationDetails: (organizationId: string, organizationDetails: OrganizationDetails)  => request<OrganizationDetailsResponse>('/api/v1/users/updateOrganizationDetails' , {method:"POST", body: { orgId: organizationId, ...organizationDetails }}),
-
+    updateOrganizationType: (userId: string, orgType: "SME" | "AGENCY") => request<OrganizationDetailsResponse>('/api/v1/auth/updateOrgType' , {method:"POST", body: { userId, orgType }}),
 }

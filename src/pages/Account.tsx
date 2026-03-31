@@ -166,9 +166,6 @@ export default function Account() {
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
-        status: "ACTIVE",
-        role: "ADMIN",
-        orgId: session.user.app_metadata?.organizations[0]?.orgId,
         // companyName: profile.company_name,
         // companyType: profile.company_type,
         // industry: profile.industry,
@@ -289,27 +286,32 @@ export default function Account() {
     }else {
       // disable mfa 
     }
-
   }
 
 
-  const verifyMFAComplete = (type: string, value: { error: Error | null, status: number, message: string, data: any }) => {
-    if (value.error || value.status !== 200) {
+  const verifyMFAComplete = async (code: string) => {
+    const { error, status, message, data } = await userApi.verify2fa(profile.id, code);
+    if (error || status !== 200) {
       toast({
         title: t("common.error"),
-        description: value.message || "Failed to verify " + type,
+        description: message || "Failed to verify MFA",
         variant: "destructive",
       });
-      return;
+      return { error, status, message };
     }
     toast({
       title: t("common.success"),
-      description: type + " verified successfully",
+      description: "MFA verified successfully",
       variant: "default",
     });
     setIsMfaModalOpen(false);
-    if(type === "MFA")
-      setProfile((p) => ({ ...p, mfaEnabled: true }));
+    setProfile((p) => ({ ...p, mfaEnabled: true }));
+    toast({
+      title: t("common.success"),
+      description: "MFA verified successfully",
+      variant: "default",
+    });
+    return { error: null, status, message };
   }
 
   const update = (field: keyof UserProfile, value: any) =>
@@ -942,9 +944,7 @@ export default function Account() {
         open={isMfaModalOpen}
         onOpenChange={(open) => setIsMfaModalOpen(open)}
         qrCode={qrCode}
-        onComplete={verifyMFAComplete}
-        onChange={(code) => console.log("mfa code", code)}
-        userId={profile.id}
+        onVerify={verifyMFAComplete}
       />
 
 

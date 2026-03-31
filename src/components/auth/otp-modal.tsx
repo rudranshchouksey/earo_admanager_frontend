@@ -1,173 +1,103 @@
+// otp-modal.tsx
 import * as React from "react";
 import { Loader2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { cn } from "@/lib/utils";
-import { auth } from "@/services/api";
-import { toast } from "@/hooks/use-toast";
+
 
 export interface OtpModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Number of OTP digit fields (default: 6) */
-  length?: number;
-  /** Called when user submits/completes OTP */
-  onComplete?: (type: string, value: { error: Error | null, status: number, message: string }) => void;
-  /** Called on each change (optional) */
-  onChange?: (value: string) => void;
+  // BUSINESS LOGIC PROPS
+  onVerify: (otp: string) => Promise<{ error: any; status: number; message: string }>;
+  onResend?: () => void;
+  resendTime?: number;
+  resending?: boolean;
+  // UI PROPS
   title?: string;
   description?: string;
-  submitLabel?: string;
-  /** Show submit button; if false, relies on onComplete from input-otp auto-trigger */
-  showSubmitButton?: boolean;
-  loading?: boolean;
-  className?: string;
-  sentToEmail?: boolean;
-  errorMessage?: string;
-  /** Return to method picker (e.g. from MfaSelector) */
+  length?: number;
   onBack?: () => void;
-  backLabel?: string;
-  email: string;
-  userId: string;
 }
 
 export function OtpModal({
   open,
   onOpenChange,
+  onVerify,
+  onResend,
+  resendTime,
+  resending,
+  title = "Verify Code",
+  description,
   length = 6,
-  onComplete,
-  onChange,
-  title = "Enter verification code",
-  description = "We've sent a code to your email. Enter it below.",
-  submitLabel = "Verify",
-  showSubmitButton = true,
-  loading = false,
-  className,
-  sentToEmail = false,
-  errorMessage,
   onBack,
-  backLabel = "Back",
-  email,
-  userId
 }: OtpModalProps) {
   const [value, setValue] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [localError, setLocalError] = React.useState<string | null>(null);
 
-
-  const verifyOtp = async (otp: string) => {
-    console.log("verifyOtp", userId, otp);
-    const { error, status, message } = await auth.verifyEmailVerificationOtp2fa(userId, otp);
-    onComplete("OTP", {
-      error,
-      status,
-      message
-    })
-  };
-
-  const handleComplete = (otpValue: string) => {
-    if (otpValue.length === length && onComplete) {
-      verifyOtp(otpValue);
+  // Performance: Clear state on close
+  React.useEffect(() => {
+    if (!open) {
+      setValue("");
+      setLocalError(null);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (value.length === length && onComplete) {
-      verifyOtp(value);
-    }
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next) setValue("");
-    onOpenChange(next);
-  };
-
+  }, [open]);
 
   React.useEffect(() => {
+    setLocalError("");
+  }, [value]);
 
-    console.log("useEffect", userId, open);
-    if (userId && open) {
-      const sendEmailVerificationOTP = async () => {
-      const { error, status, message } = await auth.sendEmailVerificationOtp2fa(userId);
-      if (error || status !== 200) {
-        toast({
-          title: "Error",
-          description: message,
-          variant: "destructive",
-        });
-        }
-      };
-      sendEmailVerificationOTP();
+  const handleVerify = async (otpValue: string) => {
+    if (otpValue.length !== length) return;
+    setLoading(true);
+    setLocalError(null);
+    
+    const { error, message, status } = await onVerify(otpValue);
+    
+    if (error || status !== 200) {
+      setLocalError(message || "Invalid verification code.");
+      setLoading(false);
+    } else {
+      setLoading(false);
+      onOpenChange(false); // Success!
     }
-
-  }, [userId, open]);
-
-
-  const fallbackDescription = sentToEmail
-    ? "We've sent a code to your email. Enter it below."
-    : "We've sent a code to your device. Enter it below.";
-  const descriptionText = description ?? fallbackDescription;
+  };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={cn("sm:max-w-md", className)}>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{descriptionText}</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center py-6">
-            <InputOTP
-              maxLength={length}
-              value={value}
-              onChange={(v) => {
-                setValue(v);
-                onChange?.(v);
-              }}
-              onComplete={handleComplete}
-              containerClassName="gap-2"
-            >
-              <InputOTPGroup className="gap-1.5">
-                {Array.from({ length }).map((_, i) => (
-                  <InputOTPSlot key={i} index={i} />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-          {errorMessage && (
-            <p className="text-sm text-destructive text-center p-2">{errorMessage}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex justify-center py-2">
+          <InputOTP 
+            maxLength={length} 
+            value={value} 
+            onChange={setValue} 
+            onComplete={handleVerify}
+            disabled={loading}
+          >
+            <InputOTPGroup className="gap-1.5">
+              {Array.from({ length }).map((_, i) => <InputOTPSlot key={i} index={i} />)}
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+
+        {localError && <p className="text-sm text-destructive text-center">{localError}</p>}
+
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button onClick={() => handleVerify(value)} disabled={loading || value.length !== length}>
+            {loading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "Verify"}
+          </Button>
+          {onResend && (
+            <Button variant="ghost" onClick={onResend} disabled={loading|| resending || resendTime > 0}>{resendTime > 0 ? `Resend Code in ${resendTime} seconds` : "Resend Code"}</Button>
           )}
-          {showSubmitButton && (
-            <DialogFooter className={cn(onBack && "flex-col gap-2 sm:flex-col")}>
-              <Button
-                type="submit"
-                disabled={value.length !== length || loading}
-                className="w-full"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  submitLabel
-                )}
-              </Button>
-              {onBack && (
-                <Button type="button" variant="ghost" className="w-full" disabled={loading} onClick={onBack}>
-                  {backLabel}
-                </Button>
-              )}
-            </DialogFooter>
-          )}
-        </form>
+          {onBack && <Button variant="outline" onClick={onBack}>Back</Button>}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

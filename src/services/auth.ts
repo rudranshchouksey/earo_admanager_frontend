@@ -161,10 +161,10 @@ export const auth = {
   },
 
   /** Google OAuth */
-  signInWithGoogle: async (token: string, role: string) => {
+  signInWithGoogle: async (token: string) => {
     const { data, error } = await request<any>('/api/v1/auth/google', {
       method: 'POST',
-      body: { token, role },
+      body: { token },
       skipAuth: true
     });
 
@@ -200,7 +200,6 @@ export const auth = {
     email: string;
     password: string;
     confirmPassword: string;
-    orgType: string;
   }) => {
     const { data, error, status, message } = await request<any>('/api/v1/auth/signup', {
       method: 'POST',
@@ -235,7 +234,7 @@ export const auth = {
   },
 
   /** OTP & Verification Flows */
-  verifySignupOtp: async (email: string, otp: string) => {
+  verifyEmailOtp: async (email: string, otp: string) => {
     console.log("verifySignupOtp", email, otp);
     const { error, status, message } = await request('/api/v1/auth/verifyOtp', {
       method: 'POST',
@@ -254,13 +253,13 @@ export const auth = {
   },
 
 
-  sendEmailVerificationOtp2fa: (userId: string) => 
-    request(`/api/v1/auth/sendEmailOtp`, { body: { userId }, method: "POST" }),
+  sendEmailVerificationOtp2fa: (userId: string, mfaToken: string) => 
+    request(`/api/v1/auth/sendEmailOtp`, { body: { userId, mfaToken }, method: "POST" }),
 
 
-  verifyEmailVerificationOtp2fa: async (userId: string, otp: string) => {
+  verifyEmailVerificationOtp2fa: async (userId: string, mfaToken: string, otp: string) => {
 
-    const { error, status, message, data } = await request<any>(`/api/v1/auth/verifyEmailOtp`, { body: { userId, otp }, method: "POST" });
+    const { error, status, message, data } = await request<any>(`/api/v1/auth/verifyEmailOtp`, { body: { userId, mfaToken, otp }, method: "POST" });
     if (error || status !== 200 || !data.tokens) return { error, status, message};
     const currentOrganizationId = data.data.organizations[0].orgId;
 

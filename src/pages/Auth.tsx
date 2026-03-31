@@ -24,6 +24,7 @@ import {
 } from "@react-oauth/google";
 import { OtpModal } from "@/components/auth/otp-modal";
 import { MfaSelector } from "@/components/auth/mfa-selector";
+import { userApi } from "@/services/user";
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -39,7 +40,8 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [userOrgType, setUserOrgType] = useState("SME");
+  const [mfaToken, setMfaToken] = useState("");
+  // const [userOrgType, setUserOrgType] = useState("SME");
   const [userId, setuserId] = useState("");
   const [errors, setErrors] = useState<{
     email?: string;
@@ -88,7 +90,7 @@ export default function Auth() {
     setEmail("");
     setPassword("");
     setConfirmPassword("");
-    setUserOrgType("SME");
+    // setUserOrgType("SME");
   }, [step]);
 
   // Show loading state during initial auth check
@@ -142,7 +144,7 @@ export default function Auth() {
     setIsLoading(true);
     try {
       const { credential } = credentialResponse;
-      const { error } = await auth.signInWithGoogle(credential, userOrgType);
+      const { error } = await auth.signInWithGoogle(credential);
       if (error) {
         toast({
           title: t("common.error"),
@@ -183,19 +185,20 @@ export default function Auth() {
         email: z.string().trim().email(t("auth.invalid_email")),
         password: z
           .string()
-          .min(8, t("auth.password_min_length"))
+          .max(64, t("auth.password_max_length"))
+          .min(8, t("auth.password_min_length"))          
           .regex(
             /^(?=.*[A-Za-z])(?=.*\d).+$/,
             t("auth.password_must_be_at_least_8_characters"),
           ),
         confirmPassword: z
           .string()
+          .max(64, t("auth.password_max_length"))
           .min(8, t("auth.password_min_length"))
           .regex(
             /^(?=.*[A-Za-z])(?=.*\d).+$/,
             t("auth.password_must_be_at_least_8_characters"),
           ),
-        orgType: z.enum(["SME", "AGENCY"]),
       })
       .refine((data) => data.password === data.confirmPassword, {
         message: t("auth.passwords_dont_match"),
@@ -230,6 +233,7 @@ export default function Auth() {
         if (status !== 200) {
           if (status === 400 && data?.mfaRequired) {
             setuserId(data.data?.id);
+            setMfaToken(data.data?.mfaToken);
             setShowMfaSelector(true);
             return;
           }
@@ -264,7 +268,6 @@ export default function Auth() {
           email,
           password,
           confirmPassword,
-          orgType: userOrgType,
         });
         if (!result.success) {
           const fieldErrors: typeof errors = {};
@@ -283,7 +286,6 @@ export default function Auth() {
           email: email.trim().toLowerCase(),
           password: password.trim(),
           confirmPassword: confirmPassword.trim(),
-          orgType: userOrgType.trim().toUpperCase(),
         });
 
         if (status !== 200) {
@@ -589,8 +591,8 @@ export default function Auth() {
               </div>
             )}
 
-            {step === "signup" && (
-              <div className="space-y-3">
+            {/* {step === "signup" && (
+              <div className="hidden space-y-3">
                 <Label>
                   {t("auth.i_am")} <span className="text-destructive">*</span>
                 </Label>
@@ -671,7 +673,7 @@ export default function Auth() {
                   </button>
                 </div>
               </div>
-            )}
+            )} */}
 
             <Button
               type="submit"
@@ -730,8 +732,9 @@ export default function Auth() {
         open={showMfaSelector}
         onOpenChange={(open) => setShowMfaSelector(open)}
         email={email}
-        userId={userId}
-        onComplete={handleMfaComplete}
+        onVerifyEmail={(otp) => auth.verifyEmailVerificationOtp2fa(userId, mfaToken, otp)}
+        onResendEmail={() => auth.sendEmailVerificationOtp2fa(userId, mfaToken)}
+        onVerifyAuthenticator={(code) => userApi.verify2fa(userId, code)}
       />
     </div>
   );

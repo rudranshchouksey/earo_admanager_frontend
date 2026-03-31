@@ -20,13 +20,13 @@ export default function AlertBar() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      const { data } = await systemApi.getSystemAlerts();
-      if (data) setAlerts(data);
-    };
-    fetchAlerts();
-  }, []);
+  // useEffect(() => {
+  //   const fetchAlerts = async () => {
+  //     const { data } = await systemApi.getSystemAlerts();
+  //     if (data) setAlerts(data);
+  //   };
+  //   fetchAlerts();
+  // }, []);
 
   const dismiss = async (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));

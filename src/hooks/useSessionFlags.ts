@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth } from '@/services/auth';
+import { auth, AuthSession } from '@/services/auth';
 
 const STORAGE_KEY = 'nextads_dev_flags';
 
@@ -32,15 +32,18 @@ export function useSessionFlags(): SessionFlags {
   const [flags, setFlags] = useState<SessionFlags>(loadFallbackFlags);
 
   useEffect(() => {
-    const applySession = (session: {
-      user: { app_metadata?: { isPro: boolean; userState: string; isAgency?: boolean } };
-    } | null) => {
+    const applySession = (session: AuthSession | null) => {
       const meta = session?.user?.app_metadata;
+      const organizationId = session.currentOrganizationId;
+      const advertiserId = session.currentAdvertiserId;
+
+      const organization = session?.user?.app_metadata?.organizations?.find((org) => org.orgId === organizationId);
+
       if (meta) {
         setFlags({
           isPro: meta.isPro,
           isNewUser: meta.userState === 'new',
-          isAgency: meta.isAgency ?? false,
+          isAgency: organization?.orgType === "AGENCY" ? true : false,
         });
       } else {
         setFlags(loadFallbackFlags());

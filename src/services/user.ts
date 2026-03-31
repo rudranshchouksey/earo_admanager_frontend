@@ -16,6 +16,7 @@ export interface UserProfile {
   role: string;
   orgId: string;
   status: string;
+  onboardingComplete: boolean;
 }
 
 export interface UserProfileResponse {

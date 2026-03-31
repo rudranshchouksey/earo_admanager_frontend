@@ -17,7 +17,7 @@ import type {
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import { auth, AuthSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
-import { Ad, adsApi, Voice } from "@/services/ads";
+import { Ad, adsApi, Music, Voice } from "@/services/ads";
 
 type AdMode = "ai" | "upload";
 
@@ -60,11 +60,14 @@ export default function AdCreator() {
   const [goal, setGoal] = useState("sales");
   const [voice, setVoice] = useState("female-en");
   const [tone, setTone] = useState("friendly");
-  const [music, setMusic] = useState("upbeat");
+  const [music, setMusic] = useState("happy");
 
 
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
+
+  const [musics, setMusics] = useState<Music[]>([]);
+  const [musicsLoading, setMusicsLoading] = useState(true);
 
 
   // Pro-only state
@@ -81,11 +84,13 @@ export default function AdCreator() {
 
         console.log("handleGenerated here ", {description, goal, voice, tone, music});
         const {error, status, message, data} = await adsApi.createAd({
+          type: 1,
+          campaignGoal: goal,
           advertiserId: advertiserId,
           prompt: description,
           tone: tone,
           voiceId: voices[0].id,
-          musicId: null
+          musicId: musics[0].id
         });
         if(status != 200){
           toast({
@@ -111,6 +116,21 @@ export default function AdCreator() {
     }
   }, [description, goal, t]);
 
+  const getMusics = async (mood) => {
+    setMusicsLoading(true);
+    const {status, error, message, data} = await adsApi.getMusics({
+      page: 1,
+      limit: 1,
+      mood: mood
+    });
+    console.log("loadMusics here ", {status, error, message, data});
+    if(status != 200){
+      toast({ title: "Error loading music", description: message, variant: 'destructive' });
+    }else {
+      setMusics(data.data);
+      setMusicsLoading(false);
+    }
+  };
   const getVoices = async (gender, language, tone) => {
     setVoicesLoading(true);
     const {status, error, message, data} = await adsApi.getVoices({
@@ -259,6 +279,9 @@ export default function AdCreator() {
               voices={voices}
               getVoices={getVoices}
               voicesLoading={voicesLoading}
+              musics={musics}
+              getMusics={getMusics}
+              musicsLoading={musicsLoading}
             />
           ) : (
             <UploadAdForm onSaved={handleSaved} />
