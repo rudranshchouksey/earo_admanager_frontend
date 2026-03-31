@@ -34,8 +34,8 @@ export function useSessionFlags(): SessionFlags {
   useEffect(() => {
     const applySession = (session: AuthSession | null) => {
       const meta = session?.user?.app_metadata;
-      const organizationId = session.currentOrganizationId;
-      const advertiserId = session.currentAdvertiserId;
+      const organizationId = session?.currentOrganizationId;
+      const advertiserId = session?.currentAdvertiserId;
 
       const organization = session?.user?.app_metadata?.organizations?.find((org) => org.orgId === organizationId);
 

@@ -162,13 +162,14 @@ export const auth = {
 
   /** Google OAuth */
   signInWithGoogle: async (token: string) => {
-    const { data, error } = await request<any>('/api/v1/auth/google', {
+    const { data, error, status, message } = await request<any>('/api/v1/auth/google', {
       method: 'POST',
       body: { token },
       skipAuth: true
     });
 
-    if (error || !data?.data) return { data: null, error };
+    console.log("signInWithGoogle", { data, error, status, message });
+    if (error || status !== 200 || !data?.tokens) return { data: null, error, status, message };
 
     const currentOrganizationId = data.data.organizations[0].orgId;
 
@@ -186,8 +187,8 @@ export const auth = {
       },
       currentOrganizationId: currentOrganizationId,
       currentAdvertiserId: "",
-      accessToken: data.data.accessToken,
-      refreshToken: data.data.refreshToken
+      accessToken: data.tokens.accessToken,
+      refreshToken: data.tokens.refreshToken
     };
 
     setStoredSession(session);

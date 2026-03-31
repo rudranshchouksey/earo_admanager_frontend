@@ -144,8 +144,9 @@ export default function Auth() {
     setIsLoading(true);
     try {
       const { credential } = credentialResponse;
-      const { error } = await auth.signInWithGoogle(credential);
-      if (error) {
+      const { error, status, message } = await auth.signInWithGoogle(credential);
+      console.log("handleGoogleLogin", { error, status, message });
+      if (error || status !== 200) {
         toast({
           title: t("common.error"),
           description: error.message || "Something went wrong",
