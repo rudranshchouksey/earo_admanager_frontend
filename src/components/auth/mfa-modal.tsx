@@ -26,6 +26,7 @@ export interface SetupMFAModalProps {
   title?: string;
   description?: string;
   length?: number;
+  defaultScreen?: "qrCode" | "verify";
 }
 
 export function SetupMFAModal({
@@ -37,9 +38,10 @@ export function SetupMFAModal({
   title = "Set up Authenticator",
   description = "Scan the QR code with your authenticator app (like Google Authenticator or Authy).",
   length = 6,
+  defaultScreen = "qrCode",
 }: SetupMFAModalProps) {
   const [value, setValue] = React.useState("");
-  const [step, setStep] = React.useState<"scan" | "verify">("scan");
+  const [step, setStep] = React.useState<"scan" | "verify">(defaultScreen === "qrCode" ? "scan" : "verify");
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -47,7 +49,7 @@ export function SetupMFAModal({
   React.useEffect(() => {
     if (!open) {
       setValue("");
-      setStep("scan");
+      setStep(defaultScreen === "qrCode" ? "scan" : "verify");
       setErrorMessage(null);
       setLoading(false);
     }
@@ -77,7 +79,7 @@ export function SetupMFAModal({
 
   const handleBack = () => {
     if (step === "verify") {
-      setStep("scan");
+      setStep(defaultScreen === "qrCode" ? "scan" : "verify");
       setErrorMessage(null);
       setValue("");
     } else {

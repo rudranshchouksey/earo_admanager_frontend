@@ -23,6 +23,7 @@ export interface MfaSelectorProps {
   onVerifyEmail: (otp: string) => Promise<{ error: any; status: number; message: string }>;
   onResendEmail: () => Promise<{ error: any; status: number; message: string }>;
   onVerifyAuthenticator: (code: string) => Promise<{ error: any; status: number; message: string }>;
+  authDefaultScreen?: "qrCode" | "verify";
 }
 
 export function MfaSelector({
@@ -33,6 +34,7 @@ export function MfaSelector({
   onVerifyEmail,
   onResendEmail,
   onVerifyAuthenticator,
+  authDefaultScreen = "qrCode",
 }: MfaSelectorProps) {
   const { t } = useTranslation();
   const [phase, setPhase] = React.useState<MfaPhase>("select");
@@ -177,6 +179,7 @@ export function MfaSelector({
         onVerify={onVerifyAuthenticator}
         onScanBack={handleBackToSelect}
         title={t("auth.mfa_authenticator_title") || "Authenticator Code"}
+        defaultScreen={authDefaultScreen}
       />
     </>
   );

@@ -36,13 +36,6 @@ const statusColors: Record<string, string> = {
   ended: 'destructive',
 };
 
-const MOCK_ADVERTISERS: Advertiser[] = [
-  { id: '1', name: 'Careem', external_id: 'ADV-10231', industry: 'Technology', status: 'active' },
-  { id: '2', name: 'Noon', external_id: 'ADV-10232', industry: 'Retail', status: 'active' },
-  { id: '3', name: 'Emirates NBD', external_id: 'ADV-10233', industry: 'Finance', status: 'active' },
-  { id: '4', name: 'Talabat', external_id: 'ADV-10234', industry: 'Food & Beverage', status: 'paused' },
-  { id: '5', name: 'Kitopi', external_id: 'ADV-10235', industry: 'Food & Beverage', status: 'ended' },
-];
 
 const defaultForm: Omit<Advertiser, 'id'> = {
   name: '',
@@ -51,10 +44,9 @@ const defaultForm: Omit<Advertiser, 'id'> = {
   status: 'active',
 };
 
-export default function AdvertisersTab() {
+export default function AdvertisersTab({ advertisers }: { advertisers: Advertiser[] }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const [advertisers, setAdvertisers] = useState<Advertiser[]>(MOCK_ADVERTISERS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [form, setForm] = useState<Omit<Advertiser, 'id'>>(defaultForm);
@@ -72,9 +64,9 @@ export default function AdvertisersTab() {
   };
 
   const handleSuspend = (advId: string) => {
-    setAdvertisers((prev) =>
-      prev.map((a) => (a.id === advId ? { ...a, status: 'paused' as const } : a))
-    );
+    // setAdvertisers((prev) =>
+    //   prev.map((a) => (a.id === advId ? { ...a, status: 'paused' as const } : a))
+    // );
     toast({ title: t('account.advertiser_suspended') });
   };
 
@@ -136,8 +128,8 @@ export default function AdvertisersTab() {
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
-      { field: 'name', headerName: t('account.advertiser_name').replace(' *', ''), flex: 1.2 },
-      { field: 'external_id', headerName: t('account.external_id').replace(' *', ''), flex: 1 },
+      { field: 'advertiserName', headerName: t('account.advertiser_name').replace(' *', ''), flex: 1.2 },
+      { field: 'id', headerName: t('account.external_id').replace(' *', ''), flex: 1 },
       { field: 'industry', headerName: t('account.industry'), flex: 1 },
       { field: 'status', headerName: 'Status', flex: 0.7, cellRenderer: StatusRenderer },
       {

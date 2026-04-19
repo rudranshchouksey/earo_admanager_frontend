@@ -49,7 +49,7 @@ import { useTranslation } from "@/contexts/TranslationContext";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import UsersTab from "@/components/dashboard/account/UsersTab";
 import AdvertisersTab from "@/components/dashboard/account/AdvertisersTab";
-import { advertiserApi } from "@/services/advertiser";
+import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
 
@@ -80,11 +80,12 @@ export default function Account() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
 
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
 
   const [qrCode, setQrCode] = useState("");
-
+  const [mfaToken, setMFAToken] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -137,6 +138,21 @@ export default function Account() {
         return;
       }
       setOrganizationDetails(organizationDetails.data.organization);
+
+      const {
+        data: advertisers,
+        status: advertisersStatus,
+        message: advertisersMessage,
+      } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if (advertisersStatus !== 200) {
+        toast({
+          title: t("common.error"),
+          description: advertisersMessage || "Failed to load advertisers",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAdvertisers(advertisers.data ?? []);
     };
     load();
   }, []);
@@ -282,15 +298,20 @@ export default function Account() {
       }
 
       setQrCode(data.data.qrCode);
+      setMFAToken(data.data.mfaToken);
       setIsMfaModalOpen(true);
     }else {
-      // disable mfa 
+      toast({
+        title: t("common.error"),
+        description: "Feature not implemented yet",
+        variant: "destructive",
+      });
     }
   }
 
 
   const verifyMFAComplete = async (code: string) => {
-    const { error, status, message, data } = await userApi.verify2fa(profile.id, code);
+    const { error, status, message, data } = await userApi.verify2fa(profile.id, code, mfaToken);
     if (error || status !== 200) {
       toast({
         title: t("common.error"),
@@ -488,7 +509,7 @@ export default function Account() {
         {/* ADVERTISERS TAB (Pro Agency only) */}
         {isAgency && (
           <TabsContent value="advertisers" className="mt-4">
-            <AdvertisersTab />
+            <AdvertisersTab advertisers={advertisers} />
           </TabsContent>
         )}
 
@@ -510,22 +531,12 @@ export default function Account() {
               </div>
               <div className="space-y-2">
                 <Label>{t("account.company_type")}</Label>
-                <Select
+                <Input
                   value={organizationDetails?.orgType ?? ""}
-                  onValueChange={(v) => setOrganizationDetails({...organizationDetails, orgType: v as "SME" | "AGENCY"})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SME">
-                      {t("account.company_type_sme")}
-                    </SelectItem>
-                    <SelectItem value="AGENCY">
-                      {t("account.company_type_agency")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Company Type"
+                  readOnly
+                  disabled
+                />
               </div>
               <div className="space-y-2">
                 <Label>{t("account.industry")}</Label>
@@ -572,7 +583,7 @@ export default function Account() {
               <div className="space-y-2">
                 <Label>{t("account.language")}</Label>
                 <Select
-                  value={profile.language}
+                  value={profile.language?.toLowerCase() ?? "en"}
                   onValueChange={(v) => update("language", v)}
                 >
                   <SelectTrigger>

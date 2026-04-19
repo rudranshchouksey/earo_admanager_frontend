@@ -17,7 +17,7 @@ import type {
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import { auth, AuthSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
-import { Ad, adsApi, Music, Voice } from "@/services/ads";
+import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 
 type AdMode = "ai" | "upload";
 
@@ -52,16 +52,17 @@ export default function AdCreator() {
   const { isPro } = useSessionFlags();
 
   const [mode, setMode] = useState<AdMode>("ai");
-  const [generatedAd, setGeneratedAd] = useState<Ad | null>(null);
+  const [generatedAd, setGeneratedAd] = useState<AdStatusResponse | null>(null);
   const [editedScript, setEditedScript] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-
+  const [jobId, setJobId] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("sales");
   const [voice, setVoice] = useState("female-en");
   const [tone, setTone] = useState("friendly");
   const [music, setMusic] = useState("happy");
-
+  const [language, setLanguage] = useState("en");
+  const [gender, setGender] = useState("female");
 
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
@@ -78,20 +79,53 @@ export default function AdCreator() {
     useState<ProContentSettings>(DEFAULT_PRO_CONTENT);
   const [advertiserId, setAdvertiserId] = useState<string | null>(null);
 
-  const handleGenerate = useCallback(async () => {
+
+  const getAdStatus = async (jobId: string) => {
+    const {status, error, message, data} = await adsApi.checkAdStatus(jobId);
+    console.log("getAdStatus here ", {status, error, message, data});
+    if(status != 200){
+      toast({ title: "Error checking ad status", description: message, variant: 'destructive' });
+      setIsGenerating(false);
+    }else {
+      if(data.data.finished){
+        if(data.data.error){
+          toast({ title: "Error checking ad status", description: "Unable to check Ad Status", variant: 'destructive' });
+          setIsGenerating(false);
+        }else {
+          setIsGenerating(false);
+          setGeneratedAd(data.data);
+          setEditedScript(data.data.script);
+        }
+      }else {
+        setTimeout(() => {
+          getAdStatus(jobId);
+        }, 5000);
+      }
+    }
+  };
+
+
+  const handleRegenerate = useCallback(async () => {
+
+    console.log("handleRegenerated here ", {editedScript});
+    if(!editedScript){
+      toast({ title: "Error regenerating ad", description: "No script to regenerate", variant: 'destructive' });
+      return;
+    }
     setIsGenerating(true);
     try {
 
-        console.log("handleGenerated here ", {description, goal, voice, tone, music});
+        console.log("handleRegenerated here ", {description, goal, gender, language, tone, music});
         const {error, status, message, data} = await adsApi.createAd({
-          type: 1,
+          type: 2,
           campaignGoal: goal,
           advertiserId: advertiserId,
-          prompt: description,
+          prompt: editedScript,
           tone: tone,
-          voiceId: voices[0].id,
-          musicId: musics[0].id
+          voiceId: voices[0].externalId,
+          musicId: musics[0].externalId
         });
+        console.log("createAd here ", {error, status, message, data});
         if(status != 200){
           toast({
             title: t("ad_creator.generation_failed"),
@@ -102,8 +136,9 @@ export default function AdCreator() {
         }
       if (error) throw error;
       const ad = data;
-      setGeneratedAd(ad);
+      //setGeneratedAd(ad);
       // setEditedScript(ad.script);
+      getAdStatus(data.data.jobId)
     } catch (err) {
       console.error("Generate error:", err);
       toast({
@@ -112,7 +147,54 @@ export default function AdCreator() {
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      //setIsGenerating(false);
+    }
+  }, [description, goal, t]);
+
+
+  const handleSaveAd = useCallback(async (adName: string) => {
+    await adsApi.updateAdStatus(jobId, adName);
+  }, [jobId]);
+
+
+  const handleGenerate = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+
+        console.log("handleGenerated here ", {description, goal, gender, language, tone, music});
+        const {error, status, message, data} = await adsApi.createAd({
+          type: 1,
+          campaignGoal: goal,
+          advertiserId: advertiserId,
+          prompt: description,
+          tone: tone,
+          voiceId: voices[0].externalId,
+          musicId: musics[0].externalId
+        });
+        console.log("createAd here ", {error, status, message, data});
+        if(status != 200){
+          toast({
+            title: t("ad_creator.generation_failed"),
+            description: message,
+            variant: "destructive",
+          });
+          return;
+        }
+      if (error) throw error;
+      const ad = data;
+      // setGeneratedAd(ad);
+      // setEditedScript(ad.script);
+      getAdStatus(data.data.jobId)
+      setJobId(data.data.id);
+    } catch (err) {
+      console.error("Generate error:", err);
+      toast({
+        title: t("ad_creator.generation_failed"),
+        description: t("ad_creator.generation_failed_desc"),
+        variant: "destructive",
+      });
+    } finally {
+      //setIsGenerating(false);
     }
   }, [description, goal, t]);
 
@@ -131,8 +213,9 @@ export default function AdCreator() {
       setMusicsLoading(false);
     }
   };
-  const getVoices = async (gender, language, tone) => {
+  const getVoices = async (gender: string, language: string, tone: string) => {
     setVoicesLoading(true);
+    console.log("getVoices here ", {gender, language, tone});
     const {status, error, message, data} = await adsApi.getVoices({
       page: 1,
       limit: 1,
@@ -253,6 +336,10 @@ export default function AdCreator() {
               onDescriptionChange={setDescription}
               goal={goal}
               onGoalChange={setGoal}
+              language={language}
+              onLanguageChange={setLanguage}
+              gender={gender}
+              onGenderChange={setGender}
               voice={voice}
               onVoiceChange={setVoice}
               tone={tone}
@@ -265,7 +352,7 @@ export default function AdCreator() {
               editedScript={editedScript}
               onScriptChange={setEditedScript}
               onSaved={handleSaved}
-              onRegenerate={handleGenerate}
+              onRegenerate={handleRegenerate}
               isRegenerating={isGenerating}
               isPro={isPro}
               trackingPixel={trackingPixel}
@@ -282,6 +369,7 @@ export default function AdCreator() {
               musics={musics}
               getMusics={getMusics}
               musicsLoading={musicsLoading}
+              handleSaveAd={handleSaveAd}
             />
           ) : (
             <UploadAdForm onSaved={handleSaved} />
@@ -292,6 +380,7 @@ export default function AdCreator() {
       {mode === "ai" && (
         <AdGeneratingModal
           open={isGenerating}
+
           onCancel={() => setIsGenerating(false)}
         />
       )}

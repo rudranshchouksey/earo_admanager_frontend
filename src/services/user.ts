@@ -30,6 +30,7 @@ export interface Setup2faResponse {
   message: string;
   data: {
     qrCode: string;
+    mfaToken: string;
   };
 }
 
@@ -52,6 +53,6 @@ export const userApi = {
 
   setup2fa: (userId: string) => request<Setup2faResponse>('/api/v1/auth/2fa/setup', { method: 'POST', body: { userId } }),
 
-  verify2fa: (userId: string, code: string) => request<Verify2faResponse>('/api/v1/auth/2fa/verify', { method: 'POST', body: { userId, token:code } }),
+  verify2fa: (userId: string, code: string, mfaToken: string) => request<Verify2faResponse>('/api/v1/auth/2fa/verify', { method: 'POST', body: { userId, token:code, mfaToken  } }),
 
 };

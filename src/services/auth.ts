@@ -40,7 +40,7 @@ const listeners = new Set<AuthListener>();
 
 // --- Internal Helpers ---
 
-function getStoredSession(): AuthSession | null {
+export function getStoredSession(): AuthSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -87,6 +87,35 @@ function setStoredSession(session: AuthSession | null) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...session.user, currentOrganizationId: session.currentOrganizationId, currentAdvertiserId: session.currentAdvertiserId }));
 
 }
+export function createSessionAndNotify(data: any) {
+  const currentOrganizationId = data.data.organizations[0].orgId;
+  const orgType = data.data.organizations[0].orgType;
+
+  console.log({ currentOrganizationId });
+
+  const session: AuthSession = {
+    user: {
+      id: data.data.id,
+      email: data.data.email,
+      app_metadata: {
+        isPro: false,
+        userState: 'existing',
+        isAgency:  orgType === 'AGENCY',
+        status: data.data.status,
+        mfaEnabled: data.data.mfaEnabled,
+        mfaSkipUntil: data.data.mfaSkipUntil,
+        organizations: data.data.organizations ?? []
+      }
+    },
+    currentOrganizationId: currentOrganizationId,
+    currentAdvertiserId: "",
+    accessToken: data.tokens.accessToken,
+    refreshToken: data.tokens.refreshToken
+  };
+
+  setStoredSession(session);
+  notify('SIGNED_IN', session);
+}
 
 const notify = (event: string, session: AuthSession | null) => 
   listeners.forEach(cb => cb(event, session));
@@ -120,6 +149,14 @@ export const auth = {
     setStoredSession(session);
   },
 
+  userUpgradedToAgency: () => {
+    const session = getStoredSession();
+    if (!session) return;
+    session.user.app_metadata!.isAgency = true;
+    setStoredSession(session);
+    notify('USER_UPDATED', session);
+  },
+
   /** Standard Login */
   signInWithPassword: async (email: string, password: string) => {
     const { data, error, status, message } = await request<any>('/api/v1/auth/login', {
@@ -130,33 +167,7 @@ export const auth = {
 
     if (error || !data?.tokens) return { data, error, status, message };
 
-    const currentOrganizationId = data.data.organizations[0].orgId;
-    const orgType = data.data.organizations[0].orgType;
-
-    console.log({ currentOrganizationId });
-
-    const session: AuthSession = {
-      user: {
-        id: data.data.id,
-        email: data.data.email,
-        app_metadata: {
-          isPro: false,
-          userState: 'existing',
-          isAgency:  orgType === 'AGENCY',
-          status: data.data.status,
-          mfaEnabled: data.data.mfaEnabled,
-          mfaSkipUntil: data.data.mfaSkipUntil,
-          organizations: data.data.organizations ?? []
-        }
-      },
-      currentOrganizationId: currentOrganizationId,
-      currentAdvertiserId: "",
-      accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken
-    };
-
-    setStoredSession(session);
-    notify('SIGNED_IN', session);
+    createSessionAndNotify(data);
     return { data, error: null, status, message };
   },
 
@@ -171,29 +182,8 @@ export const auth = {
     console.log("signInWithGoogle", { data, error, status, message });
     if (error || status !== 200 || !data?.tokens) return { data: null, error, status, message };
 
-    const currentOrganizationId = data.data.organizations[0].orgId;
-
-    const session: AuthSession = {
-      user: {
-        id: data.data.id,
-        email: data.data.email,
-        app_metadata: {
-          isPro: false,
-          userState: 'existing',
-          isAgency: data.data.organizations[0].orgType === "AGENCY",
-          status: data.data.status ?? 'ACTIVE',
-          organizations: data.data.organizations ?? []
-        }
-      },
-      currentOrganizationId: currentOrganizationId,
-      currentAdvertiserId: "",
-      accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken
-    };
-
-    setStoredSession(session);
-    notify('SIGNED_IN', session);
-    return { data: { session }, error: null };
+    createSessionAndNotify(data);
+    return { data, error: null };
   },
 
   /** Registration */
@@ -210,28 +200,8 @@ export const auth = {
 
     if (error || !data?.tokens) return { data: null, error, status, message };
 
-    const currentOrganizationId = data.data.organizations[0].orgId;
-
-    const session: AuthSession = {
-      user: {
-        id: data.data.id,
-        email: params.email,
-        app_metadata: {
-          isPro: false,
-          userState: 'new',
-          isAgency: data.data.organizations[0].orgType === "AGENCY",
-          status: data.data.status,
-        }
-      },
-      currentOrganizationId: currentOrganizationId,
-      currentAdvertiserId: "",
-      accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken
-    };
-
-    setStoredSession(session);
-    notify('SIGNED_IN', session);
-    return { data: { session }, error: null };
+    createSessionAndNotify(data);
+    return { data, error: null, status, message };
   },
 
   /** OTP & Verification Flows */

@@ -2,7 +2,7 @@
  * API Service - Core Engine
  * Handles authentication headers, token refresh logic, and error normalization.
  */
-import { auth } from './auth';
+import { auth, getStoredSession } from './auth';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
@@ -77,10 +77,20 @@ export async function request<T = unknown>(
 
   const { data: sessionData } = await auth.getSession();
   const token = sessionData.session?.accessToken;
+  const orgId = {};
+
+
+  const storedSession =getStoredSession();
+  console.log("storedSession", storedSession);
+  if(storedSession?.currentOrganizationId){
+    orgId["x-org-id"] = storedSession.currentOrganizationId;
+  }
+
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...customHeaders,
+    ...orgId,
   };
   
   if (!skipAuth && token) {

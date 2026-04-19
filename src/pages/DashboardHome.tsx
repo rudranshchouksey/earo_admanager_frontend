@@ -21,8 +21,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { OtpModal } from "@/components/auth/otp-modal";
 import { toast } from "@/hooks/use-toast";
 import { userApi, UserProfile } from "@/services/user";
-import { campaignApi } from "@/services/campaign";
-import { OnBoarding, OnboardingRole } from "@/components/dashboard/OnBoarding";
 import { organizationApi } from "@/services/organization";
 
 export default function DashboardHome() {
@@ -35,7 +33,6 @@ export default function DashboardHome() {
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpErrorMessage, setOtpErrorMessage] = useState<string | null>(null);
-  const [onboardingComplete, setOnboardingComplete] = useState(true);
   const mockStats = { impressions: 124500, spend: 2340, reach: 48200 };
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
@@ -59,7 +56,6 @@ export default function DashboardHome() {
           setVerificationPending(true);
           setSessionEmail(data.data.email);
         }
-        setOnboardingComplete(data.data.onboardingComplete);
         console.log({ data });
       }
     };
@@ -161,14 +157,6 @@ export default function DashboardHome() {
       return { error: null, status, message };
   };
 
-  const handleSelectRole = async (role: OnboardingRole) => {
-    const { error, status, message } = await organizationApi.updateOrganizationType(userProfile?.id!, role);
-    if (error || status !== 200) {
-      return { error, status, message };
-    }
-    setOnboardingComplete(true);
-    return { error: null, status, message };
-  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -176,7 +164,7 @@ export default function DashboardHome() {
         <>
           <Alert className="border-b last:border-b-0 border-destructive/15 bg-destructive/5 py-2.5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div className="flex-1 flex-col md:flex-row min-w-0 flex items-start md:items-center gap-2">
                 <AlertTitle className="text-sm font-medium text-destructive flex items-center gap-2">
                   <MailCheck className="h-4 w-4 text-destructive" />
                   Your email verification is pending
@@ -210,11 +198,6 @@ export default function DashboardHome() {
           />
         </>
       )}
-
-      <OnBoarding
-        open={onboardingComplete === false}
-        onSelectRole={handleSelectRole}
-      />
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">

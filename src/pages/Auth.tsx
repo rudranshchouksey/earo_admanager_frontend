@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { auth } from "@/services/auth";
+import { auth, createSessionAndNotify } from "@/services/auth";
 import { request } from "@/services/api";
 import type { AuthSession } from "@/services/auth";
 import { Headphones } from "lucide-react";
@@ -352,22 +352,25 @@ export default function Auth() {
     }
   };
 
-  const handleMfaComplete = (type: string,value: { error: Error | null, status: number, message: string, data: any }) => {
+  const handleMfaComplete = async (code: string) => {
+    const { error, status, message, data } = await userApi.verify2fa(userId, code, mfaToken);
     
-    console.log("handleMfaComplete ", value);
-    if (value.error || value.status !== 200) {
+    console.log("handleMfaComplete ", { error, status, message, data });
+    if (error || status !== 200) {
       toast({
         title: t("common.error"),
-        description: value.message,
+        description: message,
         variant: "destructive",
       });
       return;
     }
     toast({
       title: t("common.success"),
-      description: value.message,
+      description: message,
       variant: "default",
     });
+
+    createSessionAndNotify(data);
     setShowMfaSelector(false);
     navigate("/dashboard");
     console.log("navigating to dashboard");
@@ -735,7 +738,8 @@ export default function Auth() {
         email={email}
         onVerifyEmail={(otp) => auth.verifyEmailVerificationOtp2fa(userId, mfaToken, otp)}
         onResendEmail={() => auth.sendEmailVerificationOtp2fa(userId, mfaToken)}
-        onVerifyAuthenticator={(code) => userApi.verify2fa(userId, code)}
+        onVerifyAuthenticator={handleMfaComplete}
+        authDefaultScreen="verify"
       />
     </div>
   );

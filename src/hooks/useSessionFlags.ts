@@ -35,15 +35,14 @@ export function useSessionFlags(): SessionFlags {
     const applySession = (session: AuthSession | null) => {
       const meta = session?.user?.app_metadata;
       const organizationId = session?.currentOrganizationId;
-      const advertiserId = session?.currentAdvertiserId;
-
-      const organization = session?.user?.app_metadata?.organizations?.find((org) => org.orgId === organizationId);
+      const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
 
       if (meta) {
         setFlags({
           isPro: meta.isPro,
           isNewUser: meta.userState === 'new',
-          isAgency: organization?.orgType === "AGENCY" ? true : false,
+          // Prefer canonical boolean; fall back to orgType match for older sessions.
+          isAgency: Boolean(meta.isAgency ?? (organization?.orgType === 'AGENCY')),
         });
       } else {
         setFlags(loadFallbackFlags());

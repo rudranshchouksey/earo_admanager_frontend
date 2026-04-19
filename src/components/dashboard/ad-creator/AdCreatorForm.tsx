@@ -9,10 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { auth } from '@/services/auth';
-import { adsApi, Music, Voice } from '@/services/ads';
+import { AdStatusResponse, Music, Voice } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
-import type { GeneratedAd } from '@/types/landing';
 import ProCustomizations, {
   type ProVoiceSettings,
   type ProMusicSettings,
@@ -32,7 +30,7 @@ interface AdCreatorFormProps {
   onMusicChange: (v: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
-  generatedAd: GeneratedAd | null;
+  generatedAd: AdStatusResponse | null;
   editedScript: string;
   onScriptChange: (s: string) => void;
   onSaved: () => void;
@@ -53,6 +51,11 @@ interface AdCreatorFormProps {
   musics: Music[];
   getMusics: (mood: string) => void;
   musicsLoading: boolean;
+  gender: string;
+  onGenderChange: (v: string) => void;
+  language: string;
+  onLanguageChange: (v: string) => void;
+  handleSaveAd: (adName: string) => Promise<void>;
 }
 
 const goalPlaceholders: Record<string, string> = {
@@ -65,6 +68,168 @@ const goalPlaceholders: Record<string, string> = {
   local: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://maps.google.com/myshop -- Boutique coffee shop in JLT. Grand opening weekend, free pastry with every coffee. Walk-ins welcome.',
 };
 
+
+const ExpressCustomizations = ({ gender, onGenderChange, language, onLanguageChange, voices, voicesLoading, musics, musicsLoading, tone, onToneChange, music, onMusicChange }: { gender: string, onGenderChange: (v: string) => void, language: string, onLanguageChange: (v: string) => void, voices: Voice[], voicesLoading: boolean, musics: Music[], musicsLoading: boolean, tone: string, onToneChange: (v: string) => void, music: string, onMusicChange: (v: string) => void }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
+    <Label className="text-base font-semibold">{t('ad_creator.customization_voice')}</Label>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="space-y-2">
+        <Label className="text-sm">{t('ad_creator.gender')}</Label>
+        <Select value={gender} onValueChange={onGenderChange}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="female">{t('ad_creator.gender_female')}</SelectItem>
+            <SelectItem value="male">{t('ad_creator.gender_male')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label className="text-sm">{t('ad_creator.language')}</Label>
+        <Select value={language} onValueChange={onLanguageChange}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="en">{t('ad_creator.language_en')}</SelectItem>
+            <SelectItem value="ar">{t('ad_creator.language_ar')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm">{t('ad_creator.tone')}</Label>
+        <Select value={tone} onValueChange={onToneChange}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="friendly">{t('ad_creator.tone_friendly')}</SelectItem>
+            <SelectItem value="professional">{t('ad_creator.tone_professional')}</SelectItem>
+            <SelectItem value="excited">{t('ad_creator.tone_excited')}</SelectItem>
+            <SelectItem value="urgent">{t('ad_creator.tone_urgent')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+    </div>
+    {voicesLoading ? (
+      <div className="flex items-center justify-center h-12">
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+    ) : (
+      voices.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row items-center">
+          <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
+          <div className="aspect-square w-full">
+                {voices[0].imageUrl ? (
+                  <img
+                    src={voices[0].imageUrl}
+                    alt={voices[0].name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-muted">
+                    <Mic2 className="h-10 w-10 text-muted-foreground/60" aria-hidden />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+              <div className="flex flex-wrap gap-1.5">
+                {
+                  voices[0].name ? (
+                    <p className="text-sm font-semibold text-foreground px-2">
+                      {voices[0].name}
+                    </p>
+                  ) : null
+                }
+                {voices[0].language ? (
+                  <Badge variant="secondary" className="font-normal">
+                    {voices[0].language}
+                  </Badge>
+                ) : null}
+                {voices[0].accent ? (
+                  <Badge variant="outline" className="font-normal">
+                    {voices[0].accent}
+                  </Badge>
+                ) : null}
+                {voices[0].gender ? (
+                  <Badge variant="outline" className="font-normal">
+                    {voices[0].gender}
+                  </Badge>
+                ) : null}
+              </div>
+              <audio
+                src={voices[0].audioUrl}
+                preload="metadata"
+                controls
+                className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
+              />
+            </div>
+          </div>
+        </div>
+      )
+    )}
+
+    <div className="space-y-4">
+      <Label className="text-base font-semibold">{t('ad_creator.customization_music')}</Label>
+      <div className="space-y-2">
+          <Label className="text-sm">{t('ad_creator.music')}</Label>
+          <Select value={music} onValueChange={onMusicChange}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {
+                ["ambient", "calm", "chill", "dark", "energetic", "happy", "hopeful", "optimistic", "passionate"].map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))
+              }
+            </SelectContent>
+          </Select>
+      </div>
+    </div>
+
+    {
+      musicsLoading ? (
+        <div className="flex items-center justify-center h-12">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      ) : (
+        musics.length > 0 && (
+          <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row items-center" >
+            <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
+              <div className="aspect-square w-full">
+              <div className="flex h-full w-full items-center justify-center bg-muted">
+                    <MusicIcon className="h-4 w-4 text-muted-foreground/60" aria-hidden />
+                  </div>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+              <div className="flex flex-wrap gap-1.5">
+                {
+                  musics[0].title ? (
+                    <p className="text-sm font-semibold text-foreground px-2">
+                      {musics[0].title}
+                    </p>
+                  ) : null
+                }
+              </div>
+              <audio
+                src={musics[0].audio_url}
+                preload="metadata"
+                controls
+                className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
+              />
+            </div>
+          </div>
+        </div>
+        )
+      )
+    }
+  </div>  
+  );
+};
+
+
 export default function AdCreatorForm({
   description, onDescriptionChange, goal, onGoalChange,
   voice, onVoiceChange, tone, onToneChange, music, onMusicChange,
@@ -75,6 +240,8 @@ export default function AdCreatorForm({
   proMusicSettings, onProMusicSettingsChange,
   proContentSettings, onProContentSettingsChange,
   voices, getVoices, voicesLoading, musics, getMusics, musicsLoading,
+  gender, onGenderChange, language, onLanguageChange,
+  handleSaveAd,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
   const canSubmit = description.trim().length > 0;
@@ -88,13 +255,15 @@ export default function AdCreatorForm({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [adName, setAdName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [adDuration, setAdDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
+
   // Reset dirty flag when a new ad is generated
   useEffect(() => {
     if (generatedAd) {
       setScriptDirty(false);
-      setAdName(generatedAd.brandName + ' Ad');
+      setAdName('Ad');
     }
   }, [generatedAd]);
 
@@ -122,12 +291,37 @@ export default function AdCreatorForm({
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => setProgress((audio.currentTime / audio.duration) * 100);
+
+    // Set src first; duration is only available after metadata loads.
+    audio.preload = 'metadata';
+    audio.src = generatedAd?.url || '';
+
+    const syncDuration = () => {
+      const dur = audio.duration;
+      setAdDuration(Number.isFinite(dur) ? Math.round(dur) : 0);
+    };
+
+    const onTime = () => {
+      const dur = audio.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      setProgress((audio.currentTime / dur) * 100);
+    };
     const onEnd = () => { setIsPlaying(false); setProgress(0); };
+    const onMeta = () => syncDuration();
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnd);
-    return () => { audio.removeEventListener('timeupdate', onTime); audio.removeEventListener('ended', onEnd); };
-  }, [hasAd]);
+    audio.addEventListener('loadedmetadata', onMeta);
+    audio.addEventListener('durationchange', onMeta);
+
+    // If metadata is already available (cached), sync immediately.
+    syncDuration();
+    return () => { 
+      audio.removeEventListener('timeupdate', onTime); 
+      audio.removeEventListener('ended', onEnd); 
+      audio.removeEventListener('loadedmetadata', onMeta);
+      audio.removeEventListener('durationchange', onMeta);
+    };
+  }, [generatedAd?.url]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -141,13 +335,14 @@ export default function AdCreatorForm({
   }));
 
   const handleScriptChange = (value: string) => {
+    console.log("handleScriptChange here ", {value});
     onScriptChange(value);
     setScriptDirty(value !== generatedAd?.script);
   };
 
   const handleCopyLink = () => {
-    if (generatedAd?.audioUrl) {
-      navigator.clipboard.writeText(generatedAd.audioUrl);
+    if (generatedAd?.url) {
+      navigator.clipboard.writeText(generatedAd?.url);
       toast({ title: t('ad_creator.link_copied') });
     }
   };
@@ -155,27 +350,7 @@ export default function AdCreatorForm({
   const handleConfirmSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { session } } = await auth.getSession();
-      if (!session) {
-        toast({ title: t('ad_creator.not_authenticated'), variant: 'destructive' });
-        return;
-      }
-      // const { error } = await adsApi.createAd({
-      //   product_name: adName.trim() || generatedAd!.brandName,
-      //   brand_name: generatedAd!.brandName,
-      //   script: editedScript,
-      //   audio_url: generatedAd!.audioUrl,
-      //   duration_seconds: generatedAd!.duration,
-      //   tone: generatedAd!.tone,
-      //   status: 'completed',
-      //   source_type: 'dashboard',
-      //   user_id: session.user.id,
-      //   ai_category: generatedAd!.category,
-      //   ai_target_audience: generatedAd!.targetAudience,
-      //   voice_settings: { voiceId: generatedAd!.voiceId },
-      //   music_settings: { musicId: generatedAd!.musicId },
-      // });
-      // if (error) throw error;
+      await handleSaveAd(adName);
       setShowSaveModal(false);
       onSaved();
     } catch (err) {
@@ -189,8 +364,8 @@ export default function AdCreatorForm({
 
 
   useEffect(() => {
-    getVoices(voice.split("-")[0], voice.split("-")[1], tone);
-  }, [voice, tone]);
+    getVoices(gender, language, tone);
+  }, [gender, language, tone]);
 
   useEffect(() => {
     getMusics(music);
@@ -247,146 +422,21 @@ export default function AdCreatorForm({
               onContentSettingsChange={onProContentSettingsChange}
             />
           ) : (
-            <div className="space-y-4">
-              <Label className="text-base font-semibold">{t('ad_creator.customization')}</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm">{t('ad_creator.voice')}</Label>
-                  <Select value={voice} onValueChange={onVoiceChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="female-en">{t('ad_creator.voice_female_en')}</SelectItem>
-                      <SelectItem value="male-en">{t('ad_creator.voice_male_en')}</SelectItem>
-                      <SelectItem value="female-ar">{t('ad_creator.voice_female_ar')}</SelectItem>
-                      <SelectItem value="male-ar">{t('ad_creator.voice_male_ar')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">{t('ad_creator.tone')}</Label>
-                  <Select value={tone} onValueChange={onToneChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="friendly">{t('ad_creator.tone_friendly')}</SelectItem>
-                      <SelectItem value="professional">{t('ad_creator.tone_professional')}</SelectItem>
-                      <SelectItem value="excited">{t('ad_creator.tone_excited')}</SelectItem>
-                      <SelectItem value="urgent">{t('ad_creator.tone_urgent')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">{t('ad_creator.music')}</Label>
-                  <Select value={music} onValueChange={onMusicChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {
-                        ["ambient", "calm", "chill", "dark", "energetic", "happy", "hopeful", "optimistic", "passionate"].map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))
-                      }
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {voicesLoading ? (
-                <div className="flex items-center justify-center h-12">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-              ) : (
-                voices.length > 0 && (
-                  <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
-                    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch">
-                      <div className="relative mx-auto w-full max-w-[200px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-w-[140px]">
-                        <div className="aspect-square w-full">
-                          {voices[0].imageUrl ? (
-                            <img
-                              src={voices[0].imageUrl}
-                              alt={voices[0].name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-muted">
-                              <Mic2 className="h-10 w-10 text-muted-foreground/60" aria-hidden />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {
-                            voices[0].name ? (
-                              <p className="text-sm font-semibold text-foreground px-2">
-                                {voices[0].name}
-                              </p>
-                            ) : null
-                          }
-                          {voices[0].language ? (
-                            <Badge variant="secondary" className="font-normal">
-                              {voices[0].language}
-                            </Badge>
-                          ) : null}
-                          {voices[0].accent ? (
-                            <Badge variant="outline" className="font-normal">
-                              {voices[0].accent}
-                            </Badge>
-                          ) : null}
-                          {voices[0].gender ? (
-                            <Badge variant="outline" className="font-normal">
-                              {voices[0].gender}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <audio
-                          src={voices[0].audioUrl}
-                          preload="metadata"
-                          controls
-                          className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              )}
+            <ExpressCustomizations
+              gender={gender}
+              onGenderChange={onGenderChange}
+              language={language}
+              onLanguageChange={onLanguageChange}
+              voices={voices}
+              voicesLoading={voicesLoading}
+              musics={musics}
+              musicsLoading={musicsLoading}
+              tone={tone}
+              onToneChange={onToneChange}
+              music={music}
+              onMusicChange={onMusicChange}
+            />
 
-              {
-                musicsLoading ? (
-                  <div className="flex items-center justify-center h-12">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  </div>
-                ) : (
-                  musics.length > 0 && (
-                    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
-                    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center" >
-                      <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
-                        <div className="aspect-square w-full">
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                              <MusicIcon className="h-4 w-4 text-muted-foreground/60" aria-hidden />
-                            </div>
-                        </div>
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {
-                            musics[0].title ? (
-                              <p className="text-sm font-semibold text-foreground px-2">
-                                {musics[0].title}
-                              </p>
-                            ) : null
-                          }
-                        </div>
-                        <audio
-                          src={musics[0].audio_url}
-                          preload="metadata"
-                          controls
-                          className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  )
-                )
-              }
-            </div>
           )}
 
           <Button className="w-full h-12" onClick={onGenerate} disabled={!canSubmit || isGenerating}>
@@ -403,14 +453,14 @@ export default function AdCreatorForm({
         {hasAd && generatedAd && (
           <>
             <Separator className="mb-6" />
-            <audio ref={audioRef} src={generatedAd.audioUrl} preload="auto" />
+            <audio ref={audioRef} src={generatedAd.url} preload="auto" />
 
             {/* Audio Player */}
             <div className="rounded-lg border bg-muted/30 p-5 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-semibold text-foreground">{generatedAd.brandName}</h3>
-                  <Badge variant="secondary" className="mt-1">{generatedAd.duration}s</Badge>
+                  <h3 className="font-semibold text-foreground">{ 'Ad'}</h3>
+                  <Badge variant="secondary" className="mt-1">{adDuration}s</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="icon" variant="ghost" className="rounded-full h-10 w-10" onClick={handleCopyLink}>
@@ -466,49 +516,25 @@ export default function AdCreatorForm({
                       />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3">
-                      <div className="space-y-2">
-                        <Label className="text-sm">{t('ad_creator.voice')}</Label>
-                        <Select value={voice} onValueChange={onVoiceChange}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="female-en">{t('ad_creator.voice_female_en')}</SelectItem>
-                            <SelectItem value="male-en">{t('ad_creator.voice_male_en')}</SelectItem>
-                            <SelectItem value="female-ar">{t('ad_creator.voice_female_ar')}</SelectItem>
-                            <SelectItem value="male-ar">{t('ad_creator.voice_male_ar')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">{t('ad_creator.tone')}</Label>
-                        <Select value={tone} onValueChange={onToneChange}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="friendly">{t('ad_creator.tone_friendly')}</SelectItem>
-                            <SelectItem value="professional">{t('ad_creator.tone_professional')}</SelectItem>
-                            <SelectItem value="excited">{t('ad_creator.tone_excited')}</SelectItem>
-                            <SelectItem value="urgent">{t('ad_creator.tone_urgent')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">{t('ad_creator.music')}</Label>
-                        <Select value={music} onValueChange={onMusicChange}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="upbeat">{t('ad_creator.music_upbeat')}</SelectItem>
-                            <SelectItem value="corporate">{t('ad_creator.music_corporate')}</SelectItem>
-                            <SelectItem value="chill">{t('ad_creator.music_chill')}</SelectItem>
-                            <SelectItem value="none">{t('ad_creator.music_none')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                    <ExpressCustomizations
+                      gender={gender}
+                      onGenderChange={onGenderChange}
+                      language={language}
+                      onLanguageChange={onLanguageChange}
+                      voices={voices}
+                      voicesLoading={voicesLoading}
+                      musics={musics}
+                      musicsLoading={musicsLoading}
+                      tone={tone}
+                      onToneChange={onToneChange}
+                      music={music}
+                      onMusicChange={onMusicChange}
+                    />
                   )}
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4 leading-relaxed">
-                  {editedScript}
+                  {generatedAd?.script}
                 </p>
               )}
             </div>

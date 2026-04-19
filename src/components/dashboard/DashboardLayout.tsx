@@ -22,11 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { auth } from '@/services/auth';
+import { auth, AuthSession } from '@/services/auth';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { useTranslation } from '@/contexts/TranslationContext';
 import AlertBar from '@/components/dashboard/AlertBar';
 import { useDirection } from '@/contexts/DirectionContext';
+import { AgencySignup, OnboardingRole } from './AgencySignup';
+import { organizationApi } from '@/services/organization';
+import { toast } from '@/hooks/use-toast';
+import { Advertiser, advertiserApi } from '@/services/advertiser';
 
 const MOCK_ADVERTISERS = [
   { id: 'adv-001', name: 'Careem' },
@@ -73,6 +77,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
+  const [showAgencySignup, setShowAgencySignup] = useState(false);
+  const [showAgencySignupBtn, setShowAgencySignupBtn] = useState(false)
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+
+  const onSelectRole = async (role: OnboardingRole) => {
+    setShowAgencySignup(false);
+    const { error, status, message } = await organizationApi.updateOrganizationType(session?.user?.id, role);
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } else {
+      auth.userUpgradedToAgency();
+      toast({
+        title: t("common.success"),
+        description: "Upgraded to agency successfully",
+        variant: "default",
+      });
+    }
+  };
 
   const navItems = [
     { path: '/dashboard', label: t('layout.nav_dashboard'), icon: LayoutDashboard },
@@ -82,9 +109,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
   const accountItem = { path: '/dashboard/account', label: t('layout.nav_account'), icon: Settings };
 
+
+  const getAdvertisers = async (organizationId: string) => {
+    if(!organizationId) return;
+    const { data, error, status } = await advertiserApi.getAdvertisers(organizationId);
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } else {
+      setAdvertisers(data.data);
+      setSelectedAdvertiser(data.data[0].id);
+    }
+  }
+
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
+      setSession(session);
+      if(!session.user.app_metadata.isAgency) setShowAgencySignupBtn(true);
+      else {
+        getAdvertisers(session?.currentOrganizationId ?? '');
+      }
     });
   }, []);
 
@@ -131,16 +179,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         ))}
       </nav>
 
-      <div className="hidden px-3 py-3 border-t border-sidebar-border space-y-3">
-        <a
-          href="/docs/nextads-technical-overview.md"
-          download
-          className={`flex items-center gap-2 rounded-lg text-xs font-medium transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 py-1.5 ${collapsed ? 'justify-center px-1' : 'px-3'}`}
-        >
-          <Download className="h-3.5 w-3.5 shrink-0" />
-          {!collapsed && <span>{t('layout.tech_spec')}</span>}
-        </a>
-      </div>
 
       {/* Footer */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
@@ -159,6 +197,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
+        <br />
+        {showAgencySignupBtn && (
+          <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
+        )}
+
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 w-full transition-colors"
@@ -239,9 +282,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SelectValue placeholder={t('layout.choose_advertiser')} />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_ADVERTISERS.map((adv) => (
+                {advertisers.map((adv) => (
                   <SelectItem key={adv.id} value={adv.id} className="text-xs">
-                    {adv.name}
+                    {adv.advertiserName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -282,6 +325,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {showAgencySignup && (
+        <AgencySignup
+          open={showAgencySignup}
+          onOpenChange={(open) => {
+            if (!open) setShowAgencySignup(false);
+          }}
+          onSelectRole={onSelectRole}
+        />
+      )}
     </div>
   );
 }
