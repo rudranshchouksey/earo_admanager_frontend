@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards } from '@/components/ui/mobile-data-card';
+import { OrganizationIndustry } from '@/services/organization';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -44,7 +45,17 @@ const defaultForm: Omit<Advertiser, 'id'> = {
   status: 'active',
 };
 
-export default function AdvertisersTab({ advertisers }: { advertisers: Advertiser[] }) {
+export interface AdvertiserCreateObj {
+  advertiserName: string;
+  industry: string;
+}
+
+interface AdvertiserTabProps {
+  advertisers: Advertiser[];
+  createAdvertiser: (advertiser: AdvertiserCreateObj) => Promise<{status: number, error: boolean, message: string}>;
+}
+
+export default function AdvertisersTab({ advertisers, createAdvertiser }: AdvertiserTabProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,21 +81,29 @@ export default function AdvertisersTab({ advertisers }: { advertisers: Advertise
     toast({ title: t('account.advertiser_suspended') });
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.external_id || !form.industry) {
+  const handleSave = async () => {
+    if (!form.name || !form.industry) {
       toast({ title: t('account.fill_all_required'), variant: 'destructive' });
       return;
     }
 
     if (editing) {
-      setAdvertisers((prev) =>
-        prev.map((a) => (a.id === editing.id ? { ...a, ...form } : a))
-      );
+      // setAdvertisers((prev) =>
+      //   prev.map((a) => (a.id === editing.id ? { ...a, ...form } : a))
+      // );
       toast({ title: t('account.advertiser_updated') });
     } else {
-      const newAdv: Advertiser = { ...form, id: crypto.randomUUID() };
-      setAdvertisers((prev) => [...prev, newAdv]);
-      toast({ title: t('account.advertiser_created') });
+      // const newAdv: Advertiser = { ...form, id: crypto.randomUUID() };
+      // setAdvertisers((prev) => [...prev, newAdv]);
+      const { status, error,  message} = await createAdvertiser({
+        advertiserName: form.name,
+        industry: form.industry
+      });
+      if(status !== 200 || error){
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: message });
     }
     setDialogOpen(false);
   };
@@ -223,22 +242,13 @@ export default function AdvertisersTab({ advertisers }: { advertisers: Advertise
             </div>
 
             <div className="space-y-2">
-              <Label>{t('account.external_id')}</Label>
-              <Input
-                value={form.external_id}
-                onChange={(e) => updateForm('external_id', e.target.value)}
-                placeholder="e.g. ADV-10236"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label>{t('account.industry_required')}</Label>
               <Select value={form.industry} onValueChange={(v) => updateForm('industry', v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('account.select_industry')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {INDUSTRIES.map((i) => (
+                  {Object.values(OrganizationIndustry).map((i) => (
                     <SelectItem key={i} value={i}>{i}</SelectItem>
                   ))}
                 </SelectContent>

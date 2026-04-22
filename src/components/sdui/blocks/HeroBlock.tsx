@@ -27,7 +27,7 @@
              {badge_text}
            </span>
          )}
-         <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
+         <h1 className="text-4xl md:text-6xl font-semibold text-foreground mb-6 leading-tight">
            {headline}
          </h1>
          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">

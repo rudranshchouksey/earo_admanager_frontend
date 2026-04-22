@@ -24,7 +24,9 @@ export interface AdvertiserResponse {
     }
 }
 
-
 export const advertiserApi = {
   getAdvertisers: (organizationId: string) => request<AdvertiserResponse>('/api/v1/users/getAdvertisers', {method:"POST", body: { orgId: organizationId }}),
+
+  createAdvertiser: ({advertiserName, orgId, industry}: {advertiserName: string, orgId: string, industry: string}) => request<AdvertiserResponse>('/api/v1/users/createAdvertiser', {method:"POST", body: {advertiserName, orgId, industry}}),
+
 };

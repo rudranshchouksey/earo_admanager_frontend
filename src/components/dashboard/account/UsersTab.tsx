@@ -6,15 +6,19 @@ import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Send } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, KeyRound } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { SearchableList } from '@/components/ui/searchable-list';
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards } from '@/components/ui/mobile-data-card';
+import { useSessionFlags } from '@/hooks/useSessionFlags';
+// import { useDevFlags } from '@/contexts/DevFlagsContext';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -24,7 +28,8 @@ interface TeamUser {
   first_name: string;
   last_name: string;
   phone: string;
-  accounts: string;
+  accounts: string[];
+  includesFutureAccounts: boolean;
   rights: 'admin' | 'edit' | 'view';
   status: 'draft' | 'active' | 'paused' | 'ended';
   invited_at: string | null;
@@ -42,15 +47,17 @@ const defaultUser: Omit<TeamUser, 'id'> = {
   first_name: '',
   last_name: '',
   phone: '',
-  accounts: 'all',
+  accounts: [],
+  includesFutureAccounts: false,
   rights: 'view',
   status: 'draft',
   invited_at: null,
 };
 
 export default function UsersTab() {
-  const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const { isPro, isAgency } = useSessionFlags();
+
   const [users, setUsers] = useState<TeamUser[]>([
     {
       id: '1',
@@ -58,7 +65,8 @@ export default function UsersTab() {
       first_name: 'Sarah',
       last_name: 'Ahmed',
       phone: '+971501234567',
-      accounts: 'All Accounts',
+      accounts: [].map((a) => a.id),
+      includesFutureAccounts: true,
       rights: 'admin',
       status: 'active',
       invited_at: '2025-12-01',
@@ -69,20 +77,29 @@ export default function UsersTab() {
       first_name: 'James',
       last_name: 'Wilson',
       phone: '+971509876543',
-      accounts: 'Acme Corp',
+      accounts: ['1'],
+      includesFutureAccounts: false,
       rights: 'edit',
       status: 'active',
       invited_at: '2026-01-15',
     },
   ]);
 
+  const { t } = useTranslation();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<TeamUser | null>(null);
   const [form, setForm] = useState<Omit<TeamUser, 'id'>>(defaultUser);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const openCreate = () => {
     setEditingUser(null);
-    setForm(defaultUser);
+    setForm({
+      ...defaultUser,
+      // SME Pro: pre-fill with all accounts (single advertiser)
+      accounts: isPro ? [].map((a) => a.id) : [],
+      includesFutureAccounts: false,
+    });
     setDialogOpen(true);
   };
 
@@ -95,6 +112,8 @@ export default function UsersTab() {
   const handleDelete = (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     toast({ title: t('account.user_removed') });
+    setDialogOpen(false);
+    setDeleteConfirmOpen(false);
   };
 
   const handleSave = () => {
@@ -148,8 +167,24 @@ export default function UsersTab() {
     setDialogOpen(false);
   };
 
+  const handleResetPassword = () => {
+    toast({ title: 'Password reset email sent', description: `A reset link has been sent to ${form.email}` });
+  };
+
   const updateForm = (field: keyof Omit<TeamUser, 'id'>, value: any) =>
     setForm((f) => ({ ...f, [field]: value }));
+
+  // Derive display label for accounts column
+  const getAccountsDisplay = (user: TeamUser) => {
+    if (isSMEPro) return 'Own Account';
+    if (user.includesFutureAccounts) return 'All Accounts';
+    if (user.accounts.length === [].length) return 'All (snapshot)';
+    if (user.accounts.length === 0) return 'None';
+    const names = user.accounts
+      .map((id) => [].find((a) => a.id === id)?.name)
+      .filter(Boolean);
+    return names.join(', ');
+  };
 
   const StatusRenderer = useCallback((params: ICellRendererParams) => {
     const status = params.value as string;
@@ -168,7 +203,15 @@ export default function UsersTab() {
       view: t('account.rights_view_label'),
     };
     return <span className="text-sm capitalize">{labels[rights] || rights}</span>;
-  }, [t]);
+  }, []);
+
+  const AccountsRenderer = useCallback(
+    (params: ICellRendererParams) => {
+      const user = params.data as TeamUser;
+      return <span className="text-sm truncate">{getAccountsDisplay(user)}</span>;
+    },
+    [isSMEPro]
+  );
 
   const ActionsRenderer = useCallback(
     (params: ICellRendererParams) => {
@@ -205,8 +248,12 @@ export default function UsersTab() {
         filter: false,
       },
     ],
-    [t, StatusRenderer, RightsRenderer, ActionsRenderer]
+    [StatusRenderer, RightsRenderer, ActionsRenderer, AccountsRenderer]
   );
+
+  // Don't render for Express mode (single user — handled by Account.tsx hiding the tab)
+  // But as a safety net:
+  if (!isPro) return null;
 
   return (
     <>
@@ -238,9 +285,12 @@ export default function UsersTab() {
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground capitalize">
+                    <div>
+                      <span className="text-sm text-muted-foreground capitalize">
                       {user.rights === 'admin' ? t('account.rights_admin_label') : user.rights === 'edit' ? t('account.rights_edit_label') : t('account.rights_view_label')}
-                    </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground block">{getAccountsDisplay(user)}</span>
+                    </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(user)}>
                         <Pencil className="h-3.5 w-3.5" />
@@ -270,10 +320,11 @@ export default function UsersTab() {
         </CardContent>
       </Card>
 
+      {/* Create / Edit User Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingUser ? t('account.edit_user') : t('account.create_user')}</DialogTitle>
+            <DialogTitle>{editingUser ? 'Edit User' : 'Create New User'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -315,18 +366,60 @@ export default function UsersTab() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>{t('account.advertiser_accounts')}</Label>
-              <Select value={form.accounts} onValueChange={(v) => updateForm('accounts', v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('account.all_accounts')}</SelectItem>
-                  <SelectItem value="specific">{t('account.specific_accounts')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Advertiser Accounts — varies by account type */}
+            {isSMEPro && (
+              <div className="space-y-2">
+                <Label>Advertiser Account</Label>
+                <Input
+                  value="Own Account"
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">SME Pro accounts are linked to a single advertiser</p>
+              </div>
+            )}
+
+            {isAgency && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Advertiser Accounts</Label>
+                  <SearchableList
+                    items={[]}
+                    columns={[
+                      { key: 'name', label: 'Advertiser', sortable: true },
+                      { key: 'industry', label: 'Industry', hideOnMobile: true },
+                    ]}
+                    selectionMode="multi"
+                    selectedIds={form.accounts}
+                    onSelectionChange={(ids) => updateForm('accounts', ids)}
+                    selectAllFiltered
+                    idKey="id"
+                    searchPlaceholder="Search advertisers..."
+                    collapsible
+                    collapsibleLabel="Select advertiser accounts..."
+                    defaultOpen={false}
+                    maxHeight="200px"
+                    pageSize={50}
+                    emptyMessage="No advertisers found"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="future-accounts"
+                    checked={form.includesFutureAccounts}
+                    onCheckedChange={(checked) => updateForm('includesFutureAccounts', checked)}
+                  />
+                  <Label htmlFor="future-accounts" className="font-normal cursor-pointer text-sm">
+                    Include all future accounts automatically
+                  </Label>
+                </div>
+                {form.includesFutureAccounts && (
+                  <p className="text-xs text-muted-foreground -mt-2 ml-12">
+                    This user will automatically get access to any new advertiser accounts created in the future.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               <Label>{t('account.rights')}</Label>
@@ -364,23 +457,63 @@ export default function UsersTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">{t('account.status_draft')}</SelectItem>
-                    <SelectItem value="active">{t('account.status_active')}</SelectItem>
-                    <SelectItem value="paused">{t('account.status_paused')}</SelectItem>
-                    <SelectItem value="ended">{t('account.status_ended')}</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="ended">Ended</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
           </div>
 
-          <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button variant="outline" onClick={handleSave}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            {editingUser && (
+              <div className="flex gap-2 mr-auto">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete User
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetPassword}
+                >
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  Reset Password
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleSave}>
               {editingUser ? t('account.save_changes') : t('account.save_draft')}
-            </Button>
-            <Button onClick={handleSendInvite}>
-              <Send className="h-4 w-4 mr-1" />
-              {editingUser ? t('account.resend_invite') : t('account.send_invite')}
+              </Button>
+              <Button onClick={handleSendInvite}>
+                <Send className="h-4 w-4 mr-1" />
+                {editingUser ? t('account.resend_invite') : t('account.send_invite')}
+                </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete <span className="font-medium text-foreground">{editingUser?.first_name} {editingUser?.last_name}</span>? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => editingUser && handleDelete(editingUser.id)}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

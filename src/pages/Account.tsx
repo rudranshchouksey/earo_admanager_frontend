@@ -42,13 +42,13 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { auth } from "@/services/auth";
+import { auth, AuthSession } from "@/services/auth";
 import { userApi, UserProfile } from "@/services/user";
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import UsersTab from "@/components/dashboard/account/UsersTab";
-import AdvertisersTab from "@/components/dashboard/account/AdvertisersTab";
+import AdvertisersTab, { AdvertiserCreateObj } from "@/components/dashboard/account/AdvertisersTab";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
@@ -86,14 +86,33 @@ export default function Account() {
 
   const [qrCode, setQrCode] = useState("");
   const [mfaToken, setMFAToken] = useState("");
+  const [session, setSession] = useState<AuthSession | null>(null);
+
+  const getAdvertisers = async (orgId: string) => {
+    const {
+      data: advertisers,
+      status: advertisersStatus,
+      message: advertisersMessage,
+    } = await advertiserApi.getAdvertisers(orgId);
+    if (advertisersStatus !== 200) {
+      toast({
+        title: t("common.error"),
+        description: advertisersMessage || "Failed to load advertisers",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAdvertisers(advertisers.data ?? []);
+  }
 
   useEffect(() => {
     const load = async () => {
       const {
-        data: { session },
+        data: { session: initialSession },
       } = await auth.getSession();
-      if (!session) return;
+      if (!initialSession) return;
 
+      setSession(initialSession);
       const {
         data: userProfile,
         status,
@@ -111,7 +130,7 @@ export default function Account() {
       }
 
       console.log({ userProfile });
-      console.log({ session });
+      console.log({ session: initialSession });
 
       if (userProfile && userProfile.data) {
         setProfile((p) => ({
@@ -120,7 +139,7 @@ export default function Account() {
         }));
       }
 
-      const organizationId = session?.currentOrganizationId;
+      const organizationId = initialSession?.currentOrganizationId;
 
       const {
         data: organizationDetails,
@@ -138,21 +157,8 @@ export default function Account() {
         return;
       }
       setOrganizationDetails(organizationDetails.data.organization);
+      getAdvertisers(organizationId);
 
-      const {
-        data: advertisers,
-        status: advertisersStatus,
-        message: advertisersMessage,
-      } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      if (advertisersStatus !== 200) {
-        toast({
-          title: t("common.error"),
-          description: advertisersMessage || "Failed to load advertisers",
-          variant: "destructive",
-        });
-        return;
-      }
-      setAdvertisers(advertisers.data ?? []);
     };
     load();
   }, []);
@@ -307,6 +313,28 @@ export default function Account() {
         variant: "destructive",
       });
     }
+  }
+
+  const createAdvertiser = async (advertiserObj: AdvertiserCreateObj) => {
+    const { data, status, error, message } = await advertiserApi.createAdvertiser({
+      ...advertiserObj,
+      orgId: organizationDetails?.id ?? "",
+    });
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: message || "Failed to create advertiser",
+        variant: "destructive",
+      });
+      return { status, error, message };
+    }
+    getAdvertisers(session?.currentOrganizationId);
+    toast({
+      title: t("common.success"),
+      description: "Advertiser created successfully",
+      variant: "default",
+    });
+    return { status, error: false, message: message || "Advertiser created successfully" };
   }
 
 
@@ -509,7 +537,7 @@ export default function Account() {
         {/* ADVERTISERS TAB (Pro Agency only) */}
         {isAgency && (
           <TabsContent value="advertisers" className="mt-4">
-            <AdvertisersTab advertisers={advertisers} />
+            <AdvertisersTab advertisers={advertisers} createAdvertiser={createAdvertiser} />
           </TabsContent>
         )}
 

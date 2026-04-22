@@ -31,14 +31,10 @@ import { AgencySignup, OnboardingRole } from './AgencySignup';
 import { organizationApi } from '@/services/organization';
 import { toast } from '@/hooks/use-toast';
 import { Advertiser, advertiserApi } from '@/services/advertiser';
+import { cn } from '@/lib/utils';
 
-const MOCK_ADVERTISERS = [
-  { id: 'adv-001', name: 'Careem' },
-  { id: 'adv-002', name: 'Noon' },
-  { id: 'adv-003', name: 'Emirates NBD' },
-  { id: 'adv-004', name: 'Talabat' },
-  { id: 'adv-005', name: 'Kitopi' },
-];
+import logoFull from '@/assets/logo-full.png';
+import logo from '@/assets/logo.png';
 
 const BREADCRUMB_KEYS: Record<string, string> = {
   dashboard: 'layout.nav_dashboard',
@@ -153,10 +149,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-sidebar-border">
-        <Headphones className="h-7 w-7 text-sidebar-foreground" />
-        {!collapsed && (
-          <span className="text-sm font-semibold text-sidebar-foreground">{t('layout.brand_name')}</span>
+      <div className={`flex items-center h-14 shrink-0 border-b border-sidebar-border ${collapsed ? 'justify-center px-4' : 'px-4'}`}>
+        {collapsed ? (
+          <img src={logo} alt="EARO" className="h-7 w-auto" />
+        ) : (
+          <img src={logoFull} alt="EARO" className="h-7" />
         )}
       </div>
 
@@ -197,7 +194,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
-        <br />
         {showAgencySignupBtn && (
           <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
         )}
@@ -304,8 +300,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </Button>
             </div>
           )}
-
-            <Select value={localeValue} onValueChange={changeLocale}>
+          {/* TODO: Add locale selector */}
+            {/* <Select value={localeValue} onValueChange={changeLocale}>
               <SelectTrigger className="h-9 w-[180px] text-xs border-border gap-2">
                 <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <SelectValue placeholder={t('layout.choose_locale')} />
@@ -314,14 +310,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SelectItem value="en">{t('layout.language_en')}</SelectItem>
                 <SelectItem value="ar">{t('layout.language_ar')}</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </header>
 
         <AlertBar />
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className={cn(
+          "flex-1 overflow-auto p-4 lg:p-6",
+          (location.pathname === '/dashboard/campaigns/new' || location.pathname === '/dashboard/ads/new') && 'bg-[hsl(240,5%,96%)]'
+        )}>
           {children}
         </main>
       </div>

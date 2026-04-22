@@ -37,12 +37,12 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     setError(null);
 
     if (!ACCEPTED_TYPES.includes(selected.type)) {
-      setError(t('ad_creator.upload.unsupported_format'));
+      setError('Unsupported format. Please upload MP3, WAV, M4A, or OGG.');
       return;
     }
 
     if (selected.size > MAX_SIZE_MB * 1024 * 1024) {
-      setError(t('ad_creator.upload.file_too_large', { max: String(MAX_SIZE_MB) }));
+      setError(`File must be under ${MAX_SIZE_MB}MB.`);
       return;
     }
 
@@ -51,7 +51,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     const tempAudio = new Audio(url);
     tempAudio.addEventListener('loadedmetadata', () => {
       if (tempAudio.duration > MAX_DURATION_SEC) {
-        setError(t('ad_creator.upload.duration_error', { max: String(MAX_DURATION_SEC), actual: String(Math.round(tempAudio.duration)) }));
+        setError(`Audio must be ${MAX_DURATION_SEC} seconds or less. This file is ${Math.round(tempAudio.duration)}s.`);
         URL.revokeObjectURL(url);
         return;
       }
@@ -61,7 +61,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       if (!adName) setAdName(selected.name.replace(/\.[^.]+$/, ''));
     });
     tempAudio.addEventListener('error', () => {
-      setError(t('ad_creator.upload.read_error'));
+      setError('Could not read audio file.');
       URL.revokeObjectURL(url);
     });
   };
@@ -86,9 +86,9 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     if (!file || !adName.trim()) return;
     setIsSaving(true);
     try {
-      const { data: { session } } = await auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast({ title: t('ad_creator.not_authenticated'), variant: 'destructive' });
+        toast({ title: 'Not authenticated', variant: 'destructive' });
         return;
       }
 

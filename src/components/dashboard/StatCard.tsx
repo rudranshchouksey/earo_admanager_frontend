@@ -10,16 +10,16 @@ interface StatCardProps {
 
 export default function StatCard({ label, value, icon: Icon, trend }: StatCardProps) {
   return (
-    <Card className="bg-card">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-3">
+    <Card className="bg-card rounded-[32px]">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-1.5">
           <span className="text-sm text-muted-foreground">{label}</span>
-          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon className="h-4 w-4 text-primary" />
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Icon className="h-3.5 w-3.5 text-primary" />
           </div>
         </div>
-        <p className="text-2xl font-bold text-foreground">{value}</p>
-        {trend && <p className="text-xs text-muted-foreground mt-1">{trend}</p>}
+        <p className="text-xl font-semibold text-foreground">{value}</p>
+        {trend && <p className="text-xs text-muted-foreground mt-0.5">{trend}</p>}
       </CardContent>
     </Card>
   );

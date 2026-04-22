@@ -24,6 +24,7 @@ export interface Voice {
   name: string;
   language: string;
   accent: string;
+  accents: string[];
   gender: string;
   age: string;
   audioUrl: string;
@@ -58,14 +59,20 @@ export interface Music {
   externalId: string;
   title: string;
   artist: string;
-  audio_url: string;
+  audioUrl: string;
+  imageUrl: string | null;
+  genres: string[];
+  moods: string[];
+  use_cases: string[];
+  instruments: string[];
+  rhythms: string[];
   tracks: MusicTrack[];
 }
 export interface MusicTrack {
   id: string;
   title: string;
   artist: string;
-  audio_url: string;
+  audioUrl: string;
   image_url: string | null;
   genres: string[];
   moods: string[];

@@ -15,7 +15,7 @@
    return (
      <section className="py-16" data-block="faq">
        <div className="container mx-auto px-4 max-w-3xl">
-         <h2 className="text-3xl font-bold text-center mb-8">Frequently Asked Questions</h2>
+         <h2 className="text-3xl font-semibold text-center mb-8">Frequently Asked Questions</h2>
          <Accordion type="single" collapsible className="space-y-2">
            {items.map((item, index) => (
              <AccordionItem key={index} value={`faq-${index}`} className="border rounded-lg px-4">

@@ -9,7 +9,9 @@
  }
  
  export default function FooterBlock({ links, show_social }: Props) {
-  return (
-    <div className="w-full" data-block="footer" />
-  );
+   return (
+     <div className="w-full" data-block="footer">
+       {/* Placeholder for integration with existing LandingFooter */}
+     </div>
+   );
  }

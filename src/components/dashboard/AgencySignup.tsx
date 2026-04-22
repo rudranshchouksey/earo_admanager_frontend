@@ -27,7 +27,7 @@ type AgencySignupProps = {
   onOpenChange?: (open: boolean) => void;
   onSelectRole: (
     role: OnboardingRole,
-  ) => Promise<{ error: any; status: number; message: string }>;
+  ) => Promise<void>;
   className?: string;
 };
 

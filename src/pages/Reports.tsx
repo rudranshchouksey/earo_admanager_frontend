@@ -7,8 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { campaignApi } from '@/services/campaign';
-import { useTranslation } from '@/contexts/TranslationContext';
+// import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/dashboard/StatCard';
 import { Eye, Users, Target, DollarSign, TrendingUp, BarChart3, Percent, Download, CalendarIcon } from 'lucide-react';
 import {
@@ -113,14 +112,16 @@ function seededRandom(seed: number) {
 
 function generateDailyData(campaign: Campaign): DailyData[] {
   const rand = seededRandom(campaign.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0));
-  const days: DailyData[] = [];
-  const totalImpressions = campaign.actual_impressions ?? 0;
-  const totalSpend = campaign.actual_spend ?? 0;
-  const totalReach = campaign.reach ?? 0;
   const goal = GOALS[Math.floor(rand() * GOALS.length)];
   const numDays = 30;
   const dailyBudget = campaign.budget / numDays;
 
+  // Generate plausible mock values when actuals are missing
+  const totalImpressions = campaign.actual_impressions || Math.round(campaign.budget * (30 + rand() * 20));
+  const totalSpend = campaign.actual_spend || Math.round(campaign.budget * (0.4 + rand() * 0.3) * 100) / 100;
+  const totalReach = campaign.reach || Math.round(totalImpressions * (0.2 + rand() * 0.15));
+
+  const days: DailyData[] = [];
   for (let i = 0; i < numDays; i++) {
     const date = new Date();
     date.setDate(date.getDate() - (numDays - 1 - i));
@@ -226,7 +227,6 @@ const mockCampaigns: Campaign[] = [
 ];
 
 export default function Reports() {
-  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(searchParams.get('campaign') || 'all');
@@ -257,7 +257,10 @@ export default function Reports() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data } = await campaignApi.getCampaigns();
+      // const { data } = await supabase
+      //   .from('campaigns')
+      //   .select('id, name, status, campaign_type, start_date, end_date, budget, actual_spend, actual_impressions, reach, ltr')
+      //   .order('start_date', { ascending: true });
       // setAllCampaigns(data && data.length > 0 ? data : mockCampaigns);
       setLoading(false);
     };
@@ -285,12 +288,13 @@ export default function Reports() {
   };
 
   const kpis = useMemo(() => {
-    const totalImpressions = campaigns.reduce((a, c) => a + (c.actual_impressions ?? 0), 0);
-    const totalReach = campaigns.reduce((a, c) => a + (c.reach ?? 0), 0);
-    const totalSpent = campaigns.reduce((a, c) => a + (c.actual_spend ?? 0), 0);
+    const rand = seededRandom(campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0));
+    const totalImpressions = campaigns.reduce((a, c) => a + (c.actual_impressions || Math.round(c.budget * (30 + rand() * 20))), 0);
+    const totalReach = campaigns.reduce((a, c) => a + (c.reach || Math.round((c.actual_impressions || c.budget * 35) * 0.25)), 0);
+    const totalSpent = campaigns.reduce((a, c) => a + (c.actual_spend || Math.round(c.budget * 0.55 * 100) / 100), 0);
     const totalBudget = campaigns.reduce((a, c) => a + c.budget, 0);
-    const avgLtr = campaigns.filter(c => c.ltr != null).length > 0
-      ? campaigns.reduce((a, c) => a + (c.ltr ?? 0), 0) / campaigns.filter(c => c.ltr != null).length
+    const avgLtr = campaigns.length > 0
+      ? campaigns.reduce((a, c) => a + (c.ltr ?? 75), 0) / campaigns.length
       : 0;
     const totalConversions = Math.round(totalImpressions * 0.02);
     const budgetUtil = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
@@ -388,20 +392,20 @@ export default function Reports() {
 
   // Grid columns with date
   const gridColDefs = useMemo<ColDef[]>(() => [
-    { field: 'date', headerName: t('reports.date'), width: 110, sort: 'desc' },
-    { field: 'campaignName', headerName: t('reports.campaign'), flex: 2, minWidth: 150 },
-    { field: 'campaignStatus', headerName: t('account.status'), width: 110, cellRenderer: StatusRenderer },
-    { field: 'campaignGoal', headerName: t('reports.goal'), width: 110 },
-    { field: 'startDate', headerName: t('reports.start_date'), width: 110 },
-    { field: 'endDate', headerName: t('reports.end_date'), width: 110 },
-    { field: 'dailyBudget', headerName: t('reports.daily_budget'), width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
-    { field: 'totalBudget', headerName: t('reports.total_budget'), width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toLocaleString()}` },
-    { field: 'spent', headerName: t('reports.spent'), width: 100, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
-    { headerName: t('campaigns.utilization'), width: 140, cellRenderer: UtilizationRenderer },
-    { field: 'impressions', headerName: t('reports.impressions'), width: 120, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
-    { field: 'reach', headerName: t('reports.reach'), width: 100, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
-    { field: 'ltr', headerName: t('reports.ltr'), width: 80, type: 'numericColumn', valueFormatter: p => `${p.value ?? 0}%` },
-  ], [t]);
+    { field: 'date', headerName: 'Date', width: 110, sort: 'desc' },
+    { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 150 },
+    { field: 'campaignStatus', headerName: 'Status', width: 110, cellRenderer: StatusRenderer },
+    { field: 'campaignGoal', headerName: 'Goal', width: 110 },
+    { field: 'startDate', headerName: 'Start Date', width: 110 },
+    { field: 'endDate', headerName: 'End Date', width: 110 },
+    { field: 'dailyBudget', headerName: 'Daily Budget', width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
+    { field: 'totalBudget', headerName: 'Total Budget', width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toLocaleString()}` },
+    { field: 'spent', headerName: 'Spent', width: 100, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
+    { headerName: 'Utilization', width: 140, cellRenderer: UtilizationRenderer },
+    { field: 'impressions', headerName: 'Impressions', width: 120, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
+    { field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
+    { field: 'ltr', headerName: 'LTR', width: 80, type: 'numericColumn', valueFormatter: p => `${p.value ?? 0}%` },
+  ], []);
 
   const tooltipStyle = { borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 12 };
 
@@ -490,23 +494,23 @@ export default function Reports() {
     </Card>
   );
 
-  const METRIC_LABELS: Record<string, string> = useMemo(() => ({
-    impressions: t('reports.impressions'),
-    reach: t('reports.reach'),
-    conversions: t('reports.conversions'),
-    spent: t('reports.spent'),
-  }), [t]);
+  const METRIC_LABELS: Record<string, string> = {
+    impressions: 'Impressions',
+    reach: 'Reach',
+    conversions: 'Conversions',
+    spent: 'Spent ($)',
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {selectedCampaignName || t('reports.title')}
+          <h1 className="text-2xl font-semibold text-foreground">
+            {selectedCampaignName || 'Campaign Reports'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {selectedCampaignName ? t('reports.title_campaign') : t('reports.title_all')}
+            {selectedCampaignName ? 'Campaign performance details' : 'Performance analytics across all campaigns'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -516,10 +520,10 @@ export default function Reports() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="daily">{t('reports.daily')}</SelectItem>
-              <SelectItem value="weekly">{t('reports.weekly')}</SelectItem>
-              <SelectItem value="monthly">{t('reports.monthly')}</SelectItem>
-              <SelectItem value="custom">{t('reports.custom')}</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
             </SelectContent>
           </Select>
 
@@ -530,7 +534,7 @@ export default function Reports() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn('w-[130px] justify-start text-left font-normal', !customDateRange.from && 'text-muted-foreground')}>
                     <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                    {customDateRange.from ? format(customDateRange.from, 'MMM d, yyyy') : t('reports.from')}
+                    {customDateRange.from ? format(customDateRange.from, 'MMM d, yyyy') : 'From'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -541,7 +545,7 @@ export default function Reports() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn('w-[130px] justify-start text-left font-normal', !customDateRange.to && 'text-muted-foreground')}>
                     <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                    {customDateRange.to ? format(customDateRange.to, 'MMM d, yyyy') : t('reports.to')}
+                    {customDateRange.to ? format(customDateRange.to, 'MMM d, yyyy') : 'To'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -554,10 +558,10 @@ export default function Reports() {
           {/* Campaign selector */}
           <Select value={selectedCampaignId} onValueChange={handleCampaignChange}>
             <SelectTrigger className="w-52">
-              <SelectValue placeholder={t('reports.all_campaigns')} />
+              <SelectValue placeholder="All Campaigns" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('reports.all_campaigns')}</SelectItem>
+              <SelectItem value="all">All Campaigns</SelectItem>
               {allCampaigns.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
@@ -567,23 +571,23 @@ export default function Reports() {
           {/* Export */}
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" />
-            {t('reports.export_csv')}
+            Export CSV
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">{t('common.loading')}</div>
+        <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : (
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <StatCard label={t('reports.impressions')} value={formatNum(kpis.totalImpressions)} icon={Eye} />
-            <StatCard label={t('reports.ltr')} value={`${kpis.avgLtr.toFixed(1)}%`} icon={TrendingUp} />
-            <StatCard label={t('reports.reach')} value={formatNum(kpis.totalReach)} icon={Users} />
-            <StatCard label={t('reports.conversions')} value={formatNum(kpis.totalConversions)} icon={Target} />
-            <StatCard label={t('reports.spent')} value={`$${formatNum(kpis.totalSpent)}`} icon={DollarSign} />
-            <StatCard label={t('reports.budget_util')} value={`${kpis.budgetUtil.toFixed(1)}%`} icon={Percent} />
+            <StatCard label="Impressions" value={formatNum(kpis.totalImpressions)} icon={Eye} />
+            <StatCard label="LTR" value={`${kpis.avgLtr.toFixed(1)}%`} icon={TrendingUp} />
+            <StatCard label="Reach" value={formatNum(kpis.totalReach)} icon={Users} />
+            <StatCard label="Conversions" value={formatNum(kpis.totalConversions)} icon={Target} />
+            <StatCard label="Spent" value={`$${formatNum(kpis.totalSpent)}`} icon={DollarSign} />
+            <StatCard label="Budget Util." value={`${kpis.budgetUtil.toFixed(1)}%`} icon={Percent} />
             <StatCard label="CPA" value={`$${kpis.cpa.toFixed(2)}`} icon={BarChart3} />
           </div>
 
@@ -592,7 +596,7 @@ export default function Reports() {
             <CardHeader className="pb-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <CardTitle className="text-base">
-                  {t('reports.performance')} ({granularity === 'custom' ? t('reports.custom_range') : granularity === 'daily' ? t('reports.last_30_days') : granularity === 'weekly' ? t('reports.weekly') : t('reports.monthly')})
+                  Performance ({granularity === 'custom' ? 'Custom Range' : granularity === 'daily' ? 'Last 30 Days' : granularity === 'weekly' ? 'Weekly' : 'Monthly'})
                 </CardTitle>
                 <div className="flex items-center gap-1">
                   {Object.entries(METRIC_LABELS).map(([key, label]) => {
@@ -646,7 +650,7 @@ export default function Reports() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <CardTitle className="text-base">{t('reports.top_25_shows')}</CardTitle>
+                <CardTitle className="text-base">Top 25 Shows</CardTitle>
                 <div className="flex items-center gap-1">
                   {Object.entries(METRIC_LABELS).map(([key, label]) => {
                     const mode = showsMetrics[key];
@@ -698,7 +702,7 @@ export default function Reports() {
           {/* Time of Day Heatmap */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{t('reports.listening_heatmap')}</CardTitle>
+              <CardTitle className="text-base">Listening Heatmap (Impressions by Hour & Day)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -708,7 +712,7 @@ export default function Reports() {
                     <table className="w-full border-collapse text-xs">
                       <thead>
                         <tr>
-                          <th className="p-1.5 text-left text-muted-foreground font-medium w-12">{t('reports.day')}</th>
+                          <th className="p-1.5 text-left text-muted-foreground font-medium w-12">Day</th>
                           {HOURS.map(h => (
                             <th key={h} className="p-1.5 text-center text-muted-foreground font-medium">{h.toString().padStart(2, '0')}</th>
                           ))}
@@ -750,7 +754,7 @@ export default function Reports() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <CardTitle className="text-base">{t('reports.location_split')}</CardTitle>
+                <CardTitle className="text-base">Location Split</CardTitle>
                 <div className="flex items-center gap-1">
                   {Object.entries(METRIC_LABELS).map(([key, label]) => {
                     const mode = locationMetrics[key];
@@ -801,24 +805,24 @@ export default function Reports() {
 
           {/* Pie Charts */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderPieChart(t('reports.content_type_impressions'), contentTypes)}
-            {renderPieChart(t('reports.device_type_impressions'), deviceTypes)}
-            {renderPieChart(t('reports.podcast_topics_impressions'), podcastTopics)}
-            {renderPieChart(t('reports.podcast_audiences_impressions'), podcastAudiences)}
-            {renderPieChart(t('reports.gender_impressions'), genders)}
-            {renderPieChart(t('reports.age_impressions'), ageGroups)}
+            {renderPieChart('Content Type (Impressions)', contentTypes)}
+            {renderPieChart('Device Type (Impressions)', deviceTypes)}
+            {renderPieChart('Podcast Topics (Impressions)', podcastTopics)}
+            {renderPieChart('Podcast Audiences (Impressions)', podcastAudiences)}
+            {renderPieChart('Gender (Impressions)', genders)}
+            {renderPieChart('Age (Impressions)', ageGroups)}
           </div>
 
           {/* Daily Performance Grid */}
           <Card>
             <CardHeader>
-              <CardTitle>{t('reports.campaign_performance_per_day')}</CardTitle>
+              <CardTitle>Campaign Performance (Per Day)</CardTitle>
             </CardHeader>
             <CardContent>
               {isMobile ? (
                 <MobileDataCards
                   data={dailyGridData.slice(0, 30)}
-                  emptyMessage={t('reports.no_performance_data')}
+                  emptyMessage="No performance data"
                   renderCard={(row) => (
                     <div key={`${row.date}-${row.campaignName}`} className="border rounded-lg p-4 space-y-2">
                       <div className="flex items-center justify-between">
@@ -829,10 +833,10 @@ export default function Reports() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{row.campaignName}</p>
                       <div className="space-y-1.5">
-                        <MobileStatRow label={t('reports.impressions')} value={row.impressions.toLocaleString()} />
-                        <MobileStatRow label={t('reports.spent')} value={`$${row.spent.toFixed(0)}`} />
-                        <MobileStatRow label={t('reports.reach')} value={row.reach.toLocaleString()} />
-                        <MobileStatRow label={t('reports.ltr')} value={`${row.ltr}%`} />
+                        <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
+                        <MobileStatRow label="Spend" value={`$${row.spent.toFixed(0)}`} />
+                        <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
+                        <MobileStatRow label="LTR" value={`${row.ltr}%`} />
                       </div>
                     </div>
                   )}

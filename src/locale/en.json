@@ -108,7 +108,7 @@
   "dashboard.active": "Active",
   "dashboard.no_data_yet": "No data yet",
 
-  "ad_creator.title": "Create Audio Ad",
+  "ad_creator.title": "Your audio ad",
   "ad_creator.subtitle": "Fill in the details below to create your ad",
   "ad_creator.ai_mode_title": "Create AI Audio Ad",
   "ad_creator.ai_mode_desc": "Generate with AI from a description",
@@ -376,7 +376,7 @@
   "layout.breadcrumb_new": "New",
   "layout.tech_spec": "Tech Spec",
   "layout.sign_out": "Sign out",
-  "layout.new_ad": "New Ad",
+  "layout.new_ad": "New Audio Ad",
   "layout.new_campaign": "New Campaign",
   "layout.choose_advertiser": "Choose advertiser",
   "layout.choose_locale": "Choose language",

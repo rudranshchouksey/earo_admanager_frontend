@@ -9,8 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { campaignApi } from '@/services/campaign';
-import { useTranslation } from '@/contexts/TranslationContext';
+
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
@@ -32,6 +31,7 @@ interface Campaign {
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
+  scheduled: 'bg-blue-100 text-blue-800',
   active: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-primary/10 text-primary',
@@ -45,7 +45,7 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
   const c = params.data as Campaign;
   const util = c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 h-full">
       <Progress value={util} className="h-1.5 w-16" />
       <span className="text-xs text-muted-foreground">{util}%</span>
     </div>
@@ -54,7 +54,6 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
 
 export default function CampaignsList() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,12 +72,15 @@ export default function CampaignsList() {
   ];
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      const { data } = await campaignApi.getCampaigns();
-      // setCampaigns(data && data.length > 0 ? data : mockCampaigns);
-      setLoading(false);
-    };
-    fetchCampaigns();
+    // const fetchCampaigns = async () => {
+    //   const { data } = await supabase
+    //     .from('campaigns')
+    //     .select('id, name, status, campaign_type, start_date, end_date, budget, actual_spend, actual_impressions, reach, ltr, currency')
+    //     .order('created_at', { ascending: false });
+    //   setCampaigns(data && data.length > 0 ? data : mockCampaigns);
+    //   setLoading(false);
+    // };
+    // fetchCampaigns();
   }, []);
 
   const filtered = useMemo(() => {
@@ -127,23 +129,23 @@ export default function CampaignsList() {
   };
 
   const colDefs = useMemo<ColDef[]>(() => [
-    { field: 'name', headerName: t('reports.campaign'), flex: 2, minWidth: 160, filter: true },
-    { field: 'status', headerName: t('campaigns.status'), width: 110, cellRenderer: StatusRenderer },
+    { field: 'name', headerName: 'Campaign', flex: 2, minWidth: 160, filter: true },
+    { field: 'status', headerName: 'Status', width: 110, cellRenderer: StatusRenderer },
     {
-      headerName: t('campaigns.dates'), width: 180,
+      headerName: 'Dates', width: 200,
       valueGetter: (p) => `${p.data.start_date} — ${p.data.end_date}`,
-      cellClass: 'text-xs text-muted-foreground',
+      cellStyle: { display: 'flex', alignItems: 'center', fontSize: '0.75rem' },
     },
     {
-      field: 'budget', headerName: t('campaigns.budget'), width: 110, type: 'numericColumn',
+      field: 'budget', headerName: 'Budget', width: 110, type: 'numericColumn',
       valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
     },
     {
-      field: 'actual_spend', headerName: t('campaigns.spend'), width: 110, type: 'numericColumn',
+      field: 'actual_spend', headerName: 'Spend', width: 110, type: 'numericColumn',
       valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
     },
     {
-      headerName: t('campaigns.utilization'), width: 140,
+      headerName: 'Utilization', width: 140,
       cellRenderer: UtilizationRenderer,
       sortable: true,
       valueGetter: (p) => {
@@ -152,11 +154,11 @@ export default function CampaignsList() {
       },
     },
     {
-      field: 'actual_impressions', headerName: t('reports.impressions'), width: 120, type: 'numericColumn',
+      field: 'actual_impressions', headerName: 'Impressions', width: 120, type: 'numericColumn',
       valueFormatter: (p) => (p.value ?? 0).toLocaleString(),
     },
     {
-      field: 'reach', headerName: t('reports.reach'), width: 100, type: 'numericColumn',
+      field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn',
       valueFormatter: (p) => (p.value ?? 0).toLocaleString(),
     },
     {
@@ -182,11 +184,11 @@ export default function CampaignsList() {
           className="h-7 text-xs"
           onClick={() => navigate(`/dashboard/reports?campaign=${params.data.id}`)}
         >
-          {t('campaigns.see_details')}
+          See Details
         </Button>
       ),
     },
-  ], [navigate, t]);
+  ], [navigate]);
 
   const onRowClicked = useCallback((e: RowClickedEvent<Campaign>) => {
     if (e.data) navigate(`/dashboard/campaigns/${e.data.id}`);
@@ -196,12 +198,12 @@ export default function CampaignsList() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('campaigns.title')}</h1>
-          <p className="text-muted-foreground mt-1">{t('campaigns.subtitle')}</p>
+          <h1 className="text-2xl font-semibold text-foreground">Campaigns</h1>
+          <p className="text-muted-foreground mt-1">Manage and track your ad campaigns</p>
         </div>
         <Button variant="outline" onClick={exportCSV} disabled={campaigns.length === 0}>
           <Download className="h-4 w-4 mr-2" />
-          {t('campaigns.export_csv')}
+          Export CSV
         </Button>
       </div>
 
@@ -209,49 +211,49 @@ export default function CampaignsList() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_budget')}</p>
-            <p className="text-2xl font-bold text-foreground">${totals.budget.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Budget</p>
+            <p className="text-2xl font-semibold text-foreground">${totals.budget.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_spend')}</p>
-            <p className="text-2xl font-bold text-foreground">${totals.spend.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Spend</p>
+            <p className="text-2xl font-semibold text-foreground">${totals.spend.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_impressions')}</p>
-            <p className="text-2xl font-bold text-foreground">{totals.impressions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Impressions</p>
+            <p className="text-2xl font-semibold text-foreground">{totals.impressions.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_reach')}</p>
-            <p className="text-2xl font-bold text-foreground">{totals.reach.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Reach</p>
+            <p className="text-2xl font-semibold text-foreground">{totals.reach.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Performance table */}
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">{t('common.loading')}</div>
+        <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <Megaphone className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              {campaigns.length === 0 ? t('campaigns.no_campaigns') : t('campaigns.no_matching')}
+              {campaigns.length === 0 ? 'No campaigns yet' : 'No matching campaigns'}
             </h3>
             <p className="text-muted-foreground mb-6">
               {campaigns.length === 0
-                ? t('campaigns.no_campaigns_desc')
-                : t('campaigns.adjust_filters')}
+                ? 'Create your first campaign to start reaching listeners.'
+                : 'Try adjusting your search or filters.'}
             </p>
             {campaigns.length === 0 && (
               <Button onClick={() => navigate('/dashboard/campaigns/new')}>
                 <Plus className="h-4 w-4 mr-2" />
-                {t('dashboard.create_campaign')}
+                Create Campaign
               </Button>
             )}
           </CardContent>
@@ -259,13 +261,13 @@ export default function CampaignsList() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{t('campaigns.campaign_performance')}</CardTitle>
+            <CardTitle>Campaign Performance</CardTitle>
           </CardHeader>
           <div className="px-6 pb-4 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={t('campaigns.search_placeholder')}
+                placeholder="Search campaigns..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -277,11 +279,12 @@ export default function CampaignsList() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('campaigns.all_statuses')}</SelectItem>
-                <SelectItem value="draft">{t('campaigns.drafts')}</SelectItem>
-                <SelectItem value="active">{t('dashboard.active')}</SelectItem>
-                <SelectItem value="paused">{t('campaigns.paused')}</SelectItem>
-                <SelectItem value="completed">{t('campaigns.completed')}</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -289,7 +292,7 @@ export default function CampaignsList() {
             {isMobile ? (
               <MobileDataCards
                 data={filtered.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))}
-                emptyMessage={t('campaigns.no_campaigns_search')}
+                emptyMessage="No campaigns match your search"
                 renderCard={(c) => (
                   <div
                     key={c.id}
@@ -300,9 +303,9 @@ export default function CampaignsList() {
                       <Badge variant="secondary" className={statusColors[c.status] || ''}>{c.status}</Badge>
                     </div>
                     <div className="space-y-1.5">
-                      <MobileStatRow label={t('campaigns.budget')} value={`$${c.budget.toLocaleString()}`} />
-                      <MobileStatRow label={t('campaigns.spend')} value={`$${(c.actual_spend ?? 0).toLocaleString()}`} />
-                      <MobileStatRow label={t('reports.impressions')} value={(c.actual_impressions ?? 0).toLocaleString()} />
+                      <MobileStatRow label="Budget" value={`$${c.budget.toLocaleString()}`} />
+                      <MobileStatRow label="Spend" value={`$${(c.actual_spend ?? 0).toLocaleString()}`} />
+                      <MobileStatRow label="Impressions" value={(c.actual_impressions ?? 0).toLocaleString()} />
                       <MobileStatRow label="LTR" value={c.ltr != null ? `${c.ltr}%` : '—'} />
                     </div>
                     <Button
@@ -311,7 +314,7 @@ export default function CampaignsList() {
                       className="w-full h-8 text-xs"
                       onClick={() => navigate(`/dashboard/reports?campaign=${c.id}`)}
                     >
-                      {t('campaigns.see_details')}
+                      See Details
                     </Button>
                   </div>
                 )}

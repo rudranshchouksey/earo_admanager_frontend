@@ -18,7 +18,7 @@
              {urgency_badge}
            </span>
          )}
-         <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-6">
+         <h2 className="text-2xl md:text-3xl font-semibold text-primary-foreground mb-6">
            {headline}
          </h2>
          <button

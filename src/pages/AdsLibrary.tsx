@@ -64,6 +64,7 @@ export default function AdsLibrary() {
     totalPages: 1,
   });
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playingIdRef = useRef<string | null>(null);
 
   const apiStatus = useMemo(() => {
     if (statusFilter === 'all') return undefined;
@@ -142,15 +143,50 @@ export default function AdsLibrary() {
     if (!ad.sourceUrl) return;
     const audio = audioRef.current;
     if (!audio) return;
-    if (playingId === ad.id) {
+
+    // If clicking the currently playing row, toggle pause.
+    if (playingIdRef.current === ad.id && !audio.paused) {
       audio.pause();
-      setPlayingId(null);
+      return;
+    }
+
+    playingIdRef.current = ad.id;
+    audio.preload = 'none';
+    audio.src = ad.sourceUrl;
+    audio.load();
+
+    const p = audio.play();
+    if (p && typeof (p as Promise<void>).then === 'function') {
+      (p as Promise<void>)
+        .then(() => setPlayingId(ad.id))
+        .catch(() => {
+          // Playback can fail due to CORS, codec, or autoplay policies.
+          playingIdRef.current = null;
+          setPlayingId(null);
+          toast({ title: t('common.error'), description: 'Unable to play audio preview', variant: 'destructive' });
+        });
     } else {
-      audio.src = ad.sourceUrl;
-      audio.play();
+      // Older browsers: assume play started.
       setPlayingId(ad.id);
     }
-  }, [playingId]);
+  }, [t]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const clear = () => {
+      playingIdRef.current = null;
+      setPlayingId(null);
+    };
+    audio.addEventListener('ended', clear);
+    audio.addEventListener('pause', clear);
+    audio.addEventListener('error', clear);
+    return () => {
+      audio.removeEventListener('ended', clear);
+      audio.removeEventListener('pause', clear);
+      audio.removeEventListener('error', clear);
+    };
+  }, []);
 
   const handleDelete = async (id: string) => {
     // const { error } = await adsApi.deleteAd(id);
@@ -419,9 +455,17 @@ export default function AdsLibrary() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('ads.status_all')}</SelectItem>
-                <SelectItem value="completed">{t('ads.status_completed')}</SelectItem>
+                <SelectItem disabled className="text-xs font-semibold text-muted-foreground" value="_approval_header">— Ad Approval —</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="restricted">Restricted</SelectItem>
+                <SelectItem value="not approved">Not Approved</SelectItem>
+                <SelectItem disabled className="text-xs font-semibold text-muted-foreground" value="_campaign_header">— Campaign —</SelectItem>
                 <SelectItem value="draft">{t('ads.status_draft')}</SelectItem>
                 <SelectItem value="processing">{t('ads.status_processing')}</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="completed">{t('ads.status_completed')}</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
               </SelectContent>
             </Select>
           </div>

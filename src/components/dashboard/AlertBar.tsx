@@ -3,6 +3,14 @@ import { X, Info, AlertTriangle, AlertCircle, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, systemApi } from '@/services/system';
 
+interface Alert {
+  id: string;
+  title: string;
+  message: string;
+  alert_type: string;
+  cta_label: string | null;
+  cta_url: string | null;
+}
 
 const iconMap: Record<string, React.ElementType> = {
   info: Info,

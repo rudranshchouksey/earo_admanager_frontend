@@ -1,33 +1,71 @@
-import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Pencil, Loader2, Share2, RefreshCw, Mic2, MusicIcon } from 'lucide-react';
-import { useTranslation } from '@/contexts/TranslationContext';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AdStatusResponse, Music, Voice } from '@/services/ads';
-import { toast } from '@/hooks/use-toast';
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  Play,
+  Pause,
+  Loader2,
+  Share2,
+  RefreshCw,
+  Search,
+  MusicIcon,
+} from "lucide-react";
+import { useTranslation } from "@/contexts/TranslationContext";
+
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { AdStatusResponse, MusicTrack, Voice, Music } from "@/services/ads";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { supabase } from '@/integrations/supabase/client';
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import type { GeneratedAd } from "@/types/landing";
+import InlineAudioPlayer from "./InlineAudioPlayer";
+// import { VOICES, LANGUAGES } from './voiceData';
+// import { TRACKS, MUSIC_STYLE_TO_MOOD } from './musicData';
 import ProCustomizations, {
   type ProVoiceSettings,
   type ProMusicSettings,
   type ProContentSettings,
-} from './ProCustomizations';
+} from "./ProCustomizations";
+import { musicDefaults, voiceDefaults } from "@/lib/defaults";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AdCreatorFormProps {
   description: string;
   onDescriptionChange: (v: string) => void;
   goal: string;
   onGoalChange: (v: string) => void;
-  voice: string;
-  onVoiceChange: (v: string) => void;
   tone: string;
   onToneChange: (v: string) => void;
   music: string;
   onMusicChange: (v: string) => void;
+  language: string;
+  onLanguageChange: (v: string) => void;
+  accent: string;
+  onAccentChange: (v: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
   generatedAd: AdStatusResponse | null;
@@ -46,201 +84,421 @@ interface AdCreatorFormProps {
   proContentSettings?: ProContentSettings;
   onProContentSettingsChange?: (v: ProContentSettings) => void;
   voices: Voice[];
-  getVoices: (gender: string, language: string, tone: string) => void;
   voicesLoading: boolean;
   musics: Music[];
   getMusics: (mood: string) => void;
   musicsLoading: boolean;
   gender: string;
   onGenderChange: (v: string) => void;
-  language: string;
-  onLanguageChange: (v: string) => void;
   handleSaveAd: (adName: string) => Promise<void>;
+  selectedVoice: string;
+  onSelectedVoiceChange: (v: string) => void;
+}
+const LANGUAGES = [
+  { id: "en", label: "English" },
+  { id: "ar", label: "Arabic" },
+];
+
+/* ── Language search popover ── */
+function LanguageSearchSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(
+    () =>
+      search.trim()
+        ? LANGUAGES.filter((l) =>
+            l.label.toLowerCase().includes(search.toLowerCase()),
+          )
+        : LANGUAGES,
+    [search],
+  );
+
+  const selectedLabel = LANGUAGES.find((l) => l.id === value)?.label || value;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal h-10"
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <Search className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="start">
+        <div className="p-2 border-b">
+          <Input
+            placeholder="Search languages…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 text-sm"
+            autoFocus
+          />
+        </div>
+        <div className="max-h-[240px] overflow-y-auto p-1">
+          {filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No languages found
+            </p>
+          )}
+          {filtered.map((lang) => (
+            <button
+              key={lang.id}
+              onClick={() => {
+                onChange(lang.id);
+                setOpen(false);
+                setSearch("");
+              }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left",
+                value === lang.id
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "hover:bg-muted text-foreground",
+              )}
+            >
+              {lang.label}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ── Express voice preview list ── */
+function ExpressVoicePreview({
+  voices,
+  selectedVoice,
+  onSelectedVoiceChange,
+  voicesLoading,
+}: {
+  voices: Voice[];
+  selectedVoice: string;
+  onSelectedVoiceChange: (v: string) => void;
+  voicesLoading: boolean;
+}) {
+  console.log("selectedVoice", selectedVoice);
+
+  if (voicesLoading)
+    return (
+      <div className="space-y-1.5">
+        <div className="space-y-1 w-full flex items-center justify-center">
+          <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
+
+  if (voices.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">Matching voices</Label>
+      <div className="space-y-1">
+        {voices.map((voice) => (
+          <div
+            key={voice.id}
+            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30"
+          >
+            <Checkbox
+              id="voice-preview"
+              checked={selectedVoice === voice.externalId}
+              onCheckedChange={() => onSelectedVoiceChange(voice.externalId)}
+            />
+            <Avatar
+              className="h-7 w-7 shrink-0"
+              onClick={() => onSelectedVoiceChange(voice.id)}
+            >
+              <AvatarImage
+                src={voice.imageUrl}
+                alt={voice.name}
+                className="object-cover"
+              />
+              <AvatarFallback className="text-[10px] font-medium bg-muted text-foreground">
+                {voice.name.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col md:flex-row items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-foreground">
+                    {voice.name}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal"
+                  >
+                    {voice.gender}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1 overflow-x-scroll md:overflow-x-hidden max-w-[100px] md:max-w-full">
+                  {voice.accents &&
+                    voice.accents.length > 0 &&
+                    voice.accents.map((accent) => (
+                      <Badge
+                        key={accent}
+                        variant="outline"
+                        className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal whitespace-nowrap"
+                      >
+                        {accent}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <InlineAudioPlayer audioUrl={voice.audioUrl} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Express music preview ── */
+function ExpressMusicPreview({
+  tracks,
+  musicsLoading,
+}: {
+  tracks: Music[];
+  musicsLoading: boolean;
+}) {
+  console.log("tracks", tracks);
+
+  if (musicsLoading)
+    return (
+      <div className="space-y-1.5">
+        <div className="space-y-1 w-full flex items-center justify-center">
+          <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
+  if (!tracks || tracks.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+      <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
+        <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-xs font-medium text-foreground">
+          {tracks[0].title}
+        </span>
+        <p className="text-[10px] text-muted-foreground truncate">
+          {tracks[0].genres.join(", ")}
+        </p>
+      </div>
+      <InlineAudioPlayer audioUrl={tracks[0].audioUrl} />
+    </div>
+  );
 }
 
 const goalPlaceholders: Record<string, string> = {
-  sales: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://luigispizza.com -- Family pizza restaurant in Dubai Marina. 20% off first online order. Promote our new seafood menu.',
-  leads: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://acmerealestate.com/listings -- Premium villas in Palm Jumeirah. Free property valuation for new enquiries. Target investors.',
-  traffic: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://myblog.com/latest -- Tech review blog covering latest gadgets. Drive readers to our new AI tools comparison article.',
-  consideration: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://brandx.com/product-page -- Launching a new organic skincare line. Highlight dermatologist-approved ingredients and 5-star reviews.',
-  awareness: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://newbrand.ae -- We\'re a new sustainable fashion label in the UAE. Build recognition among 25-40 year old professionals.',
-  app: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://apps.apple.com/myapp -- Fitness tracking app with AI coaching. Free 30-day trial. Available on iOS and Android.',
-  local: 'Share what makes your brand unique, who it\'s for, and the call-to-action you\'d like listeners to take after hearing the ad.\n\nFor example, https://maps.google.com/myshop -- Boutique coffee shop in JLT. Grand opening weekend, free pastry with every coffee. Walk-ins welcome.',
+  sales:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://luigispizza.com -- Family pizza restaurant in Dubai Marina. 20% off first online order. Promote our new seafood menu.",
+  leads:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://acmerealestate.com/listings -- Premium villas in Palm Jumeirah. Free property valuation for new enquiries. Target investors.",
+  traffic:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://myblog.com/latest -- Tech review blog covering latest gadgets. Drive readers to our new AI tools comparison article.",
+  consideration:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://brandx.com/product-page -- Launching a new organic skincare line. Highlight dermatologist-approved ingredients and 5-star reviews.",
+  awareness:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://newbrand.ae -- We're a new sustainable fashion label in the UAE. Build recognition among 25-40 year old professionals.",
+  app: "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://apps.apple.com/myapp -- Fitness tracking app with AI coaching. Free 30-day trial. Available on iOS and Android.",
+  local:
+    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://maps.google.com/myshop -- Boutique coffee shop in JLT. Grand opening weekend, free pastry with every coffee. Walk-ins welcome.",
 };
+/* ── Express customization block (language + accent + tone + music with previews) ── */
+function ExpressCustomization({
+  gender,
+  onGenderChange,
+  language,
+  onLanguageChange,
+  accent,
+  onAccentChange,
+  tone,
+  onToneChange,
+  music,
+  onMusicChange,
+  voices,
+  musics,
+  selectedVoice,
+  onSelectedVoiceChange,
+  voicesLoading,
+  musicsLoading,
+}: {
+  gender: string;
+  onGenderChange: (v: string) => void;
+  language: string;
+  onLanguageChange: (v: string) => void;
+  accent: string;
+  onAccentChange: (v: string) => void;
+  tone: string;
+  onToneChange: (v: string) => void;
+  music: string;
+  onMusicChange: (v: string) => void;
+  voices: Voice[];
+  musics: Music[];
+  selectedVoice: string;
+  onSelectedVoiceChange: (v: string) => void;
+  voicesLoading: boolean;
+  musicsLoading: boolean;
+}) {
+  const availableAccents = voiceDefaults.accents;
+  const availableTones = voiceDefaults.characteristics;
+  const availableMusics = musicDefaults.mood;
+  const availableGenders = voiceDefaults.gender;
 
-
-const ExpressCustomizations = ({ gender, onGenderChange, language, onLanguageChange, voices, voicesLoading, musics, musicsLoading, tone, onToneChange, music, onMusicChange }: { gender: string, onGenderChange: (v: string) => void, language: string, onLanguageChange: (v: string) => void, voices: Voice[], voicesLoading: boolean, musics: Music[], musicsLoading: boolean, tone: string, onToneChange: (v: string) => void, music: string, onMusicChange: (v: string) => void }) => {
-  const { t } = useTranslation();
   return (
     <div className="space-y-4">
-    <Label className="text-base font-semibold">{t('ad_creator.customization_voice')}</Label>
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div className="space-y-2">
-        <Label className="text-sm">{t('ad_creator.gender')}</Label>
-        <Select value={gender} onValueChange={onGenderChange}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="female">{t('ad_creator.gender_female')}</SelectItem>
-            <SelectItem value="male">{t('ad_creator.gender_male')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label className="text-sm">{t('ad_creator.language')}</Label>
-        <Select value={language} onValueChange={onLanguageChange}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="en">{t('ad_creator.language_en')}</SelectItem>
-            <SelectItem value="ar">{t('ad_creator.language_ar')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm">{t('ad_creator.tone')}</Label>
-        <Select value={tone} onValueChange={onToneChange}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="friendly">{t('ad_creator.tone_friendly')}</SelectItem>
-            <SelectItem value="professional">{t('ad_creator.tone_professional')}</SelectItem>
-            <SelectItem value="excited">{t('ad_creator.tone_excited')}</SelectItem>
-            <SelectItem value="urgent">{t('ad_creator.tone_urgent')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-    </div>
-    {voicesLoading ? (
-      <div className="flex items-center justify-center h-12">
-        <Loader2 className="h-4 w-4 animate-spin" />
-      </div>
-    ) : (
-      voices.length > 0 && (
-        <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
-          <div className="flex flex-col gap-4 p-4 sm:flex-row items-center">
-          <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
-          <div className="aspect-square w-full">
-                {voices[0].imageUrl ? (
-                  <img
-                    src={voices[0].imageUrl}
-                    alt={voices[0].name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-muted">
-                    <Mic2 className="h-10 w-10 text-muted-foreground/60" aria-hidden />
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-              <div className="flex flex-wrap gap-1.5">
-                {
-                  voices[0].name ? (
-                    <p className="text-sm font-semibold text-foreground px-2">
-                      {voices[0].name}
-                    </p>
-                  ) : null
-                }
-                {voices[0].language ? (
-                  <Badge variant="secondary" className="font-normal">
-                    {voices[0].language}
-                  </Badge>
-                ) : null}
-                {voices[0].accent ? (
-                  <Badge variant="outline" className="font-normal">
-                    {voices[0].accent}
-                  </Badge>
-                ) : null}
-                {voices[0].gender ? (
-                  <Badge variant="outline" className="font-normal">
-                    {voices[0].gender}
-                  </Badge>
-                ) : null}
-              </div>
-              <audio
-                src={voices[0].audioUrl}
-                preload="metadata"
-                controls
-                className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      )
-    )}
-
-    <div className="space-y-4">
-      <Label className="text-base font-semibold">{t('ad_creator.customization_music')}</Label>
-      <div className="space-y-2">
-          <Label className="text-sm">{t('ad_creator.music')}</Label>
-          <Select value={music} onValueChange={onMusicChange}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+      <Label className="text-base font-semibold">Customization</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm">Gender</Label>
+          <Select value={gender} onValueChange={onGenderChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a gender" />
+            </SelectTrigger>
             <SelectContent>
-              {
-                ["ambient", "calm", "chill", "dark", "energetic", "happy", "hopeful", "optimistic", "passionate"].map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
-                ))
-              }
+              {availableGenders.map((g) => (
+                <SelectItem key={g} value={g}>
+                  <span className="capitalize">{g}</span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm">Language</Label>
+          <Select value={language} onValueChange={onLanguageChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a language" />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGES.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  <span className="capitalize">{l.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm">Accent</Label>
+          <Select value={accent} onValueChange={onAccentChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select an accent" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableAccents.map((a) => (
+                <SelectItem key={a} value={a}>
+                  <span className="capitalize">{a}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm">Tone</Label>
+          <Select value={tone} onValueChange={onToneChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a tone" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTones.map((t) => (
+                <SelectItem key={t} value={t}>
+                  <span className="capitalize">{t}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Voice preview */}
+      <ExpressVoicePreview
+        voicesLoading={voicesLoading}
+        voices={voices}
+        selectedVoice={selectedVoice}
+        onSelectedVoiceChange={onSelectedVoiceChange}
+      />
+
+      {/* Music */}
+      <div className="space-y-2">
+        <Label className="text-sm">Music</Label>
+        <Select
+          value={music || availableMusics[0]}
+          onValueChange={onMusicChange}
+        >
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {availableMusics.map((m) => (
+              <SelectItem key={m} value={m}>
+                <span className="capitalize">{m}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {music !== "none" && (
+          <ExpressMusicPreview tracks={musics} musicsLoading={musicsLoading} />
+        )}
       </div>
     </div>
-
-    {
-      musicsLoading ? (
-        <div className="flex items-center justify-center h-12">
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </div>
-      ) : (
-        musics.length > 0 && (
-          <div className="rounded-lg border border-border bg-muted/30 overflow-hidden shadow-sm">
-          <div className="flex flex-col gap-4 p-4 sm:flex-row items-center" >
-            <div className="relative mx-auto w-full max-w-[100px] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border sm:mx-0 sm:max-h-[60px] sm:max-w-[60px]">
-              <div className="aspect-square w-full">
-              <div className="flex h-full w-full items-center justify-center bg-muted">
-                    <MusicIcon className="h-4 w-4 text-muted-foreground/60" aria-hidden />
-                  </div>
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-              <div className="flex flex-wrap gap-1.5">
-                {
-                  musics[0].title ? (
-                    <p className="text-sm font-semibold text-foreground px-2">
-                      {musics[0].title}
-                    </p>
-                  ) : null
-                }
-              </div>
-              <audio
-                src={musics[0].audio_url}
-                preload="metadata"
-                controls
-                className="h-10 w-full max-w-full rounded-md bg-background/80 [&::-webkit-media-controls-panel]:bg-transparent"
-              />
-            </div>
-          </div>
-        </div>
-        )
-      )
-    }
-  </div>  
   );
-};
-
+}
 
 export default function AdCreatorForm({
-  description, onDescriptionChange, goal, onGoalChange,
-  voice, onVoiceChange, tone, onToneChange, music, onMusicChange,
-  onGenerate, isGenerating, generatedAd, editedScript, onScriptChange,
-  onSaved, onRegenerate, isRegenerating,
-  isPro, trackingPixel, onTrackingPixelChange,
-  proVoiceSettings, onProVoiceSettingsChange,
-  proMusicSettings, onProMusicSettingsChange,
-  proContentSettings, onProContentSettingsChange,
-  voices, getVoices, voicesLoading, musics, getMusics, musicsLoading,
-  gender, onGenderChange, language, onLanguageChange,
+  description,
+  onDescriptionChange,
+  goal,
+  onGoalChange,
+  tone,
+  onToneChange,
+  music,
+  onMusicChange,
+  language,
+  onLanguageChange,
+  accent,
+  onAccentChange,
+  onGenerate,
+  isGenerating,
+  generatedAd,
+  editedScript,
+  onScriptChange,
+  onSaved,
+  onRegenerate,
+  isRegenerating,
+  isPro,
+  trackingPixel,
+  onTrackingPixelChange,
+  proVoiceSettings,
+  onProVoiceSettingsChange,
+  proMusicSettings,
+  onProMusicSettingsChange,
+  proContentSettings,
+  onProContentSettingsChange,
+  voices,
+  musics,
+  gender,
+  onGenderChange,
+  selectedVoice,
+  onSelectedVoiceChange,
+  voicesLoading,
+  musicsLoading,
   handleSaveAd,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
@@ -250,12 +508,10 @@ export default function AdCreatorForm({
   // Review state
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isEditingScript, setIsEditingScript] = useState(false);
   const [scriptDirty, setScriptDirty] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [adName, setAdName] = useState('');
+  const [adName, setAdName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [adDuration, setAdDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
 
@@ -263,7 +519,7 @@ export default function AdCreatorForm({
   useEffect(() => {
     if (generatedAd) {
       setScriptDirty(false);
-      setAdName('Ad');
+      setAdName("My Audio Ad");
     }
   }, [generatedAd]);
 
@@ -273,16 +529,16 @@ export default function AdCreatorForm({
       setTimeout(() => {
         const el = reviewRef.current;
         if (!el) return;
-        const scrollParent = el.closest('main') || window;
+        const scrollParent = el.closest("main") || window;
         if (scrollParent instanceof HTMLElement) {
           const parentRect = scrollParent.getBoundingClientRect();
           const elRect = el.getBoundingClientRect();
           scrollParent.scrollTo({
             top: scrollParent.scrollTop + elRect.top - parentRect.top - 16,
-            behavior: 'smooth',
+            behavior: "smooth",
           });
         } else {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }, 150);
     }
@@ -291,42 +547,25 @@ export default function AdCreatorForm({
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // Set src first; duration is only available after metadata loads.
-    audio.preload = 'metadata';
-    audio.src = generatedAd?.url || '';
-
-    const syncDuration = () => {
-      const dur = audio.duration;
-      setAdDuration(Number.isFinite(dur) ? Math.round(dur) : 0);
+    const onTime = () =>
+      setProgress((audio.currentTime / audio.duration) * 100);
+    const onEnd = () => {
+      setIsPlaying(false);
+      setProgress(0);
     };
-
-    const onTime = () => {
-      const dur = audio.duration;
-      if (!Number.isFinite(dur) || dur <= 0) return;
-      setProgress((audio.currentTime / dur) * 100);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("ended", onEnd);
+    return () => {
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("ended", onEnd);
     };
-    const onEnd = () => { setIsPlaying(false); setProgress(0); };
-    const onMeta = () => syncDuration();
-    audio.addEventListener('timeupdate', onTime);
-    audio.addEventListener('ended', onEnd);
-    audio.addEventListener('loadedmetadata', onMeta);
-    audio.addEventListener('durationchange', onMeta);
-
-    // If metadata is already available (cached), sync immediately.
-    syncDuration();
-    return () => { 
-      audio.removeEventListener('timeupdate', onTime); 
-      audio.removeEventListener('ended', onEnd); 
-      audio.removeEventListener('loadedmetadata', onMeta);
-      audio.removeEventListener('durationchange', onMeta);
-    };
-  }, [generatedAd?.url]);
+  }, [hasAd]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) audio.pause(); else audio.play();
+    if (isPlaying) audio.pause();
+    else audio.play();
     setIsPlaying(!isPlaying);
   };
 
@@ -335,15 +574,14 @@ export default function AdCreatorForm({
   }));
 
   const handleScriptChange = (value: string) => {
-    console.log("handleScriptChange here ", {value});
     onScriptChange(value);
     setScriptDirty(value !== generatedAd?.script);
   };
 
   const handleCopyLink = () => {
     if (generatedAd?.url) {
-      navigator.clipboard.writeText(generatedAd?.url);
-      toast({ title: t('ad_creator.link_copied') });
+      navigator.clipboard.writeText(generatedAd.url);
+      toast({ title: "Link copied to clipboard" });
     }
   };
 
@@ -354,55 +592,69 @@ export default function AdCreatorForm({
       setShowSaveModal(false);
       onSaved();
     } catch (err) {
-      console.error('Save error:', err);
-      toast({ title: t('ad_creator.save_failed'), description: t('ad_creator.could_not_save'), variant: 'destructive' });
+      console.error("Save error:", err);
+      toast({
+        title: t("ad_creator.save_failed"),
+        description: t("ad_creator.could_not_save"),
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
   };
-
-
-
-  useEffect(() => {
-    getVoices(gender, language, tone);
-  }, [gender, language, tone]);
-
-  useEffect(() => {
-    getMusics(music);
-  }, [music]);
 
   return (
     <div className="space-y-6">
       {/* ── Generate Section (hidden after ad is created) ── */}
       {!hasAd && (
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-foreground">{t('ad_creator.what_advertising')}</h3>
-          <p className="text-sm text-muted-foreground">{t('ad_creator.tell_about_subtitle')}</p>
+          <h3 className="text-lg font-semibold text-foreground">
+            What are you advertising?
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Tell us about your business and we'll create a script for you.
+          </p>
         </div>
       )}
 
       {!hasAd && (
         <>
           <div className="space-y-2">
-            <Label>{t('ad_creator.campaign_goal')}</Label>
+            <Label>{t("ad_creator.campaign_goal")}</Label>
             <Select value={goal} onValueChange={onGoalChange}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sales">{t('ad_creator.goal_sales')}</SelectItem>
-                <SelectItem value="leads">{t('ad_creator.goal_leads')}</SelectItem>
-                <SelectItem value="traffic">{t('ad_creator.goal_traffic')}</SelectItem>
-                <SelectItem value="consideration">{t('ad_creator.goal_consideration')}</SelectItem>
-                <SelectItem value="awareness">{t('ad_creator.goal_awareness')}</SelectItem>
-                <SelectItem value="app">{t('ad_creator.goal_app')}</SelectItem>
-                <SelectItem value="local">{t('ad_creator.goal_local')}</SelectItem>
+                <SelectItem value="sales">
+                  {t("ad_creator.goal_sales")}
+                </SelectItem>
+                <SelectItem value="leads">
+                  {t("ad_creator.goal_leads")}
+                </SelectItem>
+                <SelectItem value="traffic">
+                  {t("ad_creator.goal_traffic")}
+                </SelectItem>
+                <SelectItem value="consideration">
+                  {t("ad_creator.goal_consideration")}
+                </SelectItem>
+                <SelectItem value="awareness">
+                  {t("ad_creator.goal_awareness")}
+                </SelectItem>
+                <SelectItem value="app">{t("ad_creator.goal_app")}</SelectItem>
+                <SelectItem value="local">
+                  {t("ad_creator.goal_local")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>{t('ad_creator.tell_business')}</Label>
+            <Label>{t("ad_creator.tell_business")}</Label>
             <Textarea
-              placeholder={goalPlaceholders[goal] || 'Tell us about your business...'}
+              placeholder={
+                goalPlaceholders[goal] || "Tell us about your business..."
+              }
               value={description}
               onChange={(e) => onDescriptionChange(e.target.value)}
               rows={5}
@@ -410,9 +662,16 @@ export default function AdCreatorForm({
           </div>
 
           {/* Customization: Express = simple dropdowns, Pro = full ProCustomizations */}
-          {isPro && proVoiceSettings && proMusicSettings && proContentSettings && onTrackingPixelChange && onProVoiceSettingsChange && onProMusicSettingsChange && onProContentSettingsChange ? (
+          {isPro &&
+          proVoiceSettings &&
+          proMusicSettings &&
+          proContentSettings &&
+          onTrackingPixelChange &&
+          onProVoiceSettingsChange &&
+          onProMusicSettingsChange &&
+          onProContentSettingsChange ? (
             <ProCustomizations
-              trackingPixel={trackingPixel || ''}
+              trackingPixel={trackingPixel || ""}
               onTrackingPixelChange={onTrackingPixelChange}
               voiceSettings={proVoiceSettings}
               onVoiceSettingsChange={onProVoiceSettingsChange}
@@ -422,25 +681,32 @@ export default function AdCreatorForm({
               onContentSettingsChange={onProContentSettingsChange}
             />
           ) : (
-            <ExpressCustomizations
+            <ExpressCustomization
               gender={gender}
               onGenderChange={onGenderChange}
               language={language}
               onLanguageChange={onLanguageChange}
-              voices={voices}
-              voicesLoading={voicesLoading}
-              musics={musics}
-              musicsLoading={musicsLoading}
+              accent={accent}
+              onAccentChange={onAccentChange}
               tone={tone}
               onToneChange={onToneChange}
               music={music}
               onMusicChange={onMusicChange}
+              voices={voices}
+              musics={musics}
+              selectedVoice={selectedVoice}
+              onSelectedVoiceChange={onSelectedVoiceChange}
+              voicesLoading={voicesLoading}
+              musicsLoading={musicsLoading}
             />
-
           )}
 
-          <Button className="w-full h-12" onClick={onGenerate} disabled={!canSubmit || isGenerating}>
-            {t('ad_creator.generate_ad')}
+          <Button
+            className="w-full h-12"
+            onClick={onGenerate}
+            disabled={!canSubmit || !selectedVoice || isGenerating}
+          >
+            {t("ad_creator.generate_ad")}
           </Button>
         </>
       )}
@@ -448,7 +714,7 @@ export default function AdCreatorForm({
       {/* ── Review Section (visible after generation) ── */}
       <div
         ref={reviewRef}
-        className={`transition-all duration-500 ease-out ${hasAd ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none h-0 overflow-hidden'}`}
+        className={`transition-all duration-500 ease-out ${hasAd ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none h-0 overflow-hidden"}`}
       >
         {hasAd && generatedAd && (
           <>
@@ -456,86 +722,99 @@ export default function AdCreatorForm({
             <audio ref={audioRef} src={generatedAd.url} preload="auto" />
 
             {/* Audio Player */}
-            <div className="rounded-lg border bg-muted/30 p-5 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-foreground">{ 'Ad'}</h3>
-                  <Badge variant="secondary" className="mt-1">{adDuration}s</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="icon" variant="ghost" className="rounded-full h-10 w-10" onClick={handleCopyLink}>
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" className="rounded-full h-12 w-12" onClick={togglePlay}>
-                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-                  </Button>
-                </div>
+            <div className="rounded-2xl border bg-card p-5 mb-6 space-y-3">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  {/* {generatedAd.brandName} */}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Share it or edit the ad to change the script or the voice
+                  talent.
+                </p>
               </div>
-              <div className="flex items-center justify-center gap-0.5 h-16">
-                {bars.map((bar, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 rounded-full transition-all duration-100 ${
-                      (i / bars.length) * 100 <= progress ? 'bg-primary' : 'bg-primary/20'
-                    }`}
-                    style={{ height: `${bar.height}%` }}
-                  />
-                ))}
+              <div className="bg-muted/50 rounded-xl px-4 py-3 flex items-center gap-3">
+                <Button
+                  size="icon"
+                  className="rounded-full w-10 h-10 shrink-0 bg-primary hover:bg-primary/90"
+                  onClick={togglePlay}
+                >
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4 ml-0.5" />
+                  )}
+                </Button>
+                <div className="flex items-center gap-px h-10 flex-1 min-w-0">
+                  {bars.map((bar, i) => {
+                    const isActive = (i / bars.length) * 100 <= progress;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex-1 rounded-full transition-all duration-150 ${isActive ? "bg-primary" : "bg-primary/30"}`}
+                        style={{ height: `${bar.height}%` }}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="text-sm text-primary font-medium shrink-0 tabular-nums">
+                  {Math.floor(audioRef.current?.duration || 0 / 60)}s
+                </span>
               </div>
             </div>
 
             {/* Script */}
             <div className="space-y-3 mb-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">{t('ad_creator.ad_script')}</Label>
-                <Button variant="ghost" size="sm" onClick={() => setIsEditingScript(!isEditingScript)}>
-                  <Pencil className="h-4 w-4 mr-1" />
-                  {isEditingScript ? t('ad_creator.done') : t('ad_creator.edit')}
-                </Button>
-              </div>
-              {isEditingScript ? (
-                <>
-                  <Textarea
-                    value={editedScript}
-                    onChange={(e) => handleScriptChange(e.target.value)}
-                    rows={5}
-                    className="text-sm"
-                  />
-                  {/* Customization options when editing */}
-                  {isPro && proVoiceSettings && proMusicSettings && proContentSettings && onTrackingPixelChange && onProVoiceSettingsChange && onProMusicSettingsChange && onProContentSettingsChange ? (
-                    <div className="pt-3">
-                      <ProCustomizations
-                        trackingPixel={trackingPixel || ''}
-                        onTrackingPixelChange={onTrackingPixelChange}
-                        voiceSettings={proVoiceSettings}
-                        onVoiceSettingsChange={onProVoiceSettingsChange}
-                        musicSettings={proMusicSettings}
-                        onMusicSettingsChange={onProMusicSettingsChange}
-                        contentSettings={proContentSettings}
-                        onContentSettingsChange={onProContentSettingsChange}
-                      />
-                    </div>
-                  ) : (
-                    <ExpressCustomizations
-                      gender={gender}
-                      onGenderChange={onGenderChange}
-                      language={language}
-                      onLanguageChange={onLanguageChange}
-                      voices={voices}
-                      voicesLoading={voicesLoading}
-                      musics={musics}
-                      musicsLoading={musicsLoading}
-                      tone={tone}
-                      onToneChange={onToneChange}
-                      music={music}
-                      onMusicChange={onMusicChange}
-                    />
-                  )}
-                </>
+              <Label className="text-base font-semibold">
+                {t("ad_creator.ad_script")}
+              </Label>
+              <Textarea
+                value={editedScript}
+                onChange={(e) => handleScriptChange(e.target.value)}
+                rows={5}
+                className="text-sm cursor-text"
+                placeholder="Your ad script will appear here..."
+              />
+            </div>
+
+            {/* Customization options — always visible after generation */}
+            <div className="space-y-4 mb-6">
+              {isPro &&
+              proVoiceSettings &&
+              proMusicSettings &&
+              proContentSettings &&
+              onTrackingPixelChange &&
+              onProVoiceSettingsChange &&
+              onProMusicSettingsChange &&
+              onProContentSettingsChange ? (
+                <ProCustomizations
+                  trackingPixel={trackingPixel || ""}
+                  onTrackingPixelChange={onTrackingPixelChange}
+                  voiceSettings={proVoiceSettings}
+                  onVoiceSettingsChange={onProVoiceSettingsChange}
+                  musicSettings={proMusicSettings}
+                  onMusicSettingsChange={onProMusicSettingsChange}
+                  contentSettings={proContentSettings}
+                  onContentSettingsChange={onProContentSettingsChange}
+                />
               ) : (
-                <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4 leading-relaxed">
-                  {generatedAd?.script}
-                </p>
+                <ExpressCustomization
+                  voices={voices}
+                  musics={musics}
+                  selectedVoice={selectedVoice}
+                  onSelectedVoiceChange={onSelectedVoiceChange}
+                  gender={gender}
+                  onGenderChange={onGenderChange}
+                  language={language}
+                  onLanguageChange={onLanguageChange}
+                  accent={accent}
+                  onAccentChange={onAccentChange}
+                  tone={tone}
+                  onToneChange={onToneChange}
+                  music={music}
+                  onMusicChange={onMusicChange}
+                  voicesLoading={voicesLoading}
+                  musicsLoading={musicsLoading}
+                />
               )}
             </div>
 
@@ -548,13 +827,22 @@ export default function AdCreatorForm({
                 disabled={!scriptDirty || isRegenerating}
               >
                 {isRegenerating ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('ad_creator.regenerating')}</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Regenerating...
+                  </>
                 ) : (
-                  <><RefreshCw className="h-4 w-4 mr-2" />{t('ad_creator.regenerate_audio')}</>
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate Audio Ad
+                  </>
                 )}
               </Button>
-              <Button className="flex-1 h-12" onClick={() => setShowSaveModal(true)}>
-                {t('ad_creator.save_ad')}
+              <Button
+                className="flex-1 h-12"
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save Ad
               </Button>
             </div>
 
@@ -562,26 +850,37 @@ export default function AdCreatorForm({
             <Dialog open={showSaveModal} onOpenChange={setShowSaveModal}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>{t('ad_creator.save_modal_title')}</DialogTitle>
+                  <DialogTitle>Save your ad</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
-                    <Label>{t('ad_creator.ad_name')}</Label>
+                    <Label>Ad Name</Label>
                     <Input
                       value={adName}
                       onChange={(e) => setAdName(e.target.value)}
-                      placeholder={t('ad_creator.ad_name_placeholder')}
+                      placeholder={t("ad_creator.ad_name_placeholder")}
                       autoFocus
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowSaveModal(false)}>{t('common.cancel')}</Button>
-                  <Button onClick={handleConfirmSave} disabled={isSaving || !adName.trim()}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSaveModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirmSave}
+                    disabled={isSaving || !adName.trim()}
+                  >
                     {isSaving ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('ad_creator.saving')}</>
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
                     ) : (
-                      t('ad_creator.confirm')
+                      "Confirm"
                     )}
                   </Button>
                 </DialogFooter>

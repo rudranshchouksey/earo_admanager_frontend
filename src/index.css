@@ -2,154 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
- /* Switzer Font Family - Self Hosted */
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Thin.otf') format('opentype');
-   font-weight: 100;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-ThinItalic.otf') format('opentype');
-   font-weight: 100;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Extralight.otf') format('opentype');
-   font-weight: 200;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-ExtralightItalic.otf') format('opentype');
-   font-weight: 200;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Light.otf') format('opentype');
-   font-weight: 300;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-LightItalic.otf') format('opentype');
-   font-weight: 300;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Regular.otf') format('opentype');
-   font-weight: 400;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Italic.otf') format('opentype');
-   font-weight: 400;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Medium.otf') format('opentype');
-   font-weight: 500;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-MediumItalic.otf') format('opentype');
-   font-weight: 500;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Semibold.otf') format('opentype');
-   font-weight: 600;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-SemiboldItalic.otf') format('opentype');
-   font-weight: 600;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Bold.otf') format('opentype');
-   font-weight: 700;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-BoldItalic.otf') format('opentype');
-   font-weight: 700;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Extrabold.otf') format('opentype');
-   font-weight: 800;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-ExtraboldItalic.otf') format('opentype');
-   font-weight: 800;
-   font-style: italic;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-Black.otf') format('opentype');
-   font-weight: 900;
-   font-style: normal;
-   font-display: swap;
- }
- 
- @font-face {
-   font-family: 'Switzer';
-   src: url('/fonts/Switzer-BlackItalic.otf') format('opentype');
-   font-weight: 900;
-   font-style: italic;
-   font-display: swap;
- }
  
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -158,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 233 80% 42%;
+    --primary: 128 51% 44%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -189,6 +45,14 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 233 80% 42%;
 
+    /* Landing page color tokens */
+    --violet-900: 267 84% 38%;
+    --violet-800: 275 68% 38%;
+    --violet-700: 321 74% 41%;
+    --pink-900: 341 90% 52%;
+    --pink-800: 330 100% 60%;
+    --pink-200: 315 100% 99%;
+
     /* Custom colors */
     --gradient-primary: linear-gradient(10deg, hsl(233, 80%, 42%) 0%, hsl(168, 85%, 39%) 100%);
     --gradient-button: linear-gradient(135deg, hsl(233, 80%, 50%) 0%, hsl(233, 80%, 42%) 100%);
@@ -205,7 +69,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 220 14% 96%;
 
-    --primary: 233 80% 42%;
+    --primary: 153 100% 43%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 222 40% 18%;
@@ -223,6 +87,14 @@
     --border: 222 40% 18%;
     --input: 222 40% 18%;
     --ring: 233 80% 42%;
+
+    /* Dark mode landing page tokens */
+    --violet-900: 267 84% 38%;
+    --violet-800: 275 68% 38%;
+    --violet-700: 321 74% 41%;
+    --pink-900: 341 90% 52%;
+    --pink-800: 330 100% 60%;
+    --pink-200: 315 100% 99%;
   }
 }
 
@@ -233,7 +105,6 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-     font-family: 'Switzer', sans-serif;
   }
 }
 
@@ -385,5 +256,5 @@
  
  /* Arabic font stack */
  .font-arabic {
-   font-family: 'Noto Sans Arabic', 'Switzer', system-ui, sans-serif;
+   font-family: 'Noto Sans Arabic', 'Poppins', system-ui, sans-serif;
 }

@@ -58,7 +58,9 @@ export default function AdCreator() {
   const [jobId, setJobId] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("sales");
-  const [voice, setVoice] = useState("female-en");
+
+  const [selectedVoice, setSelectedVoice] = useState("");
+  const [accent, setAccent] = useState("");
   const [tone, setTone] = useState("friendly");
   const [music, setMusic] = useState("happy");
   const [language, setLanguage] = useState("en");
@@ -158,6 +160,11 @@ export default function AdCreator() {
 
 
   const handleGenerate = useCallback(async () => {
+    console.log("handleGenerated here ", {selectedVoice});
+    if(!selectedVoice){
+      toast({ title: "Error generating ad", description: "No voice selected", variant: 'destructive' });
+      return;
+    }
     setIsGenerating(true);
     try {
 
@@ -168,7 +175,7 @@ export default function AdCreator() {
           advertiserId: advertiserId,
           prompt: description,
           tone: tone,
-          voiceId: voices[0].externalId,
+          voiceId: selectedVoice,
           musicId: musics[0].externalId
         });
         console.log("createAd here ", {error, status, message, data});
@@ -198,7 +205,7 @@ export default function AdCreator() {
     }
   }, [description, goal, t]);
 
-  const getMusics = async (mood) => {
+  const getMusics = async (mood: string) => {
     setMusicsLoading(true);
     const {status, error, message, data} = await adsApi.getMusics({
       page: 1,
@@ -215,10 +222,11 @@ export default function AdCreator() {
   };
   const getVoices = async (gender: string, language: string, tone: string) => {
     setVoicesLoading(true);
+    setSelectedVoice("");
     console.log("getVoices here ", {gender, language, tone});
     const {status, error, message, data} = await adsApi.getVoices({
       page: 1,
-      limit: 1,
+      limit: 6,
       gender: gender,
       language: language,
       characteristic: tone,
@@ -233,6 +241,18 @@ export default function AdCreator() {
   };
 
   const handleSaved = () => navigate("/dashboard/ads");
+
+  useEffect(() => {
+    if(gender && language && tone){
+      getVoices(gender, language, tone);
+    }
+  }, [gender, language, tone]);
+
+  useEffect(() => {
+    if(music){
+      getMusics(music);
+    }
+  }, [music]);
 
   useEffect(() => {
     const load = async () => {
@@ -268,61 +288,41 @@ export default function AdCreator() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {t("ad_creator.title")}
-        </h1>
-        <p className="text-muted-foreground">{t("ad_creator.subtitle")}</p>
+        <h1 className="text-2xl font-semibold text-foreground">{t("ad_creator.title")}</h1>
+          <p className="text-muted-foreground">{t("ad_creator.subtitle")}</p>
       </div>
 
       {/* Mode Switcher — Pro only */}
       {isPro && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setMode("ai")}
+            onClick={() => setMode('ai')}
             className={cn(
-              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-              mode === "ai"
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border hover:border-primary/40",
+              'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
+              mode === 'ai'
+                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                : 'border-border hover:border-primary/40'
             )}
           >
-            <Sparkles
-              className={cn(
-                "h-5 w-5 shrink-0",
-                mode === "ai" ? "text-primary" : "text-muted-foreground",
-              )}
-            />
+            <Sparkles className={cn('h-5 w-5 shrink-0', mode === 'ai' ? 'text-primary' : 'text-muted-foreground')} />
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {t("ad_creator.ai_mode_title")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t("ad_creator.ai_mode_desc")}
-              </p>
+              <p className="text-sm font-medium text-foreground">{t("ad_creator.ai_mode_title")}</p>
+              <p className="text-xs text-muted-foreground">{t("ad_creator.ai_mode_desc")}</p>
             </div>
           </button>
           <button
-            onClick={() => setMode("upload")}
+            onClick={() => setMode('upload')}
             className={cn(
-              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-              mode === "upload"
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border hover:border-primary/40",
+              'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
+              mode === 'upload'
+                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                : 'border-border hover:border-primary/40'
             )}
           >
-            <Upload
-              className={cn(
-                "h-5 w-5 shrink-0",
-                mode === "upload" ? "text-primary" : "text-muted-foreground",
-              )}
-            />
+            <Upload className={cn('h-5 w-5 shrink-0', mode === 'upload' ? 'text-primary' : 'text-muted-foreground')} />
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {t("ad_creator.upload_mode_title")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t("ad_creator.upload_mode_desc")}
-              </p>
+              <p className="text-sm font-medium text-foreground">{t("ad_creator.upload_mode_title")}</p>
+              <p className="text-xs text-muted-foreground">{t("ad_creator.upload_mode_desc")}</p>
             </div>
           </button>
         </div>
@@ -340,8 +340,8 @@ export default function AdCreator() {
               onLanguageChange={setLanguage}
               gender={gender}
               onGenderChange={setGender}
-              voice={voice}
-              onVoiceChange={setVoice}
+              accent={accent}
+              onAccentChange={setAccent}
               tone={tone}
               onToneChange={setTone}
               music={music}
@@ -364,12 +364,13 @@ export default function AdCreator() {
               proContentSettings={proContent}
               onProContentSettingsChange={setProContent}
               voices={voices}
-              getVoices={getVoices}
               voicesLoading={voicesLoading}
               musics={musics}
               getMusics={getMusics}
               musicsLoading={musicsLoading}
               handleSaveAd={handleSaveAd}
+              selectedVoice={selectedVoice}
+              onSelectedVoiceChange={setSelectedVoice}
             />
           ) : (
             <UploadAdForm onSaved={handleSaved} />
@@ -377,12 +378,8 @@ export default function AdCreator() {
         </CardContent>
       </Card>
 
-      {mode === "ai" && (
-        <AdGeneratingModal
-          open={isGenerating}
-
-          onCancel={() => setIsGenerating(false)}
-        />
+      {mode === 'ai' && (
+        <AdGeneratingModal open={isGenerating} onCancel={() => setIsGenerating(false)} />
       )}
     </div>
   );
