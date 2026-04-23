@@ -15,7 +15,7 @@ import type {
   ProContentSettings,
 } from "@/components/dashboard/ad-creator/ProCustomizations";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
-import { auth, AuthSession } from "@/services/auth";
+import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 
@@ -62,6 +62,7 @@ export default function AdCreator() {
   const [selectedVoice, setSelectedVoice] = useState("");
   const [accent, setAccent] = useState("");
   const [tone, setTone] = useState("friendly");
+  const [selectedMusic, setSelectedMusic] = useState("");
   const [music, setMusic] = useState("happy");
   const [language, setLanguage] = useState("en");
   const [gender, setGender] = useState("female");
@@ -72,6 +73,9 @@ export default function AdCreator() {
   const [musics, setMusics] = useState<Music[]>([]);
   const [musicsLoading, setMusicsLoading] = useState(true);
 
+
+  const [currentVoice, setCurrentVoice] = useState<Voice | null>(null);
+  const [currentMusic, setCurrentMusic] = useState<Music | null>(null);
 
   // Pro-only state
   const [trackingPixel, setTrackingPixel] = useState("");
@@ -176,7 +180,7 @@ export default function AdCreator() {
           prompt: description,
           tone: tone,
           voiceId: selectedVoice,
-          musicId: musics[0].externalId
+          musicId: selectedMusic || musics[0].externalId
         });
         console.log("createAd here ", {error, status, message, data});
         if(status != 200){
@@ -207,9 +211,10 @@ export default function AdCreator() {
 
   const getMusics = async (mood: string) => {
     setMusicsLoading(true);
+    setSelectedMusic("");
     const {status, error, message, data} = await adsApi.getMusics({
       page: 1,
-      limit: 1,
+      limit: 3,
       mood: mood
     });
     console.log("loadMusics here ", {status, error, message, data});
@@ -240,7 +245,28 @@ export default function AdCreator() {
     }
   };
 
-  const handleSaved = () => navigate("/dashboard/ads");
+  const handleSaved = async () => {
+  
+    // const session = getStoredSession();
+    // if (!session) {
+    //   toast({ title: "Session not found", variant: "destructive" });
+    //   return;
+    // }
+
+    // const { status, error, message } = await adsApi.uploadFile(file);
+
+
+    // const { status, error, message } = await adsApi.uploadAudioAd({
+    //   type: 1,
+    //   campaignGoal: goal,
+    //   advertiserId: advertiserId,
+    //   prompt: description,
+    //   tone: tone,
+    //   voiceId: selectedVoice,
+    //   musicId: selectedMusic || musics[0].externalId
+    // });
+    navigate("/dashboard/ads")
+  };
 
   useEffect(() => {
     if(gender && language && tone){
@@ -255,6 +281,41 @@ export default function AdCreator() {
   }, [music]);
 
   useEffect(() => {
+    const getAdFromParams = async () => {
+      const adId = new URLSearchParams(window.location.search).get('ad');
+      const session = await auth.getSession();
+      if(!session) return;
+
+      if(adId){
+        const {data} = await adsApi.getAd(adId, session.data.session.currentAdvertiserId);
+        console.log("getAdFromParams here ", {data});
+        if(data){
+          setDescription(data.data.generatedScript);
+          setGoal(data.data.campaignGoal);
+
+          const {status: voiceStatus, error: voiceError, message: voiceMessage, data: voiceData} = await adsApi.getVoice(data.data.voiceId)
+          console.log("getVoiceData here ", {voiceStatus, voiceError, voiceMessage, voiceData});
+          if(voiceStatus != 200){
+            toast({ title: "Error loading current voice", description: voiceMessage, variant: 'destructive' });
+          }else {
+            setCurrentVoice(voiceData.data);
+            setSelectedVoice(voiceData.data.externalId);
+          }
+
+          const {status: musicStatus, error: musicError, message: musicMessage, data: musicData} = await adsApi.getMusic(data.data.musicId)
+          console.log("getMusicData here ", {musicStatus, musicError, musicMessage, musicData});
+          if(musicStatus != 200){
+            toast({ title: "Error loading current music", description: musicMessage, variant: 'destructive' });
+          }else {
+            setCurrentMusic(musicData.data);
+            setSelectedMusic(musicData.data.externalId);
+          }
+        }
+      }
+    };
+
+    getAdFromParams();
+
     const load = async () => {
       const {
         data: { session },
@@ -370,7 +431,11 @@ export default function AdCreator() {
               musicsLoading={musicsLoading}
               handleSaveAd={handleSaveAd}
               selectedVoice={selectedVoice}
+              selectedMusic={selectedMusic}
               onSelectedVoiceChange={setSelectedVoice}
+              onSelectedMusicChange={setSelectedMusic}
+              currentVoice={currentVoice}
+              currentMusic={currentMusic}
             />
           ) : (
             <UploadAdForm onSaved={handleSaved} />

@@ -15,16 +15,9 @@ import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards } from '@/components/ui/mobile-data-card';
 import { OrganizationIndustry } from '@/services/organization';
-
+import { Advertiser } from '@/services/advertiser';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-interface Advertiser {
-  id: string;
-  name: string;
-  external_id: string;
-  industry: string;
-  status: 'active' | 'paused' | 'ended';
-}
 
 const INDUSTRIES = [
   'Retail', 'Food & Beverage', 'Technology', 'Healthcare', 'Education',
@@ -38,11 +31,13 @@ const statusColors: Record<string, string> = {
 };
 
 
-const defaultForm: Omit<Advertiser, 'id'> = {
+const defaultForm: Record<string, string> = {
+  id: '',
+  extId: '',
   name: '',
   external_id: '',
-  industry: '',
-  status: 'active',
+  industry: 'HOSPITALITY',
+  status: 'ACTIVE',
 };
 
 export interface AdvertiserCreateObj {
@@ -50,17 +45,26 @@ export interface AdvertiserCreateObj {
   industry: string;
 }
 
-interface AdvertiserTabProps {
-  advertisers: Advertiser[];
-  createAdvertiser: (advertiser: AdvertiserCreateObj) => Promise<{status: number, error: boolean, message: string}>;
+export interface AdvertiserUpdateObj {
+  advertiserId: string;
+  advertiserName: string;
+  industry: string;
+  status: string;
+  extId: string;
 }
 
-export default function AdvertisersTab({ advertisers, createAdvertiser }: AdvertiserTabProps) {
+interface AdvertiserTabProps {
+  advertisers: Advertiser[];
+  createAdvertiser: (advertiser: AdvertiserCreateObj) => Promise<{status: number, error: Error, message: string}>;
+  updateAdvertiser: (advertiser: AdvertiserUpdateObj) => Promise<{status: number, error: Error, message: string}>;
+}
+
+export default function AdvertisersTab({ advertisers, createAdvertiser, updateAdvertiser }: AdvertiserTabProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
-  const [form, setForm] = useState<Omit<Advertiser, 'id'>>(defaultForm);
+  const [form, setForm] = useState<Omit<Record<string, string>, 'id'>>(defaultForm);
 
   const openCreate = () => {
     setEditing(null);
@@ -70,7 +74,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser }: Advert
 
   const openEdit = (adv: Advertiser) => {
     setEditing(adv);
-    setForm({ name: adv.name, external_id: adv.external_id, industry: adv.industry, status: adv.status });
+    setForm({ name: adv.advertiserName, id: adv.id, industry: adv.industry, status: adv.status, extId: adv.extId });
     setDialogOpen(true);
   };
 
@@ -88,13 +92,20 @@ export default function AdvertisersTab({ advertisers, createAdvertiser }: Advert
     }
 
     if (editing) {
-      // setAdvertisers((prev) =>
-      //   prev.map((a) => (a.id === editing.id ? { ...a, ...form } : a))
-      // );
-      toast({ title: t('account.advertiser_updated') });
+      const { status, error,  message} = await updateAdvertiser({
+        advertiserId: form.id,
+        advertiserName: form.name,
+        industry: form.industry,
+        status: form.status,
+        extId: form.extId
+      });
+      if(status !== 200 || error){
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: message });
+
     } else {
-      // const newAdv: Advertiser = { ...form, id: crypto.randomUUID() };
-      // setAdvertisers((prev) => [...prev, newAdv]);
       const { status, error,  message} = await createAdvertiser({
         advertiserName: form.name,
         industry: form.industry
@@ -263,9 +274,9 @@ export default function AdvertisersTab({ advertisers, createAdvertiser }: Advert
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">{t('account.status_active')}</SelectItem>
-                    <SelectItem value="paused">{t('account.status_paused')}</SelectItem>
-                    <SelectItem value="ended">{t('account.status_ended')}</SelectItem>
+                    <SelectItem value="ACTIVE">{t('account.status_active')}</SelectItem>
+                    <SelectItem value="PAUSED">{t('account.status_paused')}</SelectItem>
+                    <SelectItem value="ARCHIVED">{t('account.status_archived')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

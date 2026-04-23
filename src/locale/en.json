@@ -339,6 +339,7 @@
   "ads.create_audio_ad": "Create Audio Ad",
   "ads.delete_failed": "Delete failed",
   "ads.deleted": "Ad deleted",
+  "ads.created": "Created Ads",
 
   "reports.title": "Campaign Reports",
   "reports.title_campaign": "Campaign performance details",
@@ -369,7 +370,7 @@
 
   "layout.brand_name": "NextAds",
   "layout.nav_dashboard": "Dashboard",
-  "layout.nav_ads": "My Audio Ads",
+  "layout.nav_ads": "Audio Ads",
   "layout.nav_campaigns": "Campaigns",
   "layout.nav_reports": "Reports",
   "layout.nav_account": "My Account",
@@ -489,7 +490,7 @@
   "account.status_draft": "Draft",
   "account.status_active": "Active",
   "account.status_paused": "Paused",
-  "account.status_ended": "Ended",
+  "account.status_archived": "Archived",
   "account.user_removed": "User removed",
   "account.user_created": "User created",
   "account.user_updated": "User updated",

@@ -4,6 +4,7 @@ export interface Ad {
   id: string;
   jobId: string;
   type?: number;
+  adName?:string;
   advertiserId: string;
   campaignGoal: string;
   prompt: string;
@@ -16,6 +17,8 @@ export interface Ad {
   sourceUrl: string;
   isFinished: boolean;
   isError: boolean;
+  fileUrl?:string;
+  duration?:number;
 }
 
 export interface Voice {
@@ -31,7 +34,7 @@ export interface Voice {
   imageUrl: string;
 }
 
-export interface VoiceResponse {
+export interface VoicesResponse {
   "status": number,
   "message": string,
   "data": Voice[],
@@ -43,7 +46,7 @@ export interface VoiceResponse {
   }
 }
 
-export interface MusicResponse {
+export interface MusicsResponse {
   "status": number,
   "message": string,
   "data": Music[],
@@ -54,6 +57,20 @@ export interface MusicResponse {
       "totalPages": number
   }
 }
+
+
+export interface VoiceResponse {
+  "status": number,
+  "message": string,
+  "data": Voice,
+}
+
+export interface MusicResponse {
+  "status": number,
+  "message": string,
+  "data": Music,
+}
+
 export interface Music {
   id: string;
   externalId: string;
@@ -96,6 +113,7 @@ export interface voiceFilter {
   gender?: string;
   language?: string;
   characteristic?: string;
+  externalId?: string;
 }
 
 export interface AdStatusResponse {
@@ -134,7 +152,7 @@ export interface AdData {
     eCPM: string;
 }
 
-export interface AdResponse {
+export interface AdsResponse {
   status: number;
   message: string;
   data: AdData[];
@@ -152,10 +170,19 @@ export interface AdResponse {
   };
 }
 
+export interface AdResponse {
+  status: number;
+  message: string;
+  data: Ad;
+}
+
 export const adsApi = {
+  getAd: (adId: string, advertiserId: string) =>
+    request<AdResponse>('/api/v1/creatives/getAd', { method: 'POST', body: { id: adId, advertiserId: advertiserId } }),
+
   /** Fetches ads for a specific user */
   getAds: (getAdsPayload: getAdsPayload) => 
-    request<AdResponse>(`/api/v1/creatives/getAds`, { method: 'POST', body: getAdsPayload }),
+    request<AdsResponse>(`/api/v1/creatives/getAds`, { method: 'POST', body: getAdsPayload }),
 
   /** Standard ad creation */
   createAd: (payload: Partial<Ad>) => 
@@ -170,9 +197,14 @@ export const adsApi = {
   uploadAudioAd: (payload: Partial<Ad>) =>
     request<Ad>('/api/v1/creatives/uploadAudioAd', { method: 'POST', body: payload }),
 
-  getVoices: (filter: voiceFilter) => request<VoiceResponse>('/api/v1/creatives/searchVoice', {method: "POST", body: filter}),
+  getVoices: (filter: voiceFilter) => request<VoicesResponse>('/api/v1/creatives/searchVoices', {method: "POST", body: filter}),
 
-  getMusics: (filter: musicFilter) => request<MusicResponse>('/api/v1/creatives/searchMusic', {method: "POST", body: filter}),
+  getMusics: (filter: musicFilter) => request<MusicsResponse>('/api/v1/creatives/searchMusics', {method: "POST", body: filter}),
+
+  getVoice: (externalId: string) => request<VoiceResponse>('/api/v1/creatives/searchVoice', {method: "POST", body: {externalId}}),
+
+  getMusic: (externalId: string) => request<MusicResponse>('/api/v1/creatives/searchMusic', {method: "POST", body: {externalId}}),
+
 
   updateAdStatus: (jobId: string, name: string) =>
     request<AdStatusResponse>('/api/v1/creatives/updateAdStatus', { method: 'POST', body: { id: jobId, adName: name } }),
@@ -184,4 +216,6 @@ export const adsApi = {
       headers: { Accept: 'text/csv' },
     }),
 
+
+    uploadFile: (formData: FormData) => request<{status: number, message: string, data: {url: string, duration: number}}>('/api/v1/creatives/commonFileUpload', { method: 'POST', body: formData }),
 };

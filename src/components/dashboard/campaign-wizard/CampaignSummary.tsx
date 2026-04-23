@@ -20,6 +20,7 @@ const keyToNumber: Record<string, number> = {
 };
 
 export default function CampaignSummary({ items }: CampaignSummaryProps) {
+  const { t } = useTranslation();
   if (items.length === 0) return null;
 
   return (

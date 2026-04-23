@@ -86,9 +86,10 @@ export async function request<T = unknown>(
     orgId["x-org-id"] = storedSession.currentOrganizationId;
   }
 
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...customHeaders,
     ...orgId,
   };
@@ -106,7 +107,9 @@ export async function request<T = unknown>(
   const doFetch = () => fetch(urlObj.toString(), {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    // IMPORTANT: FormData must be sent as-is and without JSON.stringify;
+    // also, the browser must set the multipart boundary, so we avoid forcing Content-Type.
+    body: body === undefined ? undefined : (isFormData ? (body as BodyInit) : JSON.stringify(body)),
   });
 
   let res = await doFetch();

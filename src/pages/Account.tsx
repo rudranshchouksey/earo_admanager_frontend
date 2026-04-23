@@ -48,8 +48,9 @@ import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import UsersTab from "@/components/dashboard/account/UsersTab";
-import AdvertisersTab, { AdvertiserCreateObj } from "@/components/dashboard/account/AdvertisersTab";
+import AdvertisersTab, { AdvertiserCreateObj, AdvertiserUpdateObj } from "@/components/dashboard/account/AdvertisersTab";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
+import { appNotifications } from "@/services/appNotifications";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
 
@@ -328,15 +329,47 @@ export default function Account() {
       });
       return { status, error, message };
     }
-    getAdvertisers(session?.currentOrganizationId);
+    getAdvertisers(session?.currentOrganizationId ?? "");
+    appNotifications.notify("advertisers:changed", {
+      organizationId: session?.currentOrganizationId ?? organizationDetails?.id,
+    });
+
     toast({
       title: t("common.success"),
       description: "Advertiser created successfully",
       variant: "default",
     });
-    return { status, error: false, message: message || "Advertiser created successfully" };
+    return { status, error: null, message: message || "Advertiser created successfully" };
   }
 
+  const updateAdvertiser = async (advertiserObj: AdvertiserUpdateObj) => {
+    const { data, status, error, message } = await advertiserApi.updateAdvertiser({
+      advertiserId: advertiserObj.advertiserId,
+      advertiserName: advertiserObj.advertiserName,
+      industry: advertiserObj.industry,
+      status: advertiserObj.status,
+      extId: advertiserObj.extId,
+    });
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: message || "Failed to create advertiser",
+        variant: "destructive",
+      });
+      return { status, error, message };
+    }
+    getAdvertisers(session?.currentOrganizationId ?? "");
+    appNotifications.notify("advertisers:changed", {
+      organizationId: session?.currentOrganizationId ?? organizationDetails?.id,
+    });
+
+    toast({
+      title: t("common.success"),
+      description: "Advertiser created successfully",
+      variant: "default",
+    });
+    return { status, error: null, message: message || "Advertiser created successfully" };
+  }
 
   const verifyMFAComplete = async (code: string) => {
     const { error, status, message, data } = await userApi.verify2fa(profile.id, code, mfaToken);
@@ -369,6 +402,7 @@ export default function Account() {
   const { isPro, isAgency } = useSessionFlags();
   const { t } = useTranslation();
 
+  console.log({ isPro, isAgency });
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -406,7 +440,7 @@ export default function Account() {
         </TabsList>
 
         {/* PROFILE TAB (Express only) */}
-        {!isPro && (
+        {/* {!isPro && ( */}
           <TabsContent value="profile" className="mt-4 space-y-4">
             <Card>
               <CardHeader>
@@ -525,7 +559,7 @@ export default function Account() {
             </Card>
 
           </TabsContent>
-        )}
+        {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
         {isPro && (
@@ -537,7 +571,7 @@ export default function Account() {
         {/* ADVERTISERS TAB (Pro Agency only) */}
         {isAgency && (
           <TabsContent value="advertisers" className="mt-4">
-            <AdvertisersTab advertisers={advertisers} createAdvertiser={createAdvertiser} />
+            <AdvertisersTab advertisers={advertisers} createAdvertiser={createAdvertiser} updateAdvertiser={updateAdvertiser} />
           </TabsContent>
         )}
 

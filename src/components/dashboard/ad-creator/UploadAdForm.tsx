@@ -86,24 +86,29 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     if (!file || !adName.trim()) return;
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) {
         toast({ title: 'Not authenticated', variant: 'destructive' });
         return;
       }
+      console.log("file", file);
 
-      const path = `${session.user.id}/${Date.now()}.mp3`;
-      await adsApi.uploadAudio(file);
-      const finalAudioUrl = audioUrl;
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const { error: dbError } = await adsApi.createAd({
-        product_name: adName.trim(),
-        brand_name: adName.trim(),
-        audio_url: finalAudioUrl,
-        duration_seconds: duration,
-        status: 'completed',
-        source_type: 'upload',
-        user_id: session.user.id,
+      const { status, error, message, data } = await adsApi.uploadFile(formData);
+      if (status !== 200 || error) {
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      const finalAudioUrl = data.data.url;
+
+      const { error: dbError } = await adsApi.uploadAudioAd({
+        adName: adName.trim(),
+        advertiserId: session.currentAdvertiserId,
+        fileUrl: finalAudioUrl,
+        duration: duration,
+        campaignGoal: goal,
       });
       if (dbError) throw dbError;
 

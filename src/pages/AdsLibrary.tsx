@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pause, Trash2, Volume2, Download, Search, Filter } from 'lucide-react';
+import { Plus, Play, Pause, Trash2, Volume2, Download, Search, Filter, Pencil } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import { AllCommunityModule, ColDef, type ICellRendererParams } from 'ag-grid-co
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { adsApi, AdData } from '@/services/ads';
 import { campaignApi } from '@/services/campaign';
+import { appNotifications } from '@/services/appNotifications';
 
 interface AdStats {
   impressions: number;
@@ -138,6 +139,16 @@ export default function AdsLibrary() {
     }, 300);
     return () => window.clearTimeout(handle);
   }, [apiStatus, fetchAds, limit, page, search]);
+
+  // Refetch when advertiser changes in the layout
+  useEffect(() => {
+    return appNotifications.subscribe('advertiser:selected', async () => {
+      setTimeout(() => {
+        setPage(1);
+        fetchAds({ page: 1, limit, search: search.trim() || undefined, status: apiStatus });  
+      }, 500);
+    });
+  }, [apiStatus, fetchAds, limit, search]);
 
   const togglePlay = useCallback((ad: AdData) => {
     if (!ad.sourceUrl) return;
@@ -316,6 +327,24 @@ export default function AdsLibrary() {
     );
   }, [t]);
 
+  const EditRenderer = useCallback((params: ICellRendererParams) => {
+    const ad = params.data as AdData;
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(`/dashboard/ads/new?ad=${ad.id}`);
+        }}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    );
+  }, [navigate]);
+
+
   const StatusRenderer = useCallback((params: ICellRendererParams) => (
     <Badge variant="secondary" className={statusColors[params.value ?? ''] || ''}>
       {params.value ?? 'DRAFT'}
@@ -362,10 +391,11 @@ export default function AdsLibrary() {
     },
     {
       field: 'createdAt',
-      headerName: t('common.created') ?? 'Created',
+      headerName: 'Created',
       width: 130,
       valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString() : '—',
     },
+    { headerName: '', width: 50, cellRenderer: EditRenderer, sortable: false, suppressHeaderMenuButton: true },
     { headerName: '', width: 50, cellRenderer: DeleteRenderer, sortable: false, suppressHeaderMenuButton: true },
   ], [PlayRenderer, DeleteRenderer, StatusRenderer, NameRenderer, t]);
 

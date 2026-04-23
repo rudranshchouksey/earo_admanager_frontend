@@ -93,6 +93,10 @@ interface AdCreatorFormProps {
   handleSaveAd: (adName: string) => Promise<void>;
   selectedVoice: string;
   onSelectedVoiceChange: (v: string) => void;
+  selectedMusic: string;
+  onSelectedMusicChange: (v: string) => void;
+  currentVoice: Voice | null;
+  currentMusic: Music | null;
 }
 const LANGUAGES = [
   { id: "en", label: "English" },
@@ -181,11 +185,13 @@ function ExpressVoicePreview({
   selectedVoice,
   onSelectedVoiceChange,
   voicesLoading,
+  currentVoice,
 }: {
   voices: Voice[];
   selectedVoice: string;
   onSelectedVoiceChange: (v: string) => void;
   voicesLoading: boolean;
+  currentVoice: Voice | null;
 }) {
   console.log("selectedVoice", selectedVoice);
 
@@ -204,6 +210,66 @@ function ExpressVoicePreview({
 
   return (
     <div className="space-y-1.5">
+      {currentVoice && (
+        <>
+          <Label className="text-xs text-muted-foreground">Current voice</Label>
+          <div
+            key={currentVoice.id}
+            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30"
+          >
+            <Checkbox
+              id="voice-preview"
+              checked={selectedVoice === currentVoice.externalId}
+              onCheckedChange={() =>
+                onSelectedVoiceChange(currentVoice.externalId)
+              }
+            />
+            <Avatar
+              className="h-7 w-7 shrink-0"
+              onClick={() => onSelectedVoiceChange(currentVoice.id)}
+            >
+              <AvatarImage
+                src={currentVoice.imageUrl}
+                alt={currentVoice.name}
+                className="object-cover"
+              />
+              <AvatarFallback className="text-[10px] font-medium bg-muted text-foreground">
+                {currentVoice.name.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col md:flex-row items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-foreground">
+                    {currentVoice.name}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal"
+                  >
+                    {currentVoice.gender}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1 overflow-x-scroll md:overflow-x-hidden max-w-[100px] md:max-w-full">
+                  {currentVoice.accents &&
+                    currentVoice.accents.length > 0 &&
+                    currentVoice.accents.map((accent) => (
+                      <Badge
+                        key={accent}
+                        variant="outline"
+                        className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal whitespace-nowrap"
+                      >
+                        {accent}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <InlineAudioPlayer audioUrl={currentVoice.audioUrl} />
+          </div>
+        </>
+      )}
+
       <Label className="text-xs text-muted-foreground">Matching voices</Label>
       <div className="space-y-1">
         {voices.map((voice) => (
@@ -269,9 +335,15 @@ function ExpressVoicePreview({
 function ExpressMusicPreview({
   tracks,
   musicsLoading,
+  selectedMusic,
+  onSelectedMusicChange,
+  currentMusic,
 }: {
   tracks: Music[];
   musicsLoading: boolean;
+  selectedMusic: string;
+  onSelectedMusicChange: (v: string) => void;
+  currentMusic: Music | null;
 }) {
   console.log("tracks", tracks);
 
@@ -288,19 +360,59 @@ function ExpressMusicPreview({
   if (!tracks || tracks.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
-      <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
-        <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <span className="text-xs font-medium text-foreground">
-          {tracks[0].title}
-        </span>
-        <p className="text-[10px] text-muted-foreground truncate">
-          {tracks[0].genres.join(", ")}
-        </p>
-      </div>
-      <InlineAudioPlayer audioUrl={tracks[0].audioUrl} />
+    <div>
+      {currentMusic && (
+        <>
+          <Label className="text-xs text-muted-foreground">Current music</Label>
+          <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+            <Checkbox
+              id="music-preview"
+              checked={selectedMusic === currentMusic.externalId}
+              onCheckedChange={() => onSelectedMusicChange(currentMusic.externalId)}
+            />
+            <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
+              <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-medium text-foreground">
+                {currentMusic.title}
+              </span>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {currentMusic.genres.join(", ")}
+              </p>
+            </div>
+            <InlineAudioPlayer audioUrl={currentMusic.audioUrl} />
+          </div>
+        </>
+      )}
+            <Label className="text-xs text-muted-foreground">
+              Matching music
+            </Label>
+      {tracks &&
+        tracks.length > 0 &&
+        tracks.map((track) => (
+          <>
+            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+            <Checkbox
+              id="music-preview"
+              checked={selectedMusic === track.externalId}
+              onCheckedChange={() => onSelectedMusicChange(track.externalId)}
+            />
+              <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
+                <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-medium text-foreground">
+                  {track.title}
+                </span>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {track.genres.join(", ")}
+                </p>
+              </div>
+              <InlineAudioPlayer audioUrl={track.audioUrl} />
+            </div>
+          </>
+        ))}
     </div>
   );
 }
@@ -336,8 +448,13 @@ function ExpressCustomization({
   musics,
   selectedVoice,
   onSelectedVoiceChange,
+  selectedMusic,
+  onSelectedMusicChange,
   voicesLoading,
   musicsLoading,
+  currentVoice,
+  currentMusic,
+  isPro = false
 }: {
   gender: string;
   onGenderChange: (v: string) => void;
@@ -353,8 +470,13 @@ function ExpressCustomization({
   musics: Music[];
   selectedVoice: string;
   onSelectedVoiceChange: (v: string) => void;
+  selectedMusic: string;
+  onSelectedMusicChange: (v: string) => void;
   voicesLoading: boolean;
   musicsLoading: boolean;
+  currentVoice: Voice | null;
+  currentMusic: Music | null;
+  isPro: boolean;
 }) {
   const availableAccents = voiceDefaults.accents;
   const availableTones = voiceDefaults.characteristics;
@@ -429,6 +551,7 @@ function ExpressCustomization({
 
       {/* Voice preview */}
       <ExpressVoicePreview
+        currentVoice={currentVoice}
         voicesLoading={voicesLoading}
         voices={voices}
         selectedVoice={selectedVoice}
@@ -454,7 +577,13 @@ function ExpressCustomization({
           </SelectContent>
         </Select>
         {music !== "none" && (
-          <ExpressMusicPreview tracks={musics} musicsLoading={musicsLoading} />
+          <ExpressMusicPreview
+            tracks={musics}
+            selectedMusic={selectedMusic}
+            onSelectedMusicChange={onSelectedMusicChange}
+            musicsLoading={musicsLoading}
+            currentMusic={currentMusic}
+          />
         )}
       </div>
     </div>
@@ -500,9 +629,13 @@ export default function AdCreatorForm({
   voicesLoading,
   musicsLoading,
   handleSaveAd,
+  selectedMusic,
+  onSelectedMusicChange,
+  currentVoice,
+  currentMusic,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
-  const canSubmit = description.trim().length > 0;
+  const canSubmit = description?.trim().length > 0;
   const hasAd = generatedAd !== null;
 
   // Review state
@@ -670,18 +803,42 @@ export default function AdCreatorForm({
           onProVoiceSettingsChange &&
           onProMusicSettingsChange &&
           onProContentSettingsChange ? (
-            <ProCustomizations
-              trackingPixel={trackingPixel || ""}
-              onTrackingPixelChange={onTrackingPixelChange}
-              voiceSettings={proVoiceSettings}
-              onVoiceSettingsChange={onProVoiceSettingsChange}
-              musicSettings={proMusicSettings}
-              onMusicSettingsChange={onProMusicSettingsChange}
-              contentSettings={proContentSettings}
-              onContentSettingsChange={onProContentSettingsChange}
+            <ExpressCustomization
+              currentVoice={currentVoice}
+              currentMusic={currentMusic}
+              selectedMusic={selectedMusic}
+              onSelectedMusicChange={onSelectedMusicChange}
+              gender={gender}
+              onGenderChange={onGenderChange}
+              language={language}
+              onLanguageChange={onLanguageChange}
+              accent={accent}
+              onAccentChange={onAccentChange}
+              tone={tone}
+              onToneChange={onToneChange}
+              music={music}
+              onMusicChange={onMusicChange}
+              voices={voices}
+              musics={musics}
+              selectedVoice={selectedVoice}
+              onSelectedVoiceChange={onSelectedVoiceChange}
+              voicesLoading={voicesLoading}
+              musicsLoading={musicsLoading}
             />
           ) : (
+            // <ProCustomizations
+            //   trackingPixel={trackingPixel || ""}
+            //   onTrackingPixelChange={onTrackingPixelChange}
+            //   voiceSettings={proVoiceSettings}
+            //   onVoiceSettingsChange={onProVoiceSettingsChange}
+            //   musicSettings={proMusicSettings}
+            //   onMusicSettingsChange={onProMusicSettingsChange}
+            //   contentSettings={proContentSettings}
+            //   onContentSettingsChange={onProContentSettingsChange}
+            // />
             <ExpressCustomization
+              selectedMusic={selectedMusic}
+              onSelectedMusicChange={onSelectedMusicChange}
               gender={gender}
               onGenderChange={onGenderChange}
               language={language}

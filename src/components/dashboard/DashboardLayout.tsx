@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -31,6 +31,7 @@ import { AgencySignup, OnboardingRole } from './AgencySignup';
 import { organizationApi } from '@/services/organization';
 import { toast } from '@/hooks/use-toast';
 import { Advertiser, advertiserApi } from '@/services/advertiser';
+import { appNotifications } from '@/services/appNotifications';
 import { cn } from '@/lib/utils';
 
 import logoFull from '@/assets/logo-full.png';
@@ -106,8 +107,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const accountItem = { path: '/dashboard/account', label: t('layout.nav_account'), icon: Settings };
 
 
-  const getAdvertisers = async (organizationId: string) => {
-    if(!organizationId) return;
+  const getAdvertisers = useCallback(async (organizationId: string, preferredAdvertiserId?: string) => {
+    if (!organizationId) return;
     const { data, error, status } = await advertiserApi.getAdvertisers(organizationId);
     if (error || status !== 200) {
       toast({
@@ -116,10 +117,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         variant: "destructive",
       });
     } else {
-      setAdvertisers(data.data);
-      setSelectedAdvertiser(data.data[0].id);
+      const list = data.data ?? [];
+      setAdvertisers(list);
+      setSelectedAdvertiser((prev) => {
+        const desired = preferredAdvertiserId || prev;
+        if (desired && list.some((a) => a.id === desired)) return desired;
+        return list[0]?.id ?? '';
+      });
     }
-  }
+  }, [t]);
+
+  useEffect(() => {
+    if (selectedAdvertiser) {
+      console.log("selectedAdvertiser", selectedAdvertiser);
+      appNotifications.notify('advertiser:selected', { advertiserId: selectedAdvertiser });
+      auth.setCurrentAdvertiserId(selectedAdvertiser);
+    }
+  }, [selectedAdvertiser])
+  
 
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
@@ -127,10 +142,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setSession(session);
       if(!session.user.app_metadata.isAgency) setShowAgencySignupBtn(true);
       else {
-        getAdvertisers(session?.currentOrganizationId ?? '');
+        // Prefer the stored advertiserId (from last selection) on reload.
+        getAdvertisers(session?.currentOrganizationId ?? '', session?.currentAdvertiserId ?? '');
       }
+      setSelectedAdvertiser(session?.currentAdvertiserId ?? '');
     });
-  }, []);
+  }, [getAdvertisers]);
+
+  useEffect(() => {
+    return appNotifications.subscribe('advertisers:changed', (payload) => {
+      const orgId = payload?.organizationId ?? session?.currentOrganizationId;
+      if (!orgId || !session?.user?.app_metadata?.isAgency) return;
+      void getAdvertisers(orgId);
+    });
+  }, [getAdvertisers, session?.currentOrganizationId, session?.user?.app_metadata?.isAgency]);
 
   const handleSignOut = async () => {
     await auth.signOut();
