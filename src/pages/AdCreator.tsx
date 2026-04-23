@@ -155,7 +155,7 @@ export default function AdCreator() {
     } finally {
       //setIsGenerating(false);
     }
-  }, [description, goal, t]);
+  }, [advertiserId, editedScript, goal, musics, t, tone, voices]);
 
 
   const handleSaveAd = useCallback(async (adName: string) => {
@@ -207,7 +207,16 @@ export default function AdCreator() {
     } finally {
       //setIsGenerating(false);
     }
-  }, [description, goal, t]);
+  }, [
+    advertiserId,
+    description,
+    goal,
+    musics,
+    selectedMusic,
+    selectedVoice,
+    t,
+    tone,
+  ]);
 
   const getMusics = async (mood: string) => {
     setMusicsLoading(true);

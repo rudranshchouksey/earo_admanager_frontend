@@ -824,6 +824,7 @@ export default function AdCreatorForm({
               onSelectedVoiceChange={onSelectedVoiceChange}
               voicesLoading={voicesLoading}
               musicsLoading={musicsLoading}
+              isPro={false}
             />
           ) : (
             // <ProCustomizations
@@ -837,6 +838,9 @@ export default function AdCreatorForm({
             //   onContentSettingsChange={onProContentSettingsChange}
             // />
             <ExpressCustomization
+              isPro={false}
+              currentVoice={currentVoice}
+              currentMusic={currentMusic}
               selectedMusic={selectedMusic}
               onSelectedMusicChange={onSelectedMusicChange}
               gender={gender}
