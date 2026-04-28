@@ -77,7 +77,7 @@ export default function UsersTab() {
     advertiserIds: [],
   } as TeamUser);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
+  const [sendingInvite, setSendingInvite] = useState(false);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
 
   const getTeamUsers = async (organizationId: string) => {
@@ -163,7 +163,6 @@ export default function UsersTab() {
   };
 
   const handleSendInvite = async () => {
-
     const session = getStoredSession();
     if (!session) {
       toast({ title: "Session not found", variant: "destructive" });
@@ -181,8 +180,10 @@ export default function UsersTab() {
 
     if (editingUser) {
 
+      setSendingInvite(true);
 
       const { status, error, message } = await teamApi.updateTeamUser(form, session.currentOrganizationId);
+      setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
         return;
@@ -199,9 +200,9 @@ export default function UsersTab() {
       //   invited_at: new Date().toISOString().split("T")[0],
       // };
       // setUsers((prev) => [...prev, newUser]);
-
-
+      setSendingInvite(true);
       const { status, error, message } = await teamApi.createTeamUser(form, session.currentOrganizationId);
+      setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
         return;
@@ -634,7 +635,7 @@ export default function UsersTab() {
                   ? t("account.save_changes")
                   : t("account.save_draft")}
               </Button> */}
-              <Button onClick={handleSendInvite}>
+              <Button onClick={handleSendInvite} disabled={sendingInvite}>
                 <Send className="h-4 w-4 mr-1" />
                 {editingUser
                   ? t("account.resend_invite")

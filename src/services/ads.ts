@@ -3,7 +3,7 @@ import { request } from './api';
 export interface Ad {
   id: string;
   jobId: string;
-  type?: number;
+  type?: "PROMPT" | "SCRIPT";
   adName?:string;
   advertiserId: string;
   campaignGoal: string;
@@ -30,6 +30,7 @@ export interface Voice {
   accents: string[];
   gender: string;
   age: string;
+  characteristics: string[];
   audioUrl: string;
   imageUrl: string;
 }
@@ -105,6 +106,8 @@ export interface musicFilter {
   genre?: string;
   instrument?: string;
   rhythm?: string;
+  use_case?: string;
+  query?: string;
 }
 
 export interface voiceFilter {
@@ -114,6 +117,10 @@ export interface voiceFilter {
   language?: string;
   characteristic?: string;
   externalId?: string;
+  accent?: string;
+  query?: string;
+  age?: string;
+  useCase?: string;
 }
 
 export interface AdStatusResponse {

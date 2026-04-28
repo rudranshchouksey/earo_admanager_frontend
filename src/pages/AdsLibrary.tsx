@@ -282,16 +282,16 @@ export default function AdsLibrary() {
     const ad = params.data as AdData;
     return (
       <Button
-        variant="ghost"
+        variant="dark"
         size="icon"
         className="h-8 w-8 rounded-full"
         onClick={(e) => { e.stopPropagation(); togglePlay(ad); }}
         disabled={!ad.sourceUrl}
       >
         {playingId === ad.id ? (
-          <Pause className="h-4 w-4 text-primary" />
+          <Pause className="h-4 w-4 text-white" />
         ) : (
-          <Play className="h-4 w-4 text-primary ml-0.5" />
+          <Play className="h-4 w-4 text-white ml-0.5" />
         )}
       </Button>
     );

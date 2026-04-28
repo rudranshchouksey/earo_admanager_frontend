@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
+import WaveSurfer from 'wavesurfer.js';
 
 interface InlineAudioPlayerProps {
   audioUrl: string;
@@ -11,90 +12,99 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
   const [progress, setProgress] = useState(0);
   const [currentSec, setCurrentSec] = useState(0);
   const [totalSec, setTotalSec] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [waveError, setWaveError] = useState<string | null>(null);
+  const waveSurferRef = useRef<WaveSurfer | null>(null);
+  const waveformElRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const container = waveformElRef.current;
+    if (!container) return;
 
-    audio.preload = 'metadata';
-    audio.src = audioUrl;
-    audio.load();
-    audio.currentTime = 0;
+    waveSurferRef.current?.destroy();
+    waveSurferRef.current = null;
+
     setProgress(0);
     setCurrentSec(0);
+    setTotalSec(0);
+    setIsPlaying(false);
+    setWaveError(null);
 
+    if (!audioUrl) return;
 
-    const syncTotal = () => {
-      const dur = audio.duration;
-      setTotalSec(Number.isFinite(dur) && dur > 0 ? Math.round(dur) : 0);
-      setDuration(Number.isFinite(dur) && dur > 0 ? Math.round(dur) : 0);
-    };
+    const ws = WaveSurfer.create({
+      container,
+      url: audioUrl,
+      height: 24,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      cursorWidth: 0,
+      normalize: true,
+      waveColor: 'rgba(100, 116, 139, 0.55)', // slate-ish
+      progressColor: 'rgba(15, 23, 42, 0.95)', // near-foreground
+      interact: false,
+      fetchParams: {
+        mode: "cors",
+        credentials: "omit"
+      }
+    });
+    waveSurferRef.current = ws;
 
-    const onTimeUpdate = () => {
-      const dur = audio.duration;
-      if (!Number.isFinite(dur) || dur <= 0) return;
-      setCurrentSec(Math.floor(audio.currentTime));
-      setProgress(Math.min((audio.currentTime / dur) * 100, 100));
-    };
+    const unsubscribers: Array<() => void> = [];
 
-    const onEnded = () => {
-      setIsPlaying(false);
-      setProgress(0);
-      setCurrentSec(0);
-    };
+    unsubscribers.push(
+      ws.on('ready', () => {
+        const dur = ws.getDuration();
+        setTotalSec(Number.isFinite(dur) && dur > 0 ? Math.round(dur) : 0);
+      })
+    );
 
-    const onPause = () => setIsPlaying(false);
-    const onPlay = () => setIsPlaying(true);
+    unsubscribers.push(ws.on('play', () => setIsPlaying(true)));
+    unsubscribers.push(ws.on('pause', () => setIsPlaying(false)));
+    unsubscribers.push(
+      ws.on('finish', () => {
+        setIsPlaying(false);
+        setProgress(0);
+        setCurrentSec(0);
+      })
+    );
 
-    audio.addEventListener('loadedmetadata', syncTotal);
-    audio.addEventListener('durationchange', syncTotal);
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('ended', onEnded);
-    audio.addEventListener('pause', onPause);
-    audio.addEventListener('play', onPlay);
+    unsubscribers.push(
+      ws.on('timeupdate', (time: number) => {
+        const dur = ws.getDuration();
+        if (!Number.isFinite(dur) || dur <= 0) return;
+        setCurrentSec(Math.floor(time));
+        setProgress(Math.min((time / dur) * 100, 100));
+      })
+    );
 
-    syncTotal();
+    unsubscribers.push(
+      ws.on('error', (err: unknown) => {
+        // Usually CORS/network/decoding errors.
+        setWaveError(typeof err === 'string' ? err : '!');
+      })
+    );
 
     return () => {
-      audio.pause();
-      audio.removeEventListener('loadedmetadata', syncTotal);
-      audio.removeEventListener('durationchange', syncTotal);
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('ended', onEnded);
-      audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('play', onPlay);
+      unsubscribers.forEach((u) => u());
+      ws.destroy();
+      if (waveSurferRef.current === ws) waveSurferRef.current = null;
     };
   }, [audioUrl]);
 
   const toggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    const audio = audioRef.current;
-    console.log('audio', audio);
-    if (!audio) return;
     if (!audioUrl) return;
-
-    if (audio.paused) {
-      const p = audio.play();
-      if (p && typeof (p as Promise<void>).catch === 'function') {
-        (p as Promise<void>).catch(() => {
-          // Keep UI consistent if autoplay is blocked or media fails.
-          setIsPlaying(false);
-        });
-      }
-      return;
-    }
-
-    audio.pause();
+    const ws = waveSurferRef.current;
+    if (!ws) return;
+    ws.playPause();
   }, []);
 
   return (
     <div
-      className="flex items-center gap-2 bg-muted/60 rounded-full px-2 py-1 shrink-0 cursor-default"
+      className="flex items-center gap-2 bg-muted/60 rounded-full px-2 py-1 shrink-0 cursor-default w-auto max-w-[80px] md:max-w-full  md:w-auto"
       onClick={(e) => e.stopPropagation()}
     >
-      <audio ref={audioRef} />
       <Button
         variant="ghost"
         size="icon"
@@ -102,22 +112,28 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
         onClick={toggle}
       >
         {isPlaying ? (
-          <Pause className="h-3 w-3 text-foreground" />
+          <Button variant="dark" size="icon" className="h-7 w-7 shrink-0 rounded-full p-0 pl-0.5 flex items-center justify-center">
+          <Pause className="h-3 w-3 text-white" />
+          </Button>
         ) : (
-          <Play className="h-3 w-3 text-foreground ml-px" />
+          <Button variant="dark" size="icon" className="h-7 w-7 shrink-0 rounded-full p-0 pl-0.5 flex items-center justify-center">
+            <Play className="h-3 w-3 text-white" />
+          </Button>
         )}
       </Button>
-      <div className="w-16 h-1 bg-border rounded-full overflow-hidden">
-        <div
-          className="h-full bg-foreground rounded-full transition-all duration-75"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="hidden md:block w-full md:w-16 h-6 rounded-md overflow-hidden">
+        <div ref={waveformElRef} className="w-full h-full" />
       </div>
-      <span className="text-[10px] text-muted-foreground tabular-nums w-7">
+      <span className="hidden md:block text-[10px] text-muted-foreground tabular-nums w-7">
         {isPlaying
           ? `0:${String(currentSec).padStart(2, '0')}`
           : `0:${String(totalSec).padStart(2, '0')}`}
       </span>
+      {waveError ? (
+        <span className="text-[10px] text-destructive/80 whitespace-nowrap">
+          {waveError}
+        </span>
+      ) : null}
     </div>
   );
 }

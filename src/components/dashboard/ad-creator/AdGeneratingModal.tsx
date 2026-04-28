@@ -54,7 +54,7 @@ export default function AdGeneratingModal({ open, onCancel }: AdGeneratingModalP
           </div>
           <DialogTitle className="text-xl">{t('modal.creating_title')}</DialogTitle>
           <DialogDescription className="space-y-2">
-            <span className="block text-base font-medium text-foreground transition-all duration-300">
+            <span className="block text-base text-center font-medium text-foreground transition-all duration-300">
               {t(PROGRESS_KEYS[messageIndex])}
             </span>
             <span className="block text-sm text-muted-foreground">

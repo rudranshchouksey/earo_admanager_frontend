@@ -22,7 +22,6 @@ import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 type AdMode = "ai" | "upload";
 
 const DEFAULT_PRO_VOICE: ProVoiceSettings = {
-  voiceId: "",
   language: "",
   accent: "neutral",
   gender: "female",
@@ -31,7 +30,6 @@ const DEFAULT_PRO_VOICE: ProVoiceSettings = {
   age: "young",
 };
 const DEFAULT_PRO_MUSIC: ProMusicSettings = {
-  musicId: "",
   useCase: "commercial",
   mood: "uplifting",
   genre: "pop",
@@ -39,8 +37,8 @@ const DEFAULT_PRO_MUSIC: ProMusicSettings = {
   rhythm: "steady",
 };
 const DEFAULT_PRO_CONTENT: ProContentSettings = {
-  fadeInMs: 500,
-  fadeOutMs: 500,
+  fadeIn: true,
+  fadeOut: true,
   startMs: 0,
   endMs: 30000,
   volume: 0.8,
@@ -58,21 +56,40 @@ export default function AdCreator() {
   const [jobId, setJobId] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("sales");
-
+  const [query, setQuery] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [accent, setAccent] = useState("");
   const [tone, setTone] = useState("friendly");
   const [selectedMusic, setSelectedMusic] = useState("");
-  const [music, setMusic] = useState("happy");
+
   const [language, setLanguage] = useState("en");
   const [gender, setGender] = useState("female");
+  const [age, setAge] = useState("");
+  const [useCase, setUseCase] = useState("");
 
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
+  const [voicesLoadingMore, setVoicesLoadingMore] = useState(false);
+  const [voicesPage, setVoicesPage] = useState(1);
+  const [voicesTotalPages, setVoicesTotalPages] = useState(1);
 
   const [musics, setMusics] = useState<Music[]>([]);
   const [musicsLoading, setMusicsLoading] = useState(true);
+  const [musicsLoadingMore, setMusicsLoadingMore] = useState(false);
+  const [musicsPage, setMusicsPage] = useState(1);
+  const [musicsTotalPages, setMusicsTotalPages] = useState(1);
 
+
+
+  const [musicMood, setMusicMood] = useState("happy");
+  const [musicGenre, setMusicGenre] = useState("");
+  const [musicInstrument, setMusicInstrument] = useState("");
+  const [musicRhythm, setMusicRhythm] = useState("");
+  const [musicUseCase, setMusicUseCase] = useState("");
+  const [musicQuery, setMusicQuery] = useState("");
+
+
+  const [type, setType] = useState<"PROMPT" | "SCRIPT">("PROMPT");
 
   const [currentVoice, setCurrentVoice] = useState<Voice | null>(null);
   const [currentMusic, setCurrentMusic] = useState<Music | null>(null);
@@ -101,6 +118,7 @@ export default function AdCreator() {
           setIsGenerating(false);
           setGeneratedAd(data.data);
           setEditedScript(data.data.script);
+          setType("SCRIPT");
         }
       }else {
         setTimeout(() => {
@@ -109,53 +127,6 @@ export default function AdCreator() {
       }
     }
   };
-
-
-  const handleRegenerate = useCallback(async () => {
-
-    console.log("handleRegenerated here ", {editedScript});
-    if(!editedScript){
-      toast({ title: "Error regenerating ad", description: "No script to regenerate", variant: 'destructive' });
-      return;
-    }
-    setIsGenerating(true);
-    try {
-
-        console.log("handleRegenerated here ", {description, goal, gender, language, tone, music});
-        const {error, status, message, data} = await adsApi.createAd({
-          type: 2,
-          campaignGoal: goal,
-          advertiserId: advertiserId,
-          prompt: editedScript,
-          tone: tone,
-          voiceId: voices[0].externalId,
-          musicId: musics[0].externalId
-        });
-        console.log("createAd here ", {error, status, message, data});
-        if(status != 200){
-          toast({
-            title: t("ad_creator.generation_failed"),
-            description: message,
-            variant: "destructive",
-          });
-          return;
-        }
-      if (error) throw error;
-      const ad = data;
-      //setGeneratedAd(ad);
-      // setEditedScript(ad.script);
-      getAdStatus(data.data.jobId)
-    } catch (err) {
-      console.error("Generate error:", err);
-      toast({
-        title: t("ad_creator.generation_failed"),
-        description: t("ad_creator.generation_failed_desc"),
-        variant: "destructive",
-      });
-    } finally {
-      //setIsGenerating(false);
-    }
-  }, [advertiserId, editedScript, goal, musics, t, tone, voices]);
 
 
   const handleSaveAd = useCallback(async (adName: string) => {
@@ -172,15 +143,30 @@ export default function AdCreator() {
     setIsGenerating(true);
     try {
 
-        console.log("handleGenerated here ", {description, goal, gender, language, tone, music});
+        console.log("handleGenerated here ", {description, goal, gender, language, tone, selectedMusic});
+
+
+        const contentSettings: Record<string, any> = {};
+
+        if(isPro) {
+          contentSettings["volume"] = proContent.volume;
+          contentSettings["audioFadeIn"] = proContent.fadeIn;
+          contentSettings["audioFadeOut"] = proContent.fadeOut;
+          contentSettings["playbackStart"] = proContent.startMs;
+          contentSettings["playbackEnd"] = proContent.endMs;
+          contentSettings["pixelUrl"] = trackingPixel;
+
+        }
+
         const {error, status, message, data} = await adsApi.createAd({
-          type: 1,
+          type,
           campaignGoal: goal,
           advertiserId: advertiserId,
-          prompt: description,
+          prompt: type === "SCRIPT" && !generatedAd ? description : type === "PROMPT" ? description : editedScript,
           tone: tone,
           voiceId: selectedVoice,
-          musicId: selectedMusic || musics[0].externalId
+          musicId: selectedMusic || musics[0].externalId,
+          ...contentSettings
         });
         console.log("createAd here ", {error, status, message, data});
         if(status != 200){
@@ -218,41 +204,96 @@ export default function AdCreator() {
     tone,
   ]);
 
-  const getMusics = async (mood: string) => {
-    setMusicsLoading(true);
-    setSelectedMusic("");
-    const {status, error, message, data} = await adsApi.getMusics({
-      page: 1,
-      limit: 3,
-      mood: mood
+  const fetchMusicsPage = async (opts: { mood: string; genre: string; instrument: string; rhythm: string; useCase: string; query: string; page: number; reset?: boolean }) => {
+    if (!opts.mood) return;
+    if (opts.reset) {
+      setMusicsLoading(true);
+      setMusics([]);
+      setMusicsPage(1);
+      setMusicsTotalPages(1);
+      setSelectedMusic("");
+    } else {
+      setMusicsLoadingMore(true);
+    }
+
+    const { status, error, message, data } = await adsApi.getMusics({
+      page: opts.page,
+      limit: isPro ? 10 : 3,
+      mood: opts.mood,
+      genre: opts.genre,
+      instrument: opts.instrument,
+      rhythm: opts.rhythm,
+      use_case: opts.useCase,
+      query: opts.query,
     });
-    console.log("loadMusics here ", {status, error, message, data});
-    if(status != 200){
-      toast({ title: "Error loading music", description: message, variant: 'destructive' });
-    }else {
-      setMusics(data.data);
+
+    if (status !== 200 || error) {
+      toast({ title: "Error loading music", description: message, variant: "destructive" });
       setMusicsLoading(false);
+      setMusicsLoadingMore(false);
+      return;
     }
+
+    const next = data.data ?? [];
+    setMusics((prev) => (opts.page === 1 ? next : [...prev, ...next]));
+    setMusicsPage(data.pagination?.page ?? opts.page);
+    setMusicsTotalPages(data.pagination?.totalPages ?? 1);
+    setMusicsLoading(false);
+    setMusicsLoadingMore(false);
   };
-  const getVoices = async (gender: string, language: string, tone: string) => {
-    setVoicesLoading(true);
-    setSelectedVoice("");
-    console.log("getVoices here ", {gender, language, tone});
-    const {status, error, message, data} = await adsApi.getVoices({
-      page: 1,
-      limit: 6,
-      gender: gender,
-      language: language,
-      characteristic: tone,
+
+  const fetchVoicesPage = async (opts: { gender: string; language: string; tone: string; accent: string; age: string; useCase: string; page: number; reset?: boolean; query?: string }) => {
+    if (!opts.gender || !opts.language || !opts.tone) return;
+    if (opts.reset) {
+      setVoicesLoading(true);
+      setVoices([]);
+      setVoicesPage(1);
+      setVoicesTotalPages(1);
+      setSelectedVoice("");
+    } else {
+      setVoicesLoadingMore(true);
+    }
+
+    const { status, error, message, data } = await adsApi.getVoices({
+      page: opts.page,
+      limit: isPro ? 10 : 6,
+      gender: opts.gender,
+      language: opts.language,
+      characteristic: opts.tone,
+      accent: opts.accent,
+      age: opts.age,
+      useCase: opts.useCase,
+      query: opts.query,
     });
-    console.log("loadVoices here ", {status, error, message, data});
-    if(status != 200){
-      toast({ title: t('ad_creator.error_loading_voices'), description: message, variant: 'destructive' });
-    }else {
-      setVoices(data.data);
+
+    if (status !== 200 || error) {
+      toast({ title: t("ad_creator.error_loading_voices"), description: message, variant: "destructive" });
       setVoicesLoading(false);
+      setVoicesLoadingMore(false);
+      return;
     }
+
+    const next = data.data ?? [];
+    setVoices((prev) => (opts.page === 1 ? next : [...prev, ...next]));
+    setVoicesPage(data.pagination?.page ?? opts.page);
+    setVoicesTotalPages(data.pagination?.totalPages ?? 1);
+    setVoicesLoading(false);
+    setVoicesLoadingMore(false);
   };
+
+  const loadMoreVoices = useCallback(() => {
+    if (!isPro) return;
+    if (voicesLoading || voicesLoadingMore) return;
+    if (voicesPage >= voicesTotalPages) return;
+    void fetchVoicesPage({ gender, language, tone, accent, age, useCase, page: voicesPage + 1 });
+  }, [accent, gender, isPro, language, tone, voicesLoading, voicesLoadingMore, voicesPage, voicesTotalPages]);
+
+  const loadMoreMusics = useCallback(() => {
+    if (!isPro) return;
+    if (musicsLoading || musicsLoadingMore) return;
+    if (musicsPage >= musicsTotalPages) return;
+    void fetchMusicsPage({ mood: musicMood, genre: musicGenre, instrument: musicInstrument, rhythm: musicRhythm, useCase: musicUseCase, query: musicQuery, page: musicsPage + 1 });
+  }, [isPro, musicMood, musicGenre, musicInstrument, musicRhythm, musicUseCase, musicsLoading, musicsLoadingMore, musicsPage, musicsTotalPages, musicQuery]);
 
   const handleSaved = async () => {
   
@@ -278,16 +319,14 @@ export default function AdCreator() {
   };
 
   useEffect(() => {
-    if(gender && language && tone){
-      getVoices(gender, language, tone);
+    if (gender && language && tone) {
+      void fetchVoicesPage({ gender, language, tone, accent, age, useCase, page: 1, reset: true, query });
     }
-  }, [gender, language, tone]);
+  }, [gender, language, tone, accent, query, age, useCase]);
 
   useEffect(() => {
-    if(music){
-      getMusics(music);
-    }
-  }, [music]);
+      void fetchMusicsPage({ mood: musicMood, genre: musicGenre, instrument: musicInstrument, rhythm: musicRhythm, useCase: musicUseCase, query: musicQuery, page: 1, reset: true });
+  }, [musicMood, musicGenre, musicInstrument, musicRhythm, musicUseCase, musicQuery]);
 
   useEffect(() => {
     const getAdFromParams = async () => {
@@ -301,6 +340,7 @@ export default function AdCreator() {
         if(data){
           setDescription(data.data.generatedScript);
           setGoal(data.data.campaignGoal);
+          setType("SCRIPT");
 
           const {status: voiceStatus, error: voiceError, message: voiceMessage, data: voiceData} = await adsApi.getVoice(data.data.voiceId)
           console.log("getVoiceData here ", {voiceStatus, voiceError, voiceMessage, voiceData});
@@ -356,7 +396,7 @@ export default function AdCreator() {
 
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-8">
+    <div className="max-w-6xl mx-auto space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">{t("ad_creator.title")}</h1>
           <p className="text-muted-foreground">{t("ad_creator.subtitle")}</p>
@@ -402,6 +442,11 @@ export default function AdCreator() {
         <CardContent className="pt-6">
           {mode === "ai" ? (
             <AdCreatorForm
+              age={age}
+              onAgeChange={setAge}
+              useCase={useCase}
+              onUseCaseChange={setUseCase}
+              onQueryChange={setQuery}
               description={description}
               onDescriptionChange={setDescription}
               goal={goal}
@@ -414,15 +459,27 @@ export default function AdCreator() {
               onAccentChange={setAccent}
               tone={tone}
               onToneChange={setTone}
-              music={music}
-              onMusicChange={setMusic}
+
+              type={type}
+              
+              musicMood={musicMood}
+              onMusicMoodChange={setMusicMood}
+              musicGenre={musicGenre}
+              onMusicGenreChange={setMusicGenre}
+              musicInstrument={musicInstrument}
+              onMusicInstrumentChange={setMusicInstrument}
+              musicRhythm={musicRhythm}
+              onMusicRhythmChange={setMusicRhythm}
+              musicUseCase={musicUseCase}
+              onMusicUseCaseChange={setMusicUseCase}
+              onMusicQueryChange={setMusicQuery}
               onGenerate={handleGenerate}
               isGenerating={isGenerating}
               generatedAd={generatedAd}
               editedScript={editedScript}
               onScriptChange={setEditedScript}
               onSaved={handleSaved}
-              onRegenerate={handleRegenerate}
+              onRegenerate={handleGenerate}
               isRegenerating={isGenerating}
               isPro={isPro}
               trackingPixel={trackingPixel}
@@ -435,9 +492,14 @@ export default function AdCreator() {
               onProContentSettingsChange={setProContent}
               voices={voices}
               voicesLoading={voicesLoading}
+              voicesLoadingMore={voicesLoadingMore}
+              voicesHasMore={isPro ? voicesPage < voicesTotalPages : false}
+              onLoadMoreVoices={loadMoreVoices}
               musics={musics}
-              getMusics={getMusics}
               musicsLoading={musicsLoading}
+              musicsLoadingMore={musicsLoadingMore}
+              musicsHasMore={isPro ? musicsPage < musicsTotalPages : false}
+              onLoadMoreMusics={loadMoreMusics}
               handleSaveAd={handleSaveAd}
               selectedVoice={selectedVoice}
               selectedMusic={selectedMusic}

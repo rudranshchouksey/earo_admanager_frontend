@@ -52,16 +52,33 @@ import ProCustomizations, {
 } from "./ProCustomizations";
 import { musicDefaults, voiceDefaults } from "@/lib/defaults";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 
 interface AdCreatorFormProps {
+  type: "PROMPT" | "SCRIPT";
+  age: string;
+  onAgeChange: (v: string) => void;
+  useCase: string;
+  onUseCaseChange: (v: string) => void;
   description: string;
   onDescriptionChange: (v: string) => void;
   goal: string;
   onGoalChange: (v: string) => void;
   tone: string;
   onToneChange: (v: string) => void;
-  music: string;
-  onMusicChange: (v: string) => void;
+
+  musicMood: string;
+  onMusicMoodChange: (v: string) => void;
+  musicGenre: string;
+  onMusicGenreChange: (v: string) => void;
+  musicInstrument: string;
+  onMusicInstrumentChange: (v: string) => void;
+  musicRhythm: string;
+  onMusicRhythmChange: (v: string) => void;
+  musicUseCase: string;
+  onMusicUseCaseChange: (v: string) => void;
+
   language: string;
   onLanguageChange: (v: string) => void;
   accent: string;
@@ -85,9 +102,14 @@ interface AdCreatorFormProps {
   onProContentSettingsChange?: (v: ProContentSettings) => void;
   voices: Voice[];
   voicesLoading: boolean;
+  voicesLoadingMore?: boolean;
+  voicesHasMore?: boolean;
+  onLoadMoreVoices?: () => void;
   musics: Music[];
-  getMusics: (mood: string) => void;
   musicsLoading: boolean;
+  musicsLoadingMore?: boolean;
+  musicsHasMore?: boolean;
+  onLoadMoreMusics?: () => void;
   gender: string;
   onGenderChange: (v: string) => void;
   handleSaveAd: (adName: string) => Promise<void>;
@@ -97,6 +119,8 @@ interface AdCreatorFormProps {
   onSelectedMusicChange: (v: string) => void;
   currentVoice: Voice | null;
   currentMusic: Music | null;
+  onQueryChange: (q: string) => void;
+  onMusicQueryChange: (q: string) => void;
 }
 const LANGUAGES = [
   { id: "en", label: "English" },
@@ -179,23 +203,109 @@ function LanguageSearchSelect({
   );
 }
 
+const InlineVoice = ({
+  voice,
+  selectedVoice,
+  onSelectedVoiceChange,
+}: {
+  voice: Voice | null;
+  selectedVoice: string;
+  onSelectedVoiceChange: (v: string) => void;
+}) => {
+  if (!voice) return null;
+  return (
+    <div
+      key={voice.id}
+      className="flex flex-row items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mb-2"
+    >
+      <div className="flex flex-row items-center gap-2.5 w-full">
+        <Checkbox
+          id="voice-preview"
+          checked={selectedVoice === voice.externalId}
+          onCheckedChange={() => onSelectedVoiceChange(voice.externalId)}
+        />
+        <Avatar
+          className="h-11 w-11 shrink-0 rounded-md"
+          onClick={() => onSelectedVoiceChange(voice.id)}
+        >
+          <AvatarImage
+            src={voice.imageUrl}
+            alt={voice.name}
+            className="object-cover"
+          />
+          <AvatarFallback className="text-[10px] font-medium bg-muted text-foreground">
+            {voice.name.slice(0, 2)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-medium text-foreground">
+                {voice.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate capitalize">
+                {voice.gender}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {voice.accents &&
+                voice.accents.length > 0 &&
+                voice.accents
+                  .filter((a, index) => index < 2)
+                  .map((accent, index) => (
+                    <span
+                      key={accent}
+                      className="text-[10px] text-muted-foreground truncate capitalize"
+                    >
+                      {accent} {index < 1 ? "·" : ""}
+                    </span>
+                  ))}
+              {voice.characteristics &&
+                voice.characteristics.length > 0 &&
+                voice.characteristics
+                  .filter((c, index) => index < 3)
+                  .map((characteristic, index) => (
+                    <span
+                      key={characteristic}
+                      className="text-[10px] text-muted-foreground truncate capitalize"
+                    >
+                      {characteristic} {index < 2 ? "·" : ""}
+                    </span>
+                  ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <InlineAudioPlayer audioUrl={voice.audioUrl} />
+    </div>
+  );
+};
+
 /* ── Express voice preview list ── */
 function ExpressVoicePreview({
   voices,
   selectedVoice,
   onSelectedVoiceChange,
   voicesLoading,
+  voicesLoadingMore = false,
+  voicesHasMore = false,
+  onLoadMoreVoices,
   currentVoice,
+  isPro = false,
 }: {
   voices: Voice[];
   selectedVoice: string;
   onSelectedVoiceChange: (v: string) => void;
   voicesLoading: boolean;
+  voicesLoadingMore?: boolean;
+  voicesHasMore?: boolean;
+  onLoadMoreVoices?: () => void;
   currentVoice: Voice | null;
+  isPro: boolean;
 }) {
   console.log("selectedVoice", selectedVoice);
 
-  if (voicesLoading)
+  if (voicesLoading && voices.length === 0)
     return (
       <div className="space-y-1.5">
         <div className="space-y-1 w-full flex items-center justify-center">
@@ -208,124 +318,66 @@ function ExpressVoicePreview({
 
   if (voices.length === 0) return null;
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isPro) return;
+    if (!voicesHasMore) return;
+    if (!onLoadMoreVoices) return;
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMoreVoices();
+      },
+      { root, rootMargin: "120px", threshold: 0 },
+    );
+    obs.observe(target);
+    return () => obs.disconnect();
+  }, [isPro, onLoadMoreVoices, voicesHasMore]);
+
   return (
     <div className="space-y-1.5">
       {currentVoice && (
         <>
           <Label className="text-xs text-muted-foreground">Current voice</Label>
-          <div
-            key={currentVoice.id}
-            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30"
-          >
-            <Checkbox
-              id="voice-preview"
-              checked={selectedVoice === currentVoice.externalId}
-              onCheckedChange={() =>
-                onSelectedVoiceChange(currentVoice.externalId)
-              }
-            />
-            <Avatar
-              className="h-7 w-7 shrink-0"
-              onClick={() => onSelectedVoiceChange(currentVoice.id)}
-            >
-              <AvatarImage
-                src={currentVoice.imageUrl}
-                alt={currentVoice.name}
-                className="object-cover"
-              />
-              <AvatarFallback className="text-[10px] font-medium bg-muted text-foreground">
-                {currentVoice.name.slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col md:flex-row items-center gap-1">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-foreground">
-                    {currentVoice.name}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal"
-                  >
-                    {currentVoice.gender}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 overflow-x-scroll md:overflow-x-hidden max-w-[100px] md:max-w-full">
-                  {currentVoice.accents &&
-                    currentVoice.accents.length > 0 &&
-                    currentVoice.accents.map((accent) => (
-                      <Badge
-                        key={accent}
-                        variant="outline"
-                        className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal whitespace-nowrap"
-                      >
-                        {accent}
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            </div>
-            <InlineAudioPlayer audioUrl={currentVoice.audioUrl} />
-          </div>
+          <InlineVoice
+            voice={currentVoice}
+            selectedVoice={selectedVoice}
+            onSelectedVoiceChange={onSelectedVoiceChange}
+          />
         </>
       )}
 
-      <Label className="text-xs text-muted-foreground">Matching voices</Label>
-      <div className="space-y-1">
-        {voices.map((voice) => (
-          <div
-            key={voice.id}
-            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30"
-          >
-            <Checkbox
-              id="voice-preview"
-              checked={selectedVoice === voice.externalId}
-              onCheckedChange={() => onSelectedVoiceChange(voice.externalId)}
+      <Label className="text-xs text-muted-foreground">Voices</Label>
+      <div
+        ref={scrollRef}
+        className={`space-y-1 ${isPro ? "max-h-[250px] overflow-y-auto" : ""}`}
+      >
+        {voices &&
+          voices.length > 0 &&
+          voices.map((voice) => (
+            <InlineVoice
+              voice={voice}
+              selectedVoice={selectedVoice}
+              onSelectedVoiceChange={onSelectedVoiceChange}
             />
-            <Avatar
-              className="h-7 w-7 shrink-0"
-              onClick={() => onSelectedVoiceChange(voice.id)}
-            >
-              <AvatarImage
-                src={voice.imageUrl}
-                alt={voice.name}
-                className="object-cover"
-              />
-              <AvatarFallback className="text-[10px] font-medium bg-muted text-foreground">
-                {voice.name.slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col md:flex-row items-center gap-1">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-foreground">
-                    {voice.name}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal"
-                  >
-                    {voice.gender}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 overflow-x-scroll md:overflow-x-hidden max-w-[100px] md:max-w-full">
-                  {voice.accents &&
-                    voice.accents.length > 0 &&
-                    voice.accents.map((accent) => (
-                      <Badge
-                        key={accent}
-                        variant="outline"
-                        className="text-[9px] px-1 py-0 h-3.5 capitalize font-normal whitespace-nowrap"
-                      >
-                        {accent}
-                      </Badge>
-                    ))}
-                </div>
+          ))}
+        {isPro && (
+          <div className="py-2 flex items-center justify-center">
+            {voicesLoadingMore ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading more…
               </div>
-            </div>
-            <InlineAudioPlayer audioUrl={voice.audioUrl} />
+            ) : voicesHasMore ? (
+              <div ref={sentinelRef} className="h-1 w-full" />
+            ) : null}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -335,19 +387,25 @@ function ExpressVoicePreview({
 function ExpressMusicPreview({
   tracks,
   musicsLoading,
+  musicsLoadingMore = false,
+  musicsHasMore = false,
+  onLoadMoreMusics,
   selectedMusic,
   onSelectedMusicChange,
   currentMusic,
 }: {
   tracks: Music[];
   musicsLoading: boolean;
+  musicsLoadingMore?: boolean;
+  musicsHasMore?: boolean;
+  onLoadMoreMusics?: () => void;
   selectedMusic: string;
   onSelectedMusicChange: (v: string) => void;
   currentMusic: Music | null;
 }) {
   console.log("tracks", tracks);
 
-  if (musicsLoading)
+  if (musicsLoading && tracks.length === 0)
     return (
       <div className="space-y-1.5">
         <div className="space-y-1 w-full flex items-center justify-center">
@@ -359,8 +417,28 @@ function ExpressMusicPreview({
     );
   if (!tracks || tracks.length === 0) return null;
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!musicsHasMore) return;
+    if (!onLoadMoreMusics) return;
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMoreMusics();
+      },
+      { root, rootMargin: "120px", threshold: 0 },
+    );
+    obs.observe(target);
+    return () => obs.disconnect();
+  }, [musicsHasMore, onLoadMoreMusics]);
+
   return (
-    <div>
+    <div ref={scrollRef} className="">
       {currentMusic && (
         <>
           <Label className="text-xs text-muted-foreground">Current music</Label>
@@ -368,7 +446,9 @@ function ExpressMusicPreview({
             <Checkbox
               id="music-preview"
               checked={selectedMusic === currentMusic.externalId}
-              onCheckedChange={() => onSelectedMusicChange(currentMusic.externalId)}
+              onCheckedChange={() =>
+                onSelectedMusicChange(currentMusic.externalId)
+              }
             />
             <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
               <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -385,34 +465,46 @@ function ExpressMusicPreview({
           </div>
         </>
       )}
-            <Label className="text-xs text-muted-foreground">
-              Matching music
-            </Label>
-      {tracks &&
-        tracks.length > 0 &&
-        tracks.map((track) => (
-          <>
-            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
-            <Checkbox
-              id="music-preview"
-              checked={selectedMusic === track.externalId}
-              onCheckedChange={() => onSelectedMusicChange(track.externalId)}
-            />
-              <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
-                <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      <Label className="text-xs text-muted-foreground">Music</Label>
+      <div className="max-h-[250px] overflow-y-auto">
+        {tracks &&
+          tracks.length > 0 &&
+          tracks.map((track) => (
+            <>
+              <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+                <Checkbox
+                  id="music-preview"
+                  checked={selectedMusic === track.externalId}
+                  onCheckedChange={() =>
+                    onSelectedMusicChange(track.externalId)
+                  }
+                />
+                <div className="h-7 w-7 shrink-0 rounded-md bg-muted flex items-center justify-center">
+                  <MusicIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-foreground">
+                    {track.title}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {track.genres.join(", ")}
+                  </p>
+                </div>
+                <InlineAudioPlayer audioUrl={track.audioUrl} />
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium text-foreground">
-                  {track.title}
-                </span>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  {track.genres.join(", ")}
-                </p>
-              </div>
-              <InlineAudioPlayer audioUrl={track.audioUrl} />
-            </div>
-          </>
-        ))}
+            </>
+          ))}
+      </div>
+      <div className="py-2 flex items-center justify-center">
+        {musicsLoadingMore ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading more…
+          </div>
+        ) : musicsHasMore ? (
+          <div ref={sentinelRef} className="h-1 w-full" />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -434,6 +526,10 @@ const goalPlaceholders: Record<string, string> = {
 };
 /* ── Express customization block (language + accent + tone + music with previews) ── */
 function ExpressCustomization({
+  age,
+  onAgeChange,
+  useCase,
+  onUseCaseChange,
   gender,
   onGenderChange,
   language,
@@ -442,8 +538,7 @@ function ExpressCustomization({
   onAccentChange,
   tone,
   onToneChange,
-  music,
-  onMusicChange,
+
   voices,
   musics,
   selectedVoice,
@@ -451,11 +546,34 @@ function ExpressCustomization({
   selectedMusic,
   onSelectedMusicChange,
   voicesLoading,
+  voicesLoadingMore,
+  voicesHasMore,
+  onLoadMoreVoices,
   musicsLoading,
+  musicsLoadingMore,
+  musicsHasMore,
+  onLoadMoreMusics,
   currentVoice,
   currentMusic,
-  isPro = false
+  isPro = false,
+  onQueryChange,
+  onMusicQueryChange,
+
+  musicMood,
+  onMusicMoodChange,
+  musicGenre,
+  onMusicGenreChange,
+  musicInstrument,
+  onMusicInstrumentChange,
+  musicRhythm,
+  onMusicRhythmChange,
+  musicUseCase,
+  onMusicUseCaseChange,
 }: {
+  age: string;
+  onAgeChange: (v: string) => void;
+  useCase: string;
+  onUseCaseChange: (v: string) => void;
   gender: string;
   onGenderChange: (v: string) => void;
   language: string;
@@ -464,8 +582,6 @@ function ExpressCustomization({
   onAccentChange: (v: string) => void;
   tone: string;
   onToneChange: (v: string) => void;
-  music: string;
-  onMusicChange: (v: string) => void;
   voices: Voice[];
   musics: Music[];
   selectedVoice: string;
@@ -473,20 +589,80 @@ function ExpressCustomization({
   selectedMusic: string;
   onSelectedMusicChange: (v: string) => void;
   voicesLoading: boolean;
+  voicesLoadingMore?: boolean;
+  voicesHasMore?: boolean;
+  onLoadMoreVoices?: () => void;
   musicsLoading: boolean;
+  musicsLoadingMore?: boolean;
+  musicsHasMore?: boolean;
+  onLoadMoreMusics?: () => void;
   currentVoice: Voice | null;
   currentMusic: Music | null;
   isPro: boolean;
+  onQueryChange: (q: string) => void;
+  onMusicQueryChange: (q: string) => void;
+  musicMood: string;
+  onMusicMoodChange: (v: string) => void;
+  musicGenre: string;
+  onMusicGenreChange: (v: string) => void;
+  musicInstrument: string;
+  onMusicInstrumentChange: (v: string) => void;
+  musicRhythm: string;
+  onMusicRhythmChange: (v: string) => void;
+  musicUseCase: string;
+  onMusicUseCaseChange: (v: string) => void;
 }) {
   const availableAccents = voiceDefaults.accents;
   const availableTones = voiceDefaults.characteristics;
-  const availableMusics = musicDefaults.mood;
   const availableGenders = voiceDefaults.gender;
+  const availableAges = voiceDefaults.age;
+  const availableUseCases = voiceDefaults.use_case;
+
+  const availableMusicGenre = musicDefaults.genre;
+  const availableMusicInstrument = musicDefaults.instrument;
+  const availableMusicRhythm = musicDefaults.rhythm;
+  const availableMusicMoods = musicDefaults.mood;
+  const availableMusicUseCase = musicDefaults.use_case;
+
+  const [query, setQuery] = useState("");
+  const [musicQuery, setMusicQuery] = useState("");
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      onQueryChange(query);
+    }, 400);
+
+    return () => window.clearTimeout(t);
+  }, [query, onQueryChange]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      onMusicQueryChange(musicQuery);
+    }, 400);
+
+    return () => window.clearTimeout(t);
+  }, [musicQuery, onMusicQueryChange]);
 
   return (
     <div className="space-y-4">
       <Label className="text-base font-semibold">Customization</Label>
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="space-y-2">
+        {isPro && (
+          <div
+            className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"}`}
+          >
+            <Input
+              type="text"
+              placeholder="Search for a voice"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+      <div
+        className={`flex flex-row max-h-[80px] overflow-x-auto md:overflow-x-hidden md:grid grid-cols-1 ${isPro ? "md:grid-cols-6" : "md:grid-cols-4"} gap-4`}
+      >
         <div className="space-y-2">
           <Label className="text-sm">Gender</Label>
           <Select value={gender} onValueChange={onGenderChange}>
@@ -547,58 +723,287 @@ function ExpressCustomization({
             </SelectContent>
           </Select>
         </div>
+
+        {isPro && (
+          <div className="space-y-2">
+            <Label className="text-sm">Age</Label>
+            <Select value={age} onValueChange={onAgeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a tone" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableAges.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    <span className="capitalize">{t}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {isPro && (
+          <div className="space-y-2">
+            <Label className="text-sm">Use Case</Label>
+            <Select value={useCase} onValueChange={onUseCaseChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a use case" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableUseCases.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    <span className="capitalize">{t}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Voice preview */}
       <ExpressVoicePreview
         currentVoice={currentVoice}
         voicesLoading={voicesLoading}
+        voicesLoadingMore={voicesLoadingMore}
+        voicesHasMore={voicesHasMore}
+        onLoadMoreVoices={onLoadMoreVoices}
         voices={voices}
         selectedVoice={selectedVoice}
         onSelectedVoiceChange={onSelectedVoiceChange}
+        isPro={isPro || false}
       />
 
       {/* Music */}
-      <div className="space-y-2">
+      <div className="space-y-2 mt-15">
         <Label className="text-sm">Music</Label>
-        <Select
-          value={music || availableMusics[0]}
-          onValueChange={onMusicChange}
+        <div className="space-y-2">
+          {isPro && (
+            <div
+              className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"}`}
+            >
+              <Input
+                type="text"
+                placeholder="Search for a music"
+                value={musicQuery}
+                onChange={(e) => setMusicQuery(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+        <div
+          className={`flex flex-row max-h-[80px] md:max-h-[100px] overflow-x-auto md:overflow-x-hidden p-1 gap-4`}
         >
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {availableMusics.map((m) => (
-              <SelectItem key={m} value={m}>
-                <span className="capitalize">{m}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {music !== "none" && (
-          <ExpressMusicPreview
-            tracks={musics}
-            selectedMusic={selectedMusic}
-            onSelectedMusicChange={onSelectedMusicChange}
-            musicsLoading={musicsLoading}
-            currentMusic={currentMusic}
-          />
-        )}
+          <div className="space-y-2">
+            <Label className="text-sm">Moods</Label>
+            <Select value={musicMood} onValueChange={onMusicMoodChange}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMusicMoods.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    <span className="capitalize">{m}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Genres</Label>
+            <Select value={musicGenre} onValueChange={onMusicGenreChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a genre" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMusicGenre.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    <span className="capitalize">{g}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Instruments</Label>
+            <Select
+              value={musicInstrument}
+              onValueChange={onMusicInstrumentChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an instrument" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMusicInstrument.map((i) => (
+                  <SelectItem key={i} value={i}>
+                    <span className="capitalize">{i}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Rhythms</Label>
+            <Select value={musicRhythm} onValueChange={onMusicRhythmChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a rhythm" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMusicRhythm.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    <span className="capitalize">{r}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Use Cases</Label>
+            <Select value={musicUseCase} onValueChange={onMusicUseCaseChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a use case" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMusicUseCase.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    <span className="capitalize">{u}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <ExpressMusicPreview
+        tracks={musics}
+        selectedMusic={selectedMusic}
+        onSelectedMusicChange={onSelectedMusicChange}
+        musicsLoading={musicsLoading}
+        musicsLoadingMore={musicsLoadingMore}
+        musicsHasMore={musicsHasMore}
+        onLoadMoreMusics={onLoadMoreMusics}
+        currentMusic={currentMusic}
+      />
+    </div>
+  );
+}
+
+function ProCustomization({
+ contentSettings,
+ onContentSettingsChange,
+ trackingPixel,
+ onTrackingPixelChange
+}: {
+  contentSettings: ProContentSettings;
+  onContentSettingsChange: (v: ProContentSettings) => void;
+  trackingPixel: string;
+  onTrackingPixelChange: (v: string) => void;
+}) {
+  const updateContent = (key: keyof ProContentSettings, value: boolean | number) =>
+    onContentSettingsChange({ ...contentSettings, [key]: value });
+  return (
+    <div className="space-y-4">
+      <Label className="text-base font-semibold">Content Settings</Label>
+
+      {/* Content Settings */}
+      <section title="Content Settings">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm">Fade In</Label>
+              <p className="text-xs text-muted-foreground">Gradually increase volume at start</p>
+            </div>
+            <Switch checked={contentSettings.fadeIn} onCheckedChange={(v) => updateContent('fadeIn', v)} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm">Fade Out</Label>
+              <p className="text-xs text-muted-foreground">Gradually decrease volume at end</p>
+            </div>
+            <Switch checked={contentSettings.fadeOut} onCheckedChange={(v) => updateContent('fadeOut', v)} />
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Start (ms)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={contentSettings.startMs}
+                onChange={(e) => updateContent('startMs', parseInt(e.target.value) || 0)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">End (ms)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={contentSettings.endMs}
+                onChange={(e) => updateContent('endMs', parseInt(e.target.value) || 0)}
+                placeholder="30000"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Volume</Label>
+              <span className="text-xs text-muted-foreground">{Math.round(contentSettings.volume * 100)}%</span>
+            </div>
+            <Slider
+              value={[contentSettings.volume]}
+              onValueChange={([v]) => updateContent('volume', v)}
+              min={0}
+              max={1}
+              step={0.05}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Tracking Pixel — after Content Settings */}
+      <div className="space-y-2">
+        <Label className="text-sm">Tracking Pixel URL</Label>
+        <Input
+          value={trackingPixel}
+          onChange={(e) => onTrackingPixelChange(e.target.value)}
+          placeholder="https://tracking.example.com/pixel?id=..."
+          type="url"
+        />
+        <p className="text-xs text-muted-foreground">Add a third-party tracking pixel to measure ad impressions.</p>
       </div>
     </div>
   );
 }
 
 export default function AdCreatorForm({
+  type,
+  age,
+  onAgeChange,
+  useCase,
+  onUseCaseChange,
   description,
   onDescriptionChange,
   goal,
   onGoalChange,
   tone,
   onToneChange,
-  music,
-  onMusicChange,
+
+  musicMood,
+  onMusicMoodChange,
+  musicGenre,
+  onMusicGenreChange,
+  musicInstrument,
+  onMusicInstrumentChange,
+  musicRhythm,
+  onMusicRhythmChange,
+  musicUseCase,
+  onMusicUseCaseChange,
+
   language,
   onLanguageChange,
   accent,
@@ -627,12 +1032,20 @@ export default function AdCreatorForm({
   selectedVoice,
   onSelectedVoiceChange,
   voicesLoading,
+  voicesLoadingMore,
+  voicesHasMore,
+  onLoadMoreVoices,
   musicsLoading,
+  musicsLoadingMore,
+  musicsHasMore,
+  onLoadMoreMusics,
   handleSaveAd,
   selectedMusic,
   onSelectedMusicChange,
   currentVoice,
   currentMusic,
+  onQueryChange,
+  onMusicQueryChange,
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
   const canSubmit = description?.trim().length > 0;
@@ -752,120 +1165,125 @@ export default function AdCreatorForm({
 
       {!hasAd && (
         <>
-          <div className="space-y-2">
-            <Label>{t("ad_creator.campaign_goal")}</Label>
-            <Select value={goal} onValueChange={onGoalChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sales">
-                  {t("ad_creator.goal_sales")}
-                </SelectItem>
-                <SelectItem value="leads">
-                  {t("ad_creator.goal_leads")}
-                </SelectItem>
-                <SelectItem value="traffic">
-                  {t("ad_creator.goal_traffic")}
-                </SelectItem>
-                <SelectItem value="consideration">
-                  {t("ad_creator.goal_consideration")}
-                </SelectItem>
-                <SelectItem value="awareness">
-                  {t("ad_creator.goal_awareness")}
-                </SelectItem>
-                <SelectItem value="app">{t("ad_creator.goal_app")}</SelectItem>
-                <SelectItem value="local">
-                  {t("ad_creator.goal_local")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {type === "PROMPT" && (
+            <div className="space-y-2">
+              <Label>{t("ad_creator.campaign_goal")}</Label>
+              <Select value={goal} onValueChange={onGoalChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales">
+                    {t("ad_creator.goal_sales")}
+                  </SelectItem>
+                  <SelectItem value="leads">
+                    {t("ad_creator.goal_leads")}
+                  </SelectItem>
+                  <SelectItem value="traffic">
+                    {t("ad_creator.goal_traffic")}
+                  </SelectItem>
+                  <SelectItem value="consideration">
+                    {t("ad_creator.goal_consideration")}
+                  </SelectItem>
+                  <SelectItem value="awareness">
+                    {t("ad_creator.goal_awareness")}
+                  </SelectItem>
+                  <SelectItem value="app">
+                    {t("ad_creator.goal_app")}
+                  </SelectItem>
+                  <SelectItem value="local">
+                    {t("ad_creator.goal_local")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label>{t("ad_creator.tell_business")}</Label>
+            <Label>
+              {type === "PROMPT"
+                ? t("ad_creator.tell_business")
+                : t("ad_creator.ad_script")}
+            </Label>
             <Textarea
               placeholder={
-                goalPlaceholders[goal] || "Tell us about your business..."
+                type === "PROMPT"
+                  ? goalPlaceholders[goal] || "Tell us about your business..."
+                  : "Your ad script will appear here..."
               }
               value={description}
               onChange={(e) => onDescriptionChange(e.target.value)}
               rows={5}
+              maxLength={500}
             />
+            <div className="w-full flex items-center justify-end">
+              <span
+                className={`text-xs ${description.length >= 500 ? "text-destructive" : " text-muted-foreground "}`}
+              >
+                {description.length || 0}/{500} characters
+              </span>
+            </div>
           </div>
 
-          {/* Customization: Express = simple dropdowns, Pro = full ProCustomizations */}
-          {isPro &&
-          proVoiceSettings &&
-          proMusicSettings &&
-          proContentSettings &&
-          onTrackingPixelChange &&
-          onProVoiceSettingsChange &&
-          onProMusicSettingsChange &&
-          onProContentSettingsChange ? (
-            <ExpressCustomization
-              currentVoice={currentVoice}
-              currentMusic={currentMusic}
-              selectedMusic={selectedMusic}
-              onSelectedMusicChange={onSelectedMusicChange}
-              gender={gender}
-              onGenderChange={onGenderChange}
-              language={language}
-              onLanguageChange={onLanguageChange}
-              accent={accent}
-              onAccentChange={onAccentChange}
-              tone={tone}
-              onToneChange={onToneChange}
-              music={music}
-              onMusicChange={onMusicChange}
-              voices={voices}
-              musics={musics}
-              selectedVoice={selectedVoice}
-              onSelectedVoiceChange={onSelectedVoiceChange}
-              voicesLoading={voicesLoading}
-              musicsLoading={musicsLoading}
-              isPro={false}
-            />
-          ) : (
-            // <ProCustomizations
-            //   trackingPixel={trackingPixel || ""}
-            //   onTrackingPixelChange={onTrackingPixelChange}
-            //   voiceSettings={proVoiceSettings}
-            //   onVoiceSettingsChange={onProVoiceSettingsChange}
-            //   musicSettings={proMusicSettings}
-            //   onMusicSettingsChange={onProMusicSettingsChange}
-            //   contentSettings={proContentSettings}
-            //   onContentSettingsChange={onProContentSettingsChange}
-            // />
-            <ExpressCustomization
-              isPro={false}
-              currentVoice={currentVoice}
-              currentMusic={currentMusic}
-              selectedMusic={selectedMusic}
-              onSelectedMusicChange={onSelectedMusicChange}
-              gender={gender}
-              onGenderChange={onGenderChange}
-              language={language}
-              onLanguageChange={onLanguageChange}
-              accent={accent}
-              onAccentChange={onAccentChange}
-              tone={tone}
-              onToneChange={onToneChange}
-              music={music}
-              onMusicChange={onMusicChange}
-              voices={voices}
-              musics={musics}
-              selectedVoice={selectedVoice}
-              onSelectedVoiceChange={onSelectedVoiceChange}
-              voicesLoading={voicesLoading}
-              musicsLoading={musicsLoading}
-            />
-          )}
+          <ExpressCustomization
+            onQueryChange={onQueryChange}
+            onMusicQueryChange={onMusicQueryChange}
+            age={age}
+            onAgeChange={onAgeChange}
+            useCase={useCase}
+            onUseCaseChange={onUseCaseChange}
+            isPro={isPro || false}
+            currentVoice={currentVoice}
+            currentMusic={currentMusic}
+            selectedMusic={selectedMusic}
+            onSelectedMusicChange={onSelectedMusicChange}
+            gender={gender}
+            onGenderChange={onGenderChange}
+            language={language}
+            onLanguageChange={onLanguageChange}
+            accent={accent}
+            onAccentChange={onAccentChange}
+            tone={tone}
+            onToneChange={onToneChange}
+            musicMood={musicMood}
+            onMusicMoodChange={onMusicMoodChange}
+            musicGenre={musicGenre}
+            onMusicGenreChange={onMusicGenreChange}
+            musicInstrument={musicInstrument}
+            onMusicInstrumentChange={onMusicInstrumentChange}
+            musicRhythm={musicRhythm}
+            onMusicRhythmChange={onMusicRhythmChange}
+            musicUseCase={musicUseCase}
+            onMusicUseCaseChange={onMusicUseCaseChange}
+            voices={voices}
+            musics={musics}
+            selectedVoice={selectedVoice}
+            onSelectedVoiceChange={onSelectedVoiceChange}
+            voicesLoading={voicesLoading}
+            voicesLoadingMore={voicesLoadingMore}
+            voicesHasMore={voicesHasMore}
+            onLoadMoreVoices={onLoadMoreVoices}
+            musicsLoading={musicsLoading}
+            musicsLoadingMore={musicsLoadingMore}
+            musicsHasMore={musicsHasMore}
+            onLoadMoreMusics={onLoadMoreMusics}
+          />
+
+          {
+            isPro && (
+              <ProCustomization
+                contentSettings={proContentSettings}
+                onContentSettingsChange={onProContentSettingsChange}
+                trackingPixel={trackingPixel}
+                onTrackingPixelChange={onTrackingPixelChange}
+              />
+            )
+          }
 
           <Button
             className="w-full h-12"
             onClick={onGenerate}
-            disabled={!canSubmit || !selectedVoice || isGenerating}
+            disabled={!canSubmit || !selectedVoice || !selectedMusic || isGenerating}
           >
             {t("ad_creator.generate_ad")}
           </Button>
@@ -879,14 +1297,82 @@ export default function AdCreatorForm({
       >
         {hasAd && generatedAd && (
           <>
-            <Separator className="mb-6" />
+            {/* Script */}
+            <div className="space-y-3 mb-6">
+              <Label className="text-base font-semibold">
+                {t("ad_creator.ad_script")}
+              </Label>
+              <Textarea
+                value={editedScript}
+                onChange={(e) => handleScriptChange(e.target.value)}
+                rows={5}
+                className="text-sm cursor-text"
+                placeholder="Your ad script will appear here..."
+                maxLength={500}
+              />
+              <div className="w-full flex items-center justify-end">
+                <span
+                  className={`text-xs ${editedScript.length >= 500 ? "text-destructive" : " text-muted-foreground "}`}
+                >
+                  {editedScript.length || 0}/{500} characters
+                </span>
+              </div>
+            </div>
+
+            {/* Customization options — always visible after generation */}
+            <div className="space-y-4 mb-6">
+              <ExpressCustomization
+                age={age}
+                onAgeChange={onAgeChange}
+                useCase={useCase}
+                onUseCaseChange={onUseCaseChange}
+                onQueryChange={onQueryChange}
+                isPro={isPro || false}
+                selectedMusic={selectedMusic}
+                onSelectedMusicChange={onSelectedMusicChange}
+                currentVoice={currentVoice}
+                currentMusic={currentMusic}
+                voices={voices}
+                musics={musics}
+                selectedVoice={selectedVoice}
+                onSelectedVoiceChange={onSelectedVoiceChange}
+                gender={gender}
+                onGenderChange={onGenderChange}
+                language={language}
+                onLanguageChange={onLanguageChange}
+                accent={accent}
+                onAccentChange={onAccentChange}
+                tone={tone}
+                onToneChange={onToneChange}
+                voicesLoading={voicesLoading}
+                musicsLoading={musicsLoading}
+                musicMood={musicMood}
+                onMusicMoodChange={onMusicMoodChange}
+                musicGenre={musicGenre}
+                onMusicGenreChange={onMusicGenreChange}
+                musicInstrument={musicInstrument}
+                onMusicInstrumentChange={onMusicInstrumentChange}
+                musicRhythm={musicRhythm}
+                onMusicRhythmChange={onMusicRhythmChange}
+                musicUseCase={musicUseCase}
+                onMusicUseCaseChange={onMusicUseCaseChange}
+                onMusicQueryChange={onMusicQueryChange}
+              />
+
+              {
+                isPro && (
+                  <ProCustomization contentSettings={proContentSettings} onContentSettingsChange={onProContentSettingsChange} trackingPixel={trackingPixel} onTrackingPixelChange={onTrackingPixelChange} />
+                )
+              }
+            </div>
+
             <audio ref={audioRef} src={generatedAd.url} preload="auto" />
 
             {/* Audio Player */}
             <div className="rounded-2xl border bg-card p-5 mb-6 space-y-3">
               <div>
                 <h3 className="font-semibold text-foreground text-lg">
-                  {/* {generatedAd.brandName} */}
+                  Your Ad
                 </h3>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   Share it or edit the ad to change the script or the voice
@@ -896,7 +1382,8 @@ export default function AdCreatorForm({
               <div className="bg-muted/50 rounded-xl px-4 py-3 flex items-center gap-3">
                 <Button
                   size="icon"
-                  className="rounded-full w-10 h-10 shrink-0 bg-primary hover:bg-primary/90"
+                  variant="dark"
+                  className="rounded-full w-10 h-10 shrink-0"
                   onClick={togglePlay}
                 >
                   {isPlaying ? (
@@ -911,7 +1398,7 @@ export default function AdCreatorForm({
                     return (
                       <div
                         key={i}
-                        className={`flex-1 rounded-full transition-all duration-150 ${isActive ? "bg-primary" : "bg-primary/30"}`}
+                        className={`flex-1 rounded-full transition-all duration-150 ${isActive ? "bg-[#0f1729]" : "bg-[#0f1729]/30"}`}
                         style={{ height: `${bar.height}%` }}
                       />
                     );
@@ -921,62 +1408,6 @@ export default function AdCreatorForm({
                   {Math.floor(audioRef.current?.duration || 0 / 60)}s
                 </span>
               </div>
-            </div>
-
-            {/* Script */}
-            <div className="space-y-3 mb-6">
-              <Label className="text-base font-semibold">
-                {t("ad_creator.ad_script")}
-              </Label>
-              <Textarea
-                value={editedScript}
-                onChange={(e) => handleScriptChange(e.target.value)}
-                rows={5}
-                className="text-sm cursor-text"
-                placeholder="Your ad script will appear here..."
-              />
-            </div>
-
-            {/* Customization options — always visible after generation */}
-            <div className="space-y-4 mb-6">
-              {isPro &&
-              proVoiceSettings &&
-              proMusicSettings &&
-              proContentSettings &&
-              onTrackingPixelChange &&
-              onProVoiceSettingsChange &&
-              onProMusicSettingsChange &&
-              onProContentSettingsChange ? (
-                <ProCustomizations
-                  trackingPixel={trackingPixel || ""}
-                  onTrackingPixelChange={onTrackingPixelChange}
-                  voiceSettings={proVoiceSettings}
-                  onVoiceSettingsChange={onProVoiceSettingsChange}
-                  musicSettings={proMusicSettings}
-                  onMusicSettingsChange={onProMusicSettingsChange}
-                  contentSettings={proContentSettings}
-                  onContentSettingsChange={onProContentSettingsChange}
-                />
-              ) : (
-                <ExpressCustomization
-                  voices={voices}
-                  musics={musics}
-                  selectedVoice={selectedVoice}
-                  onSelectedVoiceChange={onSelectedVoiceChange}
-                  gender={gender}
-                  onGenderChange={onGenderChange}
-                  language={language}
-                  onLanguageChange={onLanguageChange}
-                  accent={accent}
-                  onAccentChange={onAccentChange}
-                  tone={tone}
-                  onToneChange={onToneChange}
-                  music={music}
-                  onMusicChange={onMusicChange}
-                  voicesLoading={voicesLoading}
-                  musicsLoading={musicsLoading}
-                />
-              )}
             </div>
 
             {/* Action Buttons */}
