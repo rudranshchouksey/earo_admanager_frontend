@@ -7,6 +7,25 @@ interface InlineAudioPlayerProps {
   audioUrl: string;
 }
 
+const formatTime = (seconds: number) => {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  const parts = [];
+  
+  // Only show hours if the audio is at least 1 hour long
+  if (hrs > 0) {
+    parts.push(hrs.toString());
+  }
+  
+  // Always show minutes and seconds, padded with a leading zero
+  parts.push(mins.toString().padStart(hrs > 0 ? 2 : 1, '0'));
+  parts.push(secs.toString().padStart(2, '0'));
+
+  return parts.join(':');
+};
+
 export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -126,8 +145,8 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
       </div>
       <span className="hidden md:block text-[10px] text-muted-foreground tabular-nums w-7">
         {isPlaying
-          ? `0:${String(currentSec).padStart(2, '0')}`
-          : `0:${String(totalSec).padStart(2, '0')}`}
+          ? formatTime(currentSec)
+          : formatTime(totalSec)}
       </span>
       {waveError ? (
         <span className="text-[10px] text-destructive/80 whitespace-nowrap">

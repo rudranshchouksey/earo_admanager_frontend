@@ -661,7 +661,7 @@ function ExpressCustomization({
         )}
       </div>
       <div
-        className={`flex flex-row max-h-[80px] overflow-x-auto md:overflow-x-hidden md:grid grid-cols-1 ${isPro ? "md:grid-cols-6" : "md:grid-cols-4"} gap-4`}
+        className={`flex flex-row max-h-[80px] overflow-x-auto md:overflow-x-hidden md:grid grid-cols-1 ${isPro ? "md:grid-cols-6" : "md:grid-cols-4"} gap-4 p-1`}
       >
         <div className="space-y-2">
           <Label className="text-sm">Gender</Label>
