@@ -403,7 +403,25 @@ function ExpressMusicPreview({
   onSelectedMusicChange: (v: string) => void;
   currentMusic: Music | null;
 }) {
-  console.log("tracks", tracks);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!musicsHasMore) return;
+    if (!onLoadMoreMusics) return;
+    const el = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!el || !target) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMoreMusics();
+      },
+      { root: el, rootMargin: "120px", threshold: 0 },
+    );
+    obs.observe(target);
+    return () => obs.disconnect();
+  }, [musicsHasMore, onLoadMoreMusics]);
 
   if (musicsLoading && tracks.length === 0)
     return (
@@ -417,28 +435,8 @@ function ExpressMusicPreview({
     );
   if (!tracks || tracks.length === 0) return null;
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!musicsHasMore) return;
-    if (!onLoadMoreMusics) return;
-    const root = scrollRef.current;
-    const target = sentinelRef.current;
-    if (!root || !target) return;
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) onLoadMoreMusics();
-      },
-      { root, rootMargin: "120px", threshold: 0 },
-    );
-    obs.observe(target);
-    return () => obs.disconnect();
-  }, [musicsHasMore, onLoadMoreMusics]);
-
   return (
-    <div ref={scrollRef} className="">
+    <div className="">
       {currentMusic && (
         <>
           <Label className="text-xs text-muted-foreground">Current music</Label>
@@ -466,7 +464,10 @@ function ExpressMusicPreview({
         </>
       )}
       <Label className="text-xs text-muted-foreground">Music</Label>
-      <div className="max-h-[250px] overflow-y-auto">
+      <div
+        ref={scrollRef}
+        className="max-h-[250px] overflow-y-auto"
+      >
         {tracks &&
           tracks.length > 0 &&
           tracks.map((track) => (
@@ -494,16 +495,16 @@ function ExpressMusicPreview({
               </div>
             </>
           ))}
-      </div>
-      <div className="py-2 flex items-center justify-center">
-        {musicsLoadingMore ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading more…
-          </div>
-        ) : musicsHasMore ? (
-          <div ref={sentinelRef} className="h-1 w-full" />
-        ) : null}
+        <div className="py-2 flex items-center justify-center">
+          {musicsLoadingMore ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading more…
+            </div>
+          ) : musicsHasMore ? (
+            <div ref={sentinelRef} className="h-1 w-full" />
+          ) : null}
+        </div>
       </div>
     </div>
   );
