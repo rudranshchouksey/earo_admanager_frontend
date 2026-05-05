@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
+import { differenceInCalendarDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import type { LocationData } from "@/components/dashboard/campaign-wizard/CampaignInventoryStep";
 import { MOCK_CITIES_DATA } from "@/components/dashboard/campaign-wizard/CampaignInventoryStep";
@@ -143,17 +144,13 @@ export default function CampaignWizard() {
 
   const canLaunch = setupDone && scheduleDone && inventoryDone && budgetDone;
 
-  const durationDays =
-    schedule.startDate && schedule.endDate
-      ? Math.max(
-          1,
-          Math.ceil(
-            (new Date(schedule.endDate).getTime() -
-              new Date(schedule.startDate).getTime()) /
-              (1000 * 60 * 60 * 24),
-          ),
-        )
-      : 0;
+  const durationDays = useCallback(() => {
+    if (!schedule.startDate || !schedule.endDate) return 0;
+    const start = new Date(schedule.startDate);
+    const end = new Date(schedule.endDate);
+    // Inclusive calendar days (matches how humans read date ranges).
+    return Math.max(1, differenceInCalendarDays(end, start) + 1);
+  }, [schedule.startDate, schedule.endDate])();
 
   // Summary text helpers
   const getSummaryText = (section: string): string => {

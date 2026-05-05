@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 import { useEffect, useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parse } from 'date-fns';
+import { differenceInCalendarDays, format, parse } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -232,7 +232,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
         return (
           <>
             <p className="text-sm text-muted-foreground">
-              Campaign duration: {Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)))} days
+              Campaign duration: {Math.max(1, differenceInCalendarDays(new Date(endDate), new Date(startDate)) + 1)} days
             </p>
             {invalid && (
               <p className="text-sm text-destructive">End date/time must be after start date/time</p>
@@ -245,7 +245,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
       <div className="flex flex-wrap gap-2">
           {DURATION_PRESETS.map(days => {
             const currentDuration = startDate && endDate
-              ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))
+              ? Math.max(1, differenceInCalendarDays(new Date(endDate), new Date(startDate)) + 1)
               : 0;
             const selected = currentDuration === days;
             return (
@@ -254,7 +254,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                 onClick={() => {
                   const start = new Date(startDate);
                   const end = new Date(startDate);
-                  end.setDate(end.getDate() + days);
+                  end.setDate(end.getDate() + days - 1);
                   setStartDate(start.toISOString());
                   setEndDate(end.toISOString());
                 }}
