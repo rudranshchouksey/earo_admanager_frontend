@@ -1,16 +1,13 @@
 export interface GeoData {
+  locale: string;
   city: string;
+  region: string;
   country: string;
-  countryCode: string;
+  country_code: string;
   language: string;
-  currency: {
-    code: string;
-    symbol: string;
-  };
-  listenerCount: string;
-  minPrice: string;
-  latitude?: number;
-  longitude?: number;
+  currency: string;
+  currencySymbol: string;
+  ip:string;
 }
 
 export interface GeneratedAd {

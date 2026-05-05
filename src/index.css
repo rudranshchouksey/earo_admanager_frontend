@@ -258,3 +258,10 @@
  .font-arabic {
    font-family: 'Noto Sans Arabic', 'Poppins', system-ui, sans-serif;
 }
+
+
+
+.mamo-checkout iframe {
+  min-height: 700px;
+  height: 100%;
+}

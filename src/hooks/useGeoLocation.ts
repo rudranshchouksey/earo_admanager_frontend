@@ -3,16 +3,14 @@ import { getGeoData } from '@/services/geo';
 import type { GeoData } from '@/types/landing';
 
 const defaultGeoData: GeoData = {
+  locale: 'en-US',
   city: 'your city',
   country: 'your country',
-  countryCode: 'US',
+  country_code: 'US',
   language: 'en',
-  currency: {
-    code: 'USD',
-    symbol: '$',
-  },
-  listenerCount: '10 million',
-  minPrice: '50',
+  currency: 'USD',
+  currencySymbol: '$',
+  ip: '127.0.0.1',
 };
 
 export function useGeoLocation() {

@@ -132,6 +132,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       console.log("selectedAdvertiser", selectedAdvertiser);
       appNotifications.notify('advertiser:selected', { advertiserId: selectedAdvertiser });
       auth.setCurrentAdvertiserId(selectedAdvertiser);
+      const orgId = advertisers.find((a) => a.id === selectedAdvertiser)?.orgId;
+      if (orgId) {
+        auth.setCurrentOrganizationId(orgId);
+      }
     }
   }, [selectedAdvertiser])
   

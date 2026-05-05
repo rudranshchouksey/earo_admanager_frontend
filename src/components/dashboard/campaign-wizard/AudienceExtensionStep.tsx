@@ -31,6 +31,7 @@ interface BannerSlot {
   type: BannerType;
   fileName: string | null;
   preview: string | null;
+  file: File | null;
 }
 
 export interface AudienceExtensionData {
@@ -75,10 +76,10 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget }: P
 
     if (existingIndex >= 0) {
       const next = [...data.banners];
-      next[existingIndex] = { type: selectedType, fileName: file.name, preview };
+      next[existingIndex] = { type: selectedType, fileName: file.name, preview, file };
       onChange({ ...data, banners: next });
     } else {
-      onChange({ ...data, banners: [...data.banners, { type: selectedType, fileName: file.name, preview }] });
+      onChange({ ...data, banners: [...data.banners, { type: selectedType, fileName: file.name, preview, file }] });
     }
 
     setUploadDialogOpen(false);
@@ -150,13 +151,15 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget }: P
             <div>
               <Label className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
-                Banners
+                Banner
               </Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Add up to 3 banners (recommended)</p>
+              <p className="hidden text-xs text-muted-foreground mt-0.5">Add up to 3 banners (recommended)</p>
             </div>
 
+            {
+              uploadedBanners.length === 0 && (
             <div className="flex items-center gap-4">
-              <Label className="text-xs">Upload banners <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">Upload banner <span className="text-destructive">*</span></Label>
 
               {availableTypes.length > 0 && (
                 <DropdownMenu>
@@ -178,6 +181,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget }: P
                 </DropdownMenu>
               )}
             </div>
+              )}
 
             {/* Uploaded banners list */}
             {uploadedBanners.length > 0 && (

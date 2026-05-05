@@ -4,7 +4,7 @@ import { useTranslation } from '@/contexts/TranslationContext';
 interface ReviewProps {
   setup: { adId: string; campaignName: string };
   schedule: { startDate: string; endDate: string };
-  inventory: { inventoryTypes: string[]; podcastTopics: string[] };
+  inventory: { inventoryType: string; podcastTopics: string[] };
   targeting: { location: string; gender: string; ageRanges: string[]; deviceTypes: string[] };
   budget: { dailyBudget: string; totalBudget: string; currency: string };
   payment: { paymentMethod: string; couponCode: string };
@@ -41,7 +41,7 @@ export default function CampaignReviewStep({ setup, schedule, inventory, targeti
       <Card>
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-foreground mb-2">{t('wizard.review.inventory')}</h3>
-          <Row label={t('wizard.review.types')} value={inventory.inventoryTypes.join(', ')} />
+          <Row label={t('wizard.review.types')} value={inventory.inventoryType} />
           {inventory.podcastTopics.length > 0 && (
             <Row label={t('wizard.review.podcast_topics')} value={inventory.podcastTopics.join(', ')} />
           )}

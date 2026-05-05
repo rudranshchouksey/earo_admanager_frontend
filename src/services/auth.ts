@@ -140,6 +140,7 @@ export const auth = {
     if (!session) return;
     session.currentOrganizationId = organizationId;
     setStoredSession(session);
+    notify('ORGANIZATION_CHANGED', session);
   },
 
   setCurrentAdvertiserId: (advertiserId: string) => {
@@ -147,6 +148,7 @@ export const auth = {
     if (!session) return;
     session.currentAdvertiserId = advertiserId;
     setStoredSession(session);
+    notify('ADVERTISER_CHANGED', session);
   },
 
   userUpgradedToAgency: () => {

@@ -84,7 +84,7 @@
     queryKey: ['sdui-config', screenId, geoData?.country],
     queryFn: async (): Promise<SDUIPayload> => {
       const anonymousId = localStorage.getItem('nextads_anonymous_id') || crypto.randomUUID();
-      return api.getUIConfig(screenId, geoData?.countryCode || 'US', anonymousId);
+      return api.getUIConfig(screenId, geoData?.country_code || 'US', anonymousId);
     },
      staleTime: 5 * 60 * 1000, // 5 minutes
      enabled: !!geoData,

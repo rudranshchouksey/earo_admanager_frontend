@@ -11,6 +11,7 @@ import type { Column, FilterDef } from '@/components/ui/searchable-list';
 // import dubaiStarsImg from '@/assets/podcasts/dubai-stars.png';
 // import j2HubImg from '@/assets/podcasts/j2-hub.png';
 import bitesizeBusinessImg from '@/assets/podcasts/bitesize-business.png';
+import { PodcastAudience, StreamingAudience, TargetingSegment } from '@/services/targeting';
 // import airDxbImg from '@/assets/podcasts/air-dxb.png';
 // import cityLightsImg from '@/assets/podcasts/city-lights.png';
 // import dubaiRealEstateImg from '@/assets/podcasts/dubai-real-estate.png';
@@ -21,39 +22,6 @@ import bitesizeBusinessImg from '@/assets/podcasts/bitesize-business.png';
 // import lovinDubaiImg from '@/assets/podcasts/lovin-dubai.png';
 // import bigBreakfastImg from '@/assets/podcasts/big-breakfast.png';
 
-const SHOW_IMAGES = [
-  // dubaiStarsImg, j2HubImg, bitesizeBusinessImg, airDxbImg, cityLightsImg,
-  // dubaiRealEstateImg, expatsInDubaiImg, dubaiPodcastImg, portraitImg,
-  // takingCareBusinessImg, lovinDubaiImg, bigBreakfastImg,
-];
-
-const ageRanges = ['18-24', '25-34', '35-44', '45-54', '55-65', '65+'];
-
-const genderOptions = [
-  { value: 'all', label: 'All' },
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-] as const;
-
-const deviceOptions = [
-  { value: 'Mobile' },
-  { value: 'Desktop' },
-  { value: 'Smart Speaker' },
-  { value: 'Connected TV' },
-] as const;
-
-const DEVICE_TYPES = [
-  { id: 'phone', name: 'Phone', audience: '18.5M' },
-  { id: 'portable-media-player', name: 'Portable Media Player', audience: '2.1M' },
-  { id: 'tablet', name: 'Tablet', audience: '6.8M' },
-  { id: 'desktop', name: 'Desktop', audience: '9.2M' },
-  { id: 'gaming-console', name: 'Gaming Console', audience: '3.4M' },
-  { id: 'smart-speaker', name: 'Smart Speaker', audience: '5.7M' },
-  { id: 'smart-tv', name: 'Smart TV', audience: '7.3M' },
-  { id: 'connected-vehicle', name: 'Connected Vehicle', audience: '1.9M' },
-  { id: 'less-common-devices', name: 'Less Common Devices', audience: '850K' },
-  { id: 'smart-watch', name: 'Smart Watch', audience: '4.1M' },
-];
 
 const inventoryOptions = [
   { type: 'Podcast', description: 'Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.' },
@@ -62,49 +30,12 @@ const inventoryOptions = [
 
 const adPositionOptions = ['Pre-roll', 'Mid-roll', 'Post-roll'] as const;
 
-const podcastTopicsList = ['Business', 'Comedy', 'Health', 'Technology', 'Sports', 'News', 'Education', 'Entertainment', 'True Crime', 'Society & Culture'];
-
-const PODCAST_TOPICS = [
-  { id: 'topic-business', name: 'Business', audience: '8.4M' },
-  { id: 'topic-comedy', name: 'Comedy', audience: '12.1M' },
-  { id: 'topic-health', name: 'Health', audience: '6.7M' },
-  { id: 'topic-technology', name: 'Technology', audience: '7.3M' },
-  { id: 'topic-sports', name: 'Sports', audience: '9.8M' },
-  { id: 'topic-news', name: 'News', audience: '11.2M' },
-  { id: 'topic-education', name: 'Education', audience: '5.9M' },
-  { id: 'topic-entertainment', name: 'Entertainment', audience: '10.5M' },
-  { id: 'topic-truecrime', name: 'True Crime', audience: '8.1M' },
-  { id: 'topic-society', name: 'Society & Culture', audience: '6.3M' },
-];
-
-const podcastTopicColumns: Column<typeof PODCAST_TOPICS[0]>[] = [
+const podcastTopicColumns: Column<{ id: string; name: string }>[] = [
   { key: 'name', label: 'Topic', sortable: true },
 ];
 
-const PODCAST_AUDIENCES = [
-  { id: 'car-buyers', name: 'Car Buyers', description: 'Likely to purchase', type: 'High Intent', category: 'Automotive', provider: 'ComCast', audience: '800K' },
-  { id: 'auto-enthusiasts', name: 'Auto Enthusiasts', description: 'Interested in cars', type: 'Interest', category: 'Automotive', provider: 'AdsWizz', audience: '1.5M' },
-  { id: 'auto-podcast', name: 'Automotive Podcast Listeners', description: 'Reached via relevant shows', type: 'Broad', category: 'Automotive', provider: 'AdsWizz', audience: '2.9M' },
-  { id: 'dm-healthcare', name: 'Healthcare Decision Makers', description: 'C-suite & directors in health sector', type: 'High Intent', category: 'Health', provider: 'AdsWizz', audience: '1.2M' },
-  { id: 'dm-finance', name: 'Finance Decision Makers', description: 'Senior leaders in financial services', type: 'High Intent', category: 'Finance', provider: 'AdsWizz', audience: '1.8M' },
-  { id: 'dm-technology', name: 'Tech Decision Makers', description: 'IT leaders & CTOs', type: 'High Intent', category: 'Technology', provider: 'ComCast', audience: '2.1M' },
-  { id: 'dm-legal', name: 'Legal Professionals', description: 'Lawyers & compliance officers', type: 'Interest', category: 'Business', provider: 'ComCast', audience: '680K' },
-  { id: 'dm-energy', name: 'Energy Industry Leaders', description: 'Executives in oil, gas & renewables', type: 'High Intent', category: 'Business', provider: 'NumberEight', audience: '520K' },
-  { id: 'rc-apparel', name: 'Apparel Shoppers', description: 'Active fashion & clothing buyers', type: 'High Intent', category: 'Retail', provider: 'AdsWizz', audience: '3.4M' },
-  { id: 'rc-electronics', name: 'Electronics Buyers', description: 'In-market for consumer electronics', type: 'High Intent', category: 'Retail', provider: 'ComCast', audience: '4.7M' },
-  { id: 'rc-food', name: 'Food & Beverage Fans', description: 'Interest in food brands & dining', type: 'Interest', category: 'Retail', provider: 'NumberEight', audience: '5.1M' },
-  { id: 'rc-home', name: 'Home & Garden Enthusiasts', description: 'Interested in home improvement', type: 'Interest', category: 'Retail', provider: 'ComCast', audience: '2.3M' },
-  { id: 'int-travelers', name: 'Frequent Travelers', description: 'High-frequency flyers & hotel bookers', type: 'High Intent', category: 'Travel', provider: 'NumberEight', audience: '3.8M' },
-  { id: 'int-fitness', name: 'Fitness Enthusiasts', description: 'Active gym-goers & wellness seekers', type: 'Interest', category: 'Fitness', provider: 'AdsWizz', audience: '4.5M' },
-  { id: 'int-parents', name: 'Parents', description: 'Broad parenting audience', type: 'Broad', category: 'Education', provider: 'ComCast', audience: '6.2M' },
-  { id: 'int-smb', name: 'Small Business Owners', description: 'SMB founders & operators', type: 'High Intent', category: 'Business', provider: 'NumberEight', audience: '1.9M' },
-  { id: 'int-students', name: 'Students', description: 'College & university students', type: 'Broad', category: 'Education', provider: 'AdsWizz', audience: '7.8M' },
-  { id: 'health-wellness', name: 'Wellness Seekers', description: 'Interest in holistic health & wellness', type: 'Interest', category: 'Health', provider: 'NumberEight', audience: '3.5M' },
-  { id: 'travel-luxury', name: 'Luxury Travelers', description: 'Premium travel & resorts', type: 'Interest', category: 'Travel', provider: 'AdsWizz', audience: '1.6M' },
-  { id: 'tech-early', name: 'Early Tech Adopters', description: 'First to try new gadgets & apps', type: 'Interest', category: 'Technology', provider: 'ComCast', audience: '5.1M' },
-];
 
-const podcastAudienceColumns: Column<typeof PODCAST_AUDIENCES[0]>[] = [
+const podcastAudienceColumns: Column<{ id: string; name: string }>[] = [
   {
     key: 'name',
     label: 'Audience Segment',
@@ -112,112 +43,27 @@ const podcastAudienceColumns: Column<typeof PODCAST_AUDIENCES[0]>[] = [
     render: (_val, item) => (
       <div>
         <div className="font-medium text-foreground">{item.name}</div>
-        <div className="text-xs text-muted-foreground">{item.description}</div>
-        <div className="text-xs text-muted-foreground/70 mt-0.5">{item.type} · {item.provider}</div>
       </div>
     ),
   },
+];
+
+const streamingAudienceColumns: Column<StreamingAudience>[] = [
+  { key: 'label', label: 'Segment', sortable: true },
   { key: 'category', label: 'Category', sortable: true },
+
 ];
 
-const podcastAudienceFilters: FilterDef[] = [
-  {
-    key: 'type',
-    label: 'Audience Type',
-    options: [
-      { value: 'High Intent', label: 'High Intent' },
-      { value: 'Interest', label: 'Interest' },
-      { value: 'Broad', label: 'Broad' },
-    ],
-  },
-  {
-    key: 'category',
-    label: 'Category',
-    options: [
-      { value: 'Automotive', label: 'Automotive' },
-      { value: 'Business', label: 'Business' },
-      { value: 'Education', label: 'Education' },
-      { value: 'Finance', label: 'Finance' },
-      { value: 'Fitness', label: 'Fitness' },
-      { value: 'Health', label: 'Health' },
-      { value: 'Retail', label: 'Retail' },
-      { value: 'Technology', label: 'Technology' },
-      { value: 'Travel', label: 'Travel' },
-    ],
-  },
-];
-
-const BEHAVIORAL_AUDIENCES = [
-  { id: 'auto-buyers', name: 'Automotive: Car Buyers', audience: '4.2M' },
-  { id: 'auto-enthusiasts', name: 'Automotive: Car Enthusiasts', audience: '3.8M' },
-  { id: 'auto-luxury', name: 'Automotive: Luxury Vehicle Owners', audience: '1.4M' },
-  { id: 'tech-early', name: 'Technology: Early Adopters', audience: '5.1M' },
-  { id: 'tech-gamers', name: 'Technology: Gamers', audience: '6.7M' },
-  { id: 'finance-investors', name: 'Finance: Active Investors', audience: '2.3M' },
-  { id: 'finance-crypto', name: 'Finance: Crypto Enthusiasts', audience: '1.9M' },
-  { id: 'travel-frequent', name: 'Travel: Frequent Flyers', audience: '3.1M' },
-  { id: 'travel-luxury', name: 'Travel: Luxury Travelers', audience: '1.6M' },
-  { id: 'health-fitness', name: 'Health: Fitness Enthusiasts', audience: '4.8M' },
-  { id: 'health-wellness', name: 'Health: Wellness Seekers', audience: '3.5M' },
-  { id: 'food-foodies', name: 'Food & Drink: Foodies', audience: '5.4M' },
-  { id: 'fashion-shoppers', name: 'Fashion: Online Shoppers', audience: '7.2M' },
-  { id: 'home-owners', name: 'Real Estate: Home Owners', audience: '8.1M' },
-  { id: 'parents-new', name: 'Family: New Parents', audience: '2.7M' },
-];
-
-const behavioralAudienceColumns: Column<typeof BEHAVIORAL_AUDIENCES[0]>[] = [
-  { key: 'name', label: 'Segment', sortable: true },
-];
-
-const STREAMED_CONTENT = [
-  { id: 'alternative', name: 'Alternative', audience: '8.3M' },
-  { id: 'christmas', name: 'Christmas', audience: '12.1M' },
-  { id: 'blues', name: 'Blues', audience: '3.2M' },
-  { id: 'classical', name: 'Classical', audience: '4.5M' },
-  { id: 'country', name: 'Country', audience: '6.8M' },
-  { id: 'electronic', name: 'Electronic / Dance', audience: '9.1M' },
-  { id: 'hip-hop', name: 'Hip-Hop / Rap', audience: '14.7M' },
-  { id: 'indie', name: 'Indie', audience: '5.6M' },
-  { id: 'jazz', name: 'Jazz', audience: '3.9M' },
-  { id: 'latin', name: 'Latin', audience: '11.2M' },
-  { id: 'metal', name: 'Metal', audience: '4.1M' },
-  { id: 'pop', name: 'Pop', audience: '18.5M' },
-  { id: 'rnb', name: 'R&B / Soul', audience: '7.4M' },
-  { id: 'rock', name: 'Rock', audience: '10.3M' },
-  { id: 'arabic', name: 'Arabic', audience: '6.2M' },
-];
-
-const streamedContentColumns: Column<typeof STREAMED_CONTENT[0]>[] = [
+const streamingTopicsColumns: Column<{ id: string; name: string }>[] = [
   { key: 'name', label: 'Genre / Content', sortable: true },
 ];
 
 type InventoryMode = 'categories' | 'topics';
 
 // Extended mock shows
-const MOCK_SHOWS = [
-  { id: '1', name: 'The Daily', inventoryType: 'Podcast', topic: 'News & Politics', audience: '2.1M', country: 'US', description: 'Daily news deep dives from The New York Times', image: SHOW_IMAGES[0] },
-  { id: '2', name: 'Crime Junkie', inventoryType: 'Podcast', topic: 'True Crime', audience: '1.8M', country: 'US', description: 'Weekly true crime stories with host Ashley Flowers', image: SHOW_IMAGES[1] },
-  { id: '3', name: 'SmartLess', inventoryType: 'Podcast', topic: 'Comedy', audience: '1.2M', country: 'US', description: 'Celebrity interviews with Bateman, Arnett and Hayes', image: SHOW_IMAGES[2] },
-  { id: '4', name: 'How I Built This', inventoryType: 'Podcast', topic: 'Business', audience: '950K', country: 'US', description: 'Stories behind successful companies and movements', image: SHOW_IMAGES[3] },
-  { id: '5', name: 'Lex Fridman Podcast', inventoryType: 'Podcast', topic: 'Technology', audience: '3.5M', country: 'US', description: 'Conversations about AI, science, and philosophy', image: SHOW_IMAGES[4] },
-  { id: '6', name: 'Huberman Lab', inventoryType: 'Podcast', topic: 'Health & Wellness', audience: '4.2M', country: 'US', description: 'Neuroscience tools for everyday life', image: SHOW_IMAGES[5] },
-  { id: '7', name: 'New Heights', inventoryType: 'Podcast', topic: 'Sports', audience: '2.8M', country: 'US', description: 'Football and culture with the Kelce brothers', image: SHOW_IMAGES[6] },
-  { id: '8', name: 'Anghami Sessions', inventoryType: 'Streaming', topic: 'Music', audience: '850K', country: 'AE', description: 'Live music sessions from Arab artists on Anghami', image: SHOW_IMAGES[7] },
-  { id: '9', name: 'Arab Radio Live', inventoryType: 'Radio', topic: 'Entertainment', audience: '1.5M', country: 'AE', description: 'Top-rated Arabic radio entertainment show', image: SHOW_IMAGES[8] },
-  { id: '10', name: 'Finyal Media', inventoryType: 'Podcast', topic: 'Society & Culture', audience: '400K', country: 'AE', description: 'Arabic storytelling and documentary podcasts', image: SHOW_IMAGES[9] },
-  { id: '11', name: 'Spotify Hits', inventoryType: 'Streaming', topic: 'Music', audience: '12M', country: 'GB', description: 'Top chart hits playlist on Spotify UK', image: SHOW_IMAGES[10] },
-  { id: '12', name: 'BBC Radio 1', inventoryType: 'Radio', topic: 'Music', audience: '8M', country: 'GB', description: "UK's biggest youth radio station", image: SHOW_IMAGES[11] },
-  { id: '13', name: 'Desert Drive FM', inventoryType: 'Radio', topic: 'Entertainment', audience: '600K', country: 'SA', description: "Saudi Arabia's favourite drive-time show", image: SHOW_IMAGES[0] },
-  { id: '14', name: 'TED Radio Hour', inventoryType: 'Podcast', topic: 'Education', audience: '1.1M', country: 'US', description: 'TED Talks turned into compelling radio stories', image: SHOW_IMAGES[1] },
-  { id: '15', name: 'Stuff You Should Know', inventoryType: 'Podcast', topic: 'Education', audience: '1.6M', country: 'US', description: 'Exploring how everything works since 2008', image: SHOW_IMAGES[2] },
-];
+const MOCK_SHOWS = [];
 
-const MOCK_SAVED_AUDIENCES = [
-  { id: 'sa1', name: 'Website Visitors (30d)', type: 'retarget', size: '12,400' },
-  { id: 'sa2', name: 'Cart Abandoners', type: 'retarget', size: '3,200' },
-  { id: 'sa3', name: 'UAE Tech Enthusiasts 25-44', type: 'saved', size: '85,000' },
-  { id: 'sa4', name: 'GCC Female 18-34', type: 'saved', size: '120,000' },
-];
+const MOCK_SAVED_AUDIENCES = [];
 // Column definitions for SearchableList
 const showColumns: Column<typeof MOCK_SHOWS[0]>[] = [
   {
@@ -300,19 +146,25 @@ const audienceColumns: Column<typeof MOCK_SAVED_AUDIENCES[0]>[] = [
   },
 ];
 
-const deviceColumns: Column<typeof DEVICE_TYPES[0]>[] = [
-  { key: 'name', label: 'Device Type', sortable: true },
+interface DeviceType {
+  code: string;
+  label: string;
+  value: string;
+}
+
+const deviceColumns: Column<DeviceType>[] = [
+  { key: 'label', label: 'Device Type', sortable: true }
 ];
 
 interface TargetingData {
   gender: string;
   ageRanges: string[];
   deviceTypes: string[];
-  inventoryTypes: string[];
+  inventoryType: string;
   podcastTopics: string[];
   podcastAudiences?: string[];
-  behavioralAudiences?: string[];
-  streamedContent?: string[];
+  streamingAudiences?: string[];
+  streamingTopics?: string[];
   adPositions?: string[];
   selectedShows?: string[];
   savedAudiences?: string[];
@@ -321,9 +173,15 @@ interface TargetingData {
 interface Props {
   data: TargetingData;
   onChange: (data: TargetingData) => void;
+  podcastTopics: string[];
+  streamingTopics: string[];
+  podcastAudiences: PodcastAudience[];
+  streamingAudiences: StreamingAudience[];
+  targetingSegments: TargetingSegment[];
+  deviceTypes: TargetingSegment[];
 }
 
-export default function CampaignTargetingStep({ data, onChange }: Props) {
+export default function CampaignTargetingStep({ data, onChange, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes }: Props) {
   const { isPro } = useSessionFlags();
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
   const [openListId, setOpenListId] = useState<string | null>(null);
@@ -351,8 +209,8 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
 
   const toggleInventory = (type: string) => {
     // Mutually exclusive: clicking the already-selected type does nothing
-    if (data.inventoryTypes.includes(type)) return;
-    onChange({ ...data, inventoryTypes: [type] });
+    if (data.inventoryType ===type) return;
+    onChange({ ...data, inventoryType: type });
   };
 
   const toggleTopic = (topic: string) => {
@@ -411,7 +269,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {inventoryOptions.map(({ type, description }) => {
-              const selected = data.inventoryTypes.includes(type);
+              const selected = data.inventoryType === type;
               return (
                 <div
                   key={type}
@@ -438,7 +296,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
             })}
           </div>
 
-          {data.inventoryTypes.includes('Podcast') && (
+          {data.inventoryType === 'Podcast' && (
             <>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -456,12 +314,11 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                 </div>
                 <SearchableList
                   selectionMode="multi"
-                  items={PODCAST_TOPICS}
+                  items={podcastTopics?.map(topic => ({ id: topic, name: topic })) || []}
                   columns={podcastTopicColumns}
-                  selectedIds={PODCAST_TOPICS.filter(t => data.podcastTopics.includes(t.name)).map(t => t.id)}
+                  selectedIds={data.podcastTopics}
                   onSelectionChange={(ids) => {
-                    const names = PODCAST_TOPICS.filter(t => ids.includes(t.id)).map(t => t.name);
-                    onChange({ ...data, podcastTopics: names });
+                    onChange({ ...data, podcastTopics: ids });
                   }}
                   variant="table"
                   collapsible
@@ -488,16 +345,16 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                   </TooltipProvider>
                 </div>
                 <SearchableList
-                  items={PODCAST_AUDIENCES}
+                  items={podcastAudiences?.map(audience => ({ id: audience.code, name: audience.name })) || []}
                   columns={podcastAudienceColumns}
                   selectionMode="multi"
                   selectedIds={data.podcastAudiences || []}
                   onSelectionChange={(ids) => onChange({ ...data, podcastAudiences: ids })}
                   selectAllFiltered
                   idKey="id"
-                  searchPlaceholder="Search by segment, category, or provider..."
-                  searchableKeys={['name', 'description', 'type', 'category', 'provider']}
-                  filters={podcastAudienceFilters}
+                  searchPlaceholder="Search by name"
+                  searchableKeys={['name']}
+                  filters={null}
                   variant="table"
                   maxHeight="300px"
                   collapsible
@@ -509,7 +366,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
               </div>
 
 
-              <div className="space-y-3">
+              <div className="space-y-3 hidden">
                 <Label>
                   Saved & Re-targeting Audiences
                 </Label>
@@ -545,7 +402,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
             </>
           )}
 
-          {data.inventoryTypes.includes('Streaming') && (
+          {data.inventoryType === 'Streaming' && (
             <>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -562,11 +419,11 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                   </TooltipProvider>
                 </div>
                 <SearchableList
-                  items={STREAMED_CONTENT}
-                  columns={streamedContentColumns}
+                  items={streamingTopics?.map(topic => ({ id: topic, name: topic })) || []}
+                  columns={streamingTopicsColumns}
                   selectionMode="multi"
-                  selectedIds={data.streamedContent || []}
-                  onSelectionChange={(ids) => onChange({ ...data, streamedContent: ids })}
+                  selectedIds={data.streamingTopics || []}
+                  onSelectionChange={(ids) => onChange({ ...data, streamingTopics: ids })}
                   selectAllFiltered
                   idKey="id"
                   searchPlaceholder="Search by genre, mood, or content type..."
@@ -596,15 +453,15 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                   </TooltipProvider>
                 </div>
                 <SearchableList
-                  items={BEHAVIORAL_AUDIENCES}
-                  columns={behavioralAudienceColumns}
+                  items={streamingAudiences || []}
+                  columns={streamingAudienceColumns}
                   selectionMode="multi"
-                  selectedIds={data.behavioralAudiences || []}
-                  onSelectionChange={(ids) => onChange({ ...data, behavioralAudiences: ids })}
+                  selectedIds={data.streamingAudiences || []}
+                  onSelectionChange={(ids) => {console.log(ids); onChange({ ...data, streamingAudiences: ids })}}
                   selectAllFiltered
-                  idKey="id"
+                  idKey="value"
                   searchPlaceholder="Search by category, behavior, or segment..."
-                  searchableKeys={['name']}
+                  searchableKeys={['label', 'category']}
                   variant="table"
                   maxHeight="300px"
                   collapsible
@@ -615,7 +472,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 hidden">
                 <Label>Saved & Re-targeting Audiences</Label>
                 <SearchableList
                   items={MOCK_SAVED_AUDIENCES}
@@ -715,7 +572,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
       <div className="space-y-3">
         <Label>Gender</Label>
         <div className="flex flex-wrap gap-2">
-          {genderOptions.map(({ value, label }) => {
+          {[ {value: '', label: 'All'}, ...targetingSegments?.filter(segment => segment.code === 'gender')].map(({ value, label }) => {
             const selected = data.gender === value;
             return (
               <div
@@ -744,12 +601,12 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
       <div className="space-y-3">
         <Label>Age Range</Label>
         <div className="flex flex-wrap gap-2">
-          {ageRanges.map((age) => {
-            const selected = data.ageRanges.includes(age);
+          {targetingSegments.filter(segment => segment.code === "age").map((age) => {
+            const selected = data.ageRanges.includes(age.value);
             return (
               <div
-                key={age}
-                onClick={() => toggleAge(age)}
+                key={age.value}
+                onClick={() => toggleAge(age.value)}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                   selected
@@ -762,7 +619,7 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
                     <Check className="h-2.5 w-2.5 text-foreground" />
                   </div>
                 )}
-                <span className="text-sm font-medium">{age}</span>
+                <span className="text-sm font-medium">{age.label}</span>
               </div>
             );
           })}
@@ -775,16 +632,16 @@ export default function CampaignTargetingStep({ data, onChange }: Props) {
           <Label>Device Type</Label>
           <p className="text-sm text-muted-foreground -mt-1">Target listeners by the type of device they are listening to.</p>
           <SearchableList
-            items={DEVICE_TYPES}
+            items={deviceTypes.filter(device => device.code === 'MOBILE_AND_TABLETS' || device.code === 'DESKTOPS_AND_LAPTOPS')}
             columns={deviceColumns}
             selectionMode="multi"
             selectedIds={data.deviceTypes}
             onSelectionChange={(ids) => onChange({ ...data, deviceTypes: ids })}
             selectAllFiltered
-            idKey="id"
+            idKey="value"
             searchPlaceholder="Search device types..."
-            searchableKeys={['name']}
-            defaultSort={{ key: 'name', dir: 'asc' }}
+            searchableKeys={['label']}
+            defaultSort={{ key: 'label', dir: 'asc' }}
             pageSize={10}
             variant="table"
             maxHeight="350px"

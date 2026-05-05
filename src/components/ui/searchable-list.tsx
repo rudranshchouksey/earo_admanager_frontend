@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +44,18 @@ export interface SearchableListProps<T> {
   searchableKeys?: (keyof T & string)[];
   rotatingLabels?: string[];
 
+  /**
+   * When true, the list will NOT filter `items` by the search query.
+   * Instead, it will forward the query to `onQueryChange` so the parent can fetch results from an API.
+   */
+  useFilterApi?: boolean;
+  onQueryChange?: (query: string) => void;
+  queryDebounceMs?: number;
+  /** API-backed infinite scroll */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+
   filters?: FilterDef[];
 
   defaultSort?: { key: keyof T & string; dir: 'asc' | 'desc' };
@@ -83,6 +94,12 @@ export function SearchableList<T extends Record<string, any>>({
   searchPlaceholder,
   searchableKeys,
   rotatingLabels,
+  useFilterApi = false,
+  onQueryChange,
+  queryDebounceMs = 300,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   filters,
   defaultSort,
   pageSize = 20,
@@ -115,6 +132,12 @@ export function SearchableList<T extends Record<string, any>>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const getScrollViewport = useCallback(() => {
+    const root = scrollRef.current;
+    if (!root) return null;
+    return root;
+  }, []);
 
   // Close on click outside
   useEffect(() => {
@@ -155,12 +178,20 @@ export function SearchableList<T extends Record<string, any>>({
     return columns.filter((c) => c.searchable !== false).map((c) => c.key);
   }, [searchableKeys, columns]);
 
+  // Forward query to parent (debounced) when API-driven filtering is enabled
+  useEffect(() => {
+    if (!useFilterApi) return;
+    if (!onQueryChange) return;
+    const t = setTimeout(() => onQueryChange(query), queryDebounceMs);
+    return () => clearTimeout(t);
+  }, [query, useFilterApi, onQueryChange, queryDebounceMs]);
+
   // Filter + search
   const filteredItems = useMemo(() => {
     let result = [...items];
 
     // Text search
-    if (query.length > 0) {
+    if (!useFilterApi && query.length > 0) {
       const q = query.toLowerCase();
       result = result.filter((item) =>
         resolvedSearchKeys.some((key) => {
@@ -193,16 +224,18 @@ export function SearchableList<T extends Record<string, any>>({
     }
 
     return result;
-  }, [items, query, activeFilters, sort, resolvedSearchKeys]);
+  }, [items, query, activeFilters, sort, resolvedSearchKeys, useFilterApi]);
 
   // Paginated / infinite items
   const displayedItems = useMemo(() => {
     if (paginationMode === 'infinite-scroll') {
+      // In API-backed mode, parent controls the items; show everything fetched so far.
+      if (useFilterApi) return filteredItems;
       return filteredItems.slice(0, visibleCount);
     }
     const start = (page - 1) * pageSize;
     return filteredItems.slice(start, start + pageSize);
-  }, [filteredItems, page, pageSize, paginationMode, visibleCount]);
+  }, [filteredItems, page, pageSize, paginationMode, visibleCount, useFilterApi]);
 
   const totalPages = Math.ceil(filteredItems.length / pageSize);
   const total = totalCount ?? items.length;
@@ -210,17 +243,57 @@ export function SearchableList<T extends Record<string, any>>({
   // Infinite scroll observer
   useEffect(() => {
     if (paginationMode !== 'infinite-scroll' || !sentinelRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && visibleCount < filteredItems.length) {
-          setVisibleCount((prev) => Math.min(prev + pageSize, filteredItems.length));
-        }
-      },
-      { threshold: 0.1 }
-    );
+    const viewport = getScrollViewport();
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+
+      // API-backed infinite scroll
+      if (useFilterApi) {
+        if (!onLoadMore || loading || loadingMore || !hasMore) return;
+        onLoadMore();
+        return;
+      }
+
+      // Local infinite scroll (reveal more from already-loaded items)
+      if (visibleCount < filteredItems.length) {
+        setVisibleCount((prev) => Math.min(prev + pageSize, filteredItems.length));
+      }
+    }, { threshold: 0.1, root: viewport });
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [paginationMode, visibleCount, filteredItems.length, pageSize]);
+  }, [
+    paginationMode,
+    useFilterApi,
+    onLoadMore,
+    hasMore,
+    loading,
+    loadingMore,
+    visibleCount,
+    filteredItems.length,
+    pageSize,
+    getScrollViewport,
+  ]);
+
+  // If API results don't overflow yet, prefetch until scroll becomes possible (or no more pages).
+  useEffect(() => {
+    if (paginationMode !== 'infinite-scroll') return;
+    if (!useFilterApi) return;
+    if (!onLoadMore || loading || loadingMore || !hasMore) return;
+
+    const viewport = getScrollViewport();
+    if (!viewport) return;
+    const notScrollable = viewport.scrollHeight <= viewport.clientHeight + 4;
+    if (notScrollable) onLoadMore();
+  }, [
+    paginationMode,
+    useFilterApi,
+    onLoadMore,
+    hasMore,
+    loading,
+    loadingMore,
+    items.length,
+    getScrollViewport,
+  ]);
 
   // Reset page on filter/search change
   useEffect(() => {
@@ -440,7 +513,7 @@ export function SearchableList<T extends Record<string, any>>({
       {/* Table variant */}
       {variant === 'table' ? (
         <div className="border rounded-lg overflow-hidden">
-          <ScrollArea style={{ maxHeight }} ref={scrollRef}>
+          <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -474,7 +547,7 @@ export function SearchableList<T extends Record<string, any>>({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border ">
                   {loading ? (
                     <tr>
                       <td
@@ -536,11 +609,11 @@ export function SearchableList<T extends Record<string, any>>({
             {paginationMode === 'infinite-scroll' && (
               <div ref={sentinelRef} className="h-4" />
             )}
-          </ScrollArea>
+          </div>
         </div>
       ) : (
         /* List variant */
-        <ScrollArea style={{ maxHeight }} ref={scrollRef}>
+        <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto">
           <div className="space-y-1">
             {loading ? (
               <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>
@@ -595,7 +668,7 @@ export function SearchableList<T extends Record<string, any>>({
           {paginationMode === 'infinite-scroll' && (
             <div ref={sentinelRef} className="h-4" />
           )}
-        </ScrollArea>
+        </div>
       )}
 
       {/* Footer status bar */}

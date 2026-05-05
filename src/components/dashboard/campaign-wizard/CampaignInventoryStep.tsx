@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, Building2 } from 'lucide-react';
@@ -6,6 +6,7 @@ import { MapPin, Building2 } from 'lucide-react';
 import { SearchableList } from '@/components/ui/searchable-list';
 import type { Column, FilterDef } from '@/components/ui/searchable-list';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
+import { City, Country, targetingApi } from '@/services/targeting';
 
 // Mock countries
 const MOCK_COUNTRIES = [
@@ -88,7 +89,7 @@ const MOCK_BUSINESSES = [
   { id: 'biz-10', name: 'Place Vendôme', address: 'Lusail, Doha, Qatar', city: 'Doha' },
 ];
 
-const countryColumns: Column<typeof MOCK_COUNTRIES[0]>[] = [
+const countryColumns: Column<Country>[] = [
   { key: 'name', label: 'Country', sortable: true },
 ];
 
@@ -100,11 +101,10 @@ const countryFilters: FilterDef[] = [
   },
 ];
 
-type CityItem = { id: string; name: string; country: string; region: string; audience: string };
 
-const cityColumns: Column<CityItem>[] = [
+const cityColumns: Column<City>[] = [
   { key: 'name', label: 'City', sortable: true },
-  { key: 'region', label: 'Region', sortable: true },
+  { key: 'country', label: 'Country', sortable: true },
 ];
 
 type BusinessItem = typeof MOCK_BUSINESSES[0];
@@ -121,17 +121,21 @@ export interface LocationData {
   businessLocations: { name: string; address: string }[];
   additionalCountries?: { code: string; name: string }[];
   selectedCountries?: string[];
-  selectedCities?: string[];
+  selectedCities?: City[];
   selectedBusinessIds?: string[];
 }
 
 interface Props {
+  countries: Country[];
+  cities: City[];
   data: LocationData;
-  onChange: (data: LocationData) => void;
+  // onChange: (data: LocationData) => void;
+  onCountryChange: (codes: string[]) => void;
+  onCityChange: (ids: string[]) => void;
   isLoading?: boolean;
 }
 
-export default function CampaignInventoryStep({ data, onChange, isLoading }: Props) {
+export default function CampaignInventoryStep({ countries, cities, data, onCountryChange, onCityChange, isLoading }: Props) {
   const [openListId, setOpenListId] = useState<string | null>(null);
 
   const handleOpenChange = (listId: string) => (open: boolean) => {
@@ -143,10 +147,10 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
   const selectedCities = data.selectedCities || [];
   const selectedBusinessIds = data.selectedBusinessIds || [];
 
-  // Derive available cities from selected countries
-  const availableCities: CityItem[] = selectedCountries.length > 0
-    ? selectedCountries.flatMap((code) => MOCK_CITIES_DATA[code] || [])
-    : [];
+  // // Derive available cities from selected countries
+  // const availableCities: CityItem[] = selectedCountries.length > 0
+  //   ? selectedCountries.flatMap((code) => MOCK_CITIES_DATA[code] || [])
+  //   : [];
 
   if (isLoading) {
     return (
@@ -158,48 +162,50 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
     );
   }
 
-  const handleCountryChange = (ids: string[]) => {
-    if (!isPro) {
-      const code = ids[0] || '';
-      const country = MOCK_COUNTRIES.find(c => c.id === code);
-      const validCities = code
-        ? selectedCities.filter((cityId) => {
-            const city = Object.values(MOCK_CITIES_DATA).flat().find((c) => c.id === cityId);
-            return city && city.country === code;
-          })
-        : [];
-      onChange({
-        ...data,
-        country: country?.name || '',
-        countryCode: code,
-        selectedCountries: ids,
-        selectedCities: validCities,
-      });
-    } else {
-      const validCities = ids.length > 0
-        ? selectedCities.filter((cityId) => {
-            const city = Object.values(MOCK_CITIES_DATA).flat().find((c) => c.id === cityId);
-            return city && ids.includes(city.country);
-          })
-        : [];
-      const primary = MOCK_COUNTRIES.find(c => c.id === ids[0]);
-      onChange({
-        ...data,
-        country: primary?.name || '',
-        countryCode: ids[0] || '',
-        selectedCountries: ids,
-        selectedCities: validCities,
-      });
-    }
-  };
+  // const handleCountryChange = (ids: string[]) => {
+  //   if (!isPro) {
+  //     const code = ids[0] || '';
+  //     const country = countries.find(c => c.code === code);
+  //     const validCities = code
+  //       ? selectedCities.filter((cityId) => {
+  //           const city = Object.values(cities).flat().find((c) => c.id === cityId);
+  //           return city && city.country === code;
+  //         })
+  //       : [];
+  //     onChange({
+  //       ...data,
+  //       country: country?.name || '',
+  //       countryCode: code,
+  //       selectedCountries: ids,
+  //       selectedCities: validCities,
+  //     });
+  //   } else {
+  //     const validCities = ids.length > 0
+  //       ? selectedCities.filter((cityId) => {
+  //           const city = Object.values(cities).flat().find((c) => c.id === cityId);
+  //           return city && ids.includes(city.country);
+  //         })
+  //       : [];
+  //     const primary = countries.find(c => c.code === ids[0]);
+  //     onChange({
+  //       ...data,
+  //       country: primary?.name || '',
+  //       countryCode: ids[0] || '',
+  //       selectedCountries: ids,
+  //       selectedCities: validCities,
+  //     });
+  //   }
 
-  const handleBusinessChange = (ids: string[]) => {
-    const businesses = ids.map(id => {
-      const biz = MOCK_BUSINESSES.find(b => b.id === id);
-      return biz ? { name: biz.name, address: biz.address } : null;
-    }).filter(Boolean) as { name: string; address: string }[];
-    onChange({ ...data, selectedBusinessIds: ids, businessLocations: businesses });
-  };
+  //   console.log(ids);
+  // };
+
+  // const handleBusinessChange = (ids: string[]) => {
+  //   const businesses = ids.map(id => {
+  //     const biz = MOCK_BUSINESSES.find(b => b.id === id);
+  //     return biz ? { name: biz.name, address: biz.address } : null;
+  //   }).filter(Boolean) as { name: string; address: string }[];
+  //   onChange({ ...data, selectedBusinessIds: ids, businessLocations: businesses });
+  // };
 
   return (
     <div className="space-y-4">
@@ -210,15 +216,15 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
           {isPro ? 'Target Countries' : 'Country'}
         </Label>
         <SearchableList
-          items={MOCK_COUNTRIES}
+          items={countries}
           columns={countryColumns}
           selectionMode={isPro ? 'multi' : 'single'}
           selectedIds={selectedCountries}
-          onSelectionChange={handleCountryChange}
+          onSelectionChange={onCountryChange}
           selectAllFiltered={isPro}
-          idKey="id"
+          idKey="code"
           searchPlaceholder="Search countries..."
-          searchableKeys={['name', 'code', 'region']}
+          searchableKeys={['name']}
           filters={countryFilters}
           defaultSort={{ key: 'name', dir: 'asc' }}
           pageSize={10}
@@ -234,7 +240,7 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
       </div>
 
       {/* City Selection */}
-      {selectedCountries.length > 0 && availableCities.length > 0 && (
+      {selectedCountries.length > 0 && (
         <div className="space-y-3">
           <Label className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
@@ -242,15 +248,15 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
             <span className="text-xs text-muted-foreground font-normal">(optional — leave empty for entire countries)</span>
           </Label>
           <SearchableList
-            items={availableCities}
+            items={cities}
             columns={cityColumns}
             selectionMode="multi"
-            selectedIds={selectedCities}
-            onSelectionChange={(ids) => onChange({ ...data, selectedCities: ids })}
+            selectedIds={selectedCities.map(c => c.id)}
+            onSelectionChange={onCityChange}
             selectAllFiltered
             idKey="id"
             searchPlaceholder="Search cities..."
-            searchableKeys={['name', 'region', 'country']}
+            searchableKeys={['name', 'country']}
             defaultSort={{ key: 'name', dir: 'asc' }}
             pageSize={10}
             variant="table"
@@ -266,7 +272,7 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
       )}
 
       {/* Business Locations — Pro only */}
-      {isPro && (
+      {/* {isPro && (
         <div className="space-y-3">
           <Label className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
@@ -295,7 +301,7 @@ export default function CampaignInventoryStep({ data, onChange, isLoading }: Pro
             collapsibleLabel="Select business locations..."
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 }

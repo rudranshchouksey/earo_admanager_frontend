@@ -64,7 +64,7 @@ export default function LaunchMode() {
     gender: 'all',
     ageRanges: ['18-24', '25-34', '35-44', '45-54', '55-65'] as string[],
     deviceTypes: ['Mobile', 'Desktop'] as string[],
-    inventoryTypes: ['Podcast'] as string[],
+    inventoryType: 'Podcast',
     podcastTopics: [] as string[],
   });
 
@@ -191,7 +191,7 @@ export default function LaunchMode() {
             {/* Budget — always visible hero */}
             <div>
               <h3 className="text-base font-semibold text-foreground mb-4">Set your budget</h3>
-              <CampaignBudgetStep data={budget} onChange={setBudget} durationDays={durationDays} inventoryCount={targeting.inventoryTypes.length} />
+              <CampaignBudgetStep data={budget} onChange={setBudget} durationDays={durationDays} inventoryCount={targeting.inventoryType === 'Podcast' ? 1 : 0} />
             </div>
 
             <Separator />
@@ -255,7 +255,7 @@ export default function LaunchMode() {
             <ForecastSidebar
               totalBudget={Number(budget.totalBudget) || 0}
               dailyBudget={Number(budget.dailyBudget) || 0}
-              inventoryTypes={targeting.inventoryTypes}
+              inventoryType={targeting.inventoryType === 'Podcast' ? 'Podcast' : 'Streaming'}
               durationDays={durationDays}
               ageRangeCount={targeting.ageRanges.length}
               deviceTypeCount={targeting.deviceTypes.length}

@@ -1,47 +1,51 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Info, X } from 'lucide-react';
+import { Info, Loader2, X } from 'lucide-react';
 
 const DAILY_BASELINES: Record<string, number> = { Streaming: 80000, Podcast: 30000, Radio: 40000 };
 
 interface ForecastProps {
-  totalBudget: number;
-  dailyBudget: number;
-  inventoryTypes: string[];
-  durationDays: number;
-  ageRangeCount?: number;
-  deviceTypeCount?: number;
-  hasLocation?: boolean;
+  isLoading: boolean;
+  totalAvailableImpressions: number;
+  budget: number;
+  cpm?: number;
+  noOfDays?: number | string;
 }
 
-export default function ForecastSidebar({ totalBudget, dailyBudget, inventoryTypes, durationDays, ageRangeCount = 1, deviceTypeCount = 1, hasLocation = false }: ForecastProps) {
+export function formatCompactNumber(value: number, locale: string = 'en-US'): string {
+  if (value < 100000)
+    return value.toFixed(0).toString();
+
+  const formatter = new Intl.NumberFormat(locale, {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  });
+
+  return formatter.format(value);
+}
+
+
+export default function ForecastSidebar({ isLoading, totalAvailableImpressions, budget, cpm=18, noOfDays=1 }: ForecastProps) {
   const [showGuide, setShowGuide] = useState(false);
-  const cpm = 8;
-  const baseImpressions = totalBudget > 0 ? Math.round((totalBudget / cpm) * 1000) : 0;
 
-  const inventoryCount = inventoryTypes.length;
-  const dailyBase = inventoryTypes.reduce((sum, t) => sum + (DAILY_BASELINES[t] || 50000), 0);
+  if(isLoading) {
+    return (
+      <Card className="border-[#E6F4EA]">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center min-h-[200px] justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const ageMultiplier = 1 + Math.log2(Math.max(1, ageRangeCount)) * 0.15;
-  const deviceMultiplier = 1 + (Math.max(1, deviceTypeCount) - 1) * 0.1;
-  const durationMultiplier = durationDays > 0 ? 1 + Math.min(Math.log10(durationDays) * 0.1, 0.3) : 1;
-  const locationMultiplier = hasLocation ? 0.85 : 1;
+  const frequency = 3;
+  const estimatedAdsPlayed = ((budget / cpm)*1000);
+  const uniqueListeners = (estimatedAdsPlayed / frequency);
 
-  const combinedMultiplier = ageMultiplier * deviceMultiplier * durationMultiplier * locationMultiplier;
-
-  const totalAvailable = Math.round(dailyBase * Math.max(1, durationDays) * combinedMultiplier);
-
-  const impressions = Math.round(baseImpressions * Math.max(1, inventoryCount) * combinedMultiplier);
-  const reach = Math.round(impressions * 0.6);
-  const frequency = reach > 0 ? (impressions / reach).toFixed(1) : '0';
-
-  const metrics = [
-    { label: 'Total Available Impressions', value: totalAvailable.toLocaleString(), highlight: true },
-    { label: 'Estimated ads played', value: Math.round(impressions * 0.85).toLocaleString() },
-    { label: 'Estimated unique listeners', value: reach.toLocaleString() },
-    { label: 'Estimated frequency', value: `${frequency}x` },
-  ];
-
+  console.log({budget, frequency, estimatedAdsPlayed, uniqueListeners})
   return (
     <Card className="border-[#E6F4EA]">
       <CardContent className="p-4 space-y-4">
@@ -75,30 +79,40 @@ export default function ForecastSidebar({ totalBudget, dailyBudget, inventoryTyp
         )}
 
         <div className="space-y-3">
-          {inventoryCount > 0 && (
+
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">{metrics[0].value}</p>
-              <p className="text-xs text-muted-foreground">{metrics[0].label}</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalAvailableImpressions)}</p>
+              <p className="text-xs text-muted-foreground">Total Available Impressions</p>
             </div>
-          )}
+
           <div className="border-b border-border" />
-          {totalBudget > 0 && (
+
             <p className="text-xs text-muted-foreground">
-              With a budget of USD {totalBudget.toLocaleString()} we estimate you will achieve:
+              With a budget of USD {budget * Number(noOfDays)} we estimate you will achieve:
             </p>
-          )}
-          {metrics.slice(1).map((m) => (
-            <div key={m.label}>
-              <p className="text-lg font-semibold text-foreground leading-tight">{m.value}</p>
-              <p className="text-xs text-muted-foreground">{m.label}</p>
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{(estimatedAdsPlayed).toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground">Estimated ads played</p>
             </div>
-          ))}
+
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{uniqueListeners.toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground">Estimated unique listeners</p>
+            </div>
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{frequency.toFixed(0)}x</p>
+              <p className="text-xs text-muted-foreground">Estimated frequency</p>
+            </div>
+
+
+
         </div>
-        {totalBudget > 0 && (
-          <p className="text-xs text-muted-foreground border-t border-border pt-3">
-            Based on ${dailyBudget.toLocaleString()}/day over {durationDays} days across {inventoryCount} channel{inventoryCount > 1 ? 's' : ''}
-          </p>
-        )}
+          {/* <p className="text-xs text-muted-foreground border-t border-border pt-3">
+            Based on ${budget.toLocaleString()}/day over {durationDays} days across {inventoryCount} channel{inventoryCount > 1 ? 's' : ''}
+          </p> */}
       </CardContent>
     </Card>
   );

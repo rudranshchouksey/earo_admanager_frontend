@@ -13,21 +13,11 @@ import { Progress } from '@/components/ui/progress';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
+import { Campaign, campaignApi } from '@/services/campaign';
+import { toast } from '@/hooks/use-toast';
+import { useTranslation } from '@/contexts/TranslationContext';
+import { auth } from '@/services/auth';
 
-interface Campaign {
-  id: string;
-  name: string;
-  status: string;
-  campaign_type: string;
-  start_date: string;
-  end_date: string;
-  budget: number;
-  actual_spend: number | null;
-  actual_impressions: number | null;
-  reach: number | null;
-  ltr: number | null;
-  currency: string | null;
-}
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -58,18 +48,10 @@ export default function CampaignsList() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  const mockCampaigns: Campaign[] = [
-    { id: 'mock-1', name: 'Ramadan Brand Awareness', status: 'active', campaign_type: 'awareness', start_date: '2026-02-01', end_date: '2026-03-15', budget: 5000, actual_spend: 2340, actual_impressions: 187200, reach: 45800, ltr: 78, currency: 'USD' },
-    { id: 'mock-2', name: 'Summer Product Launch', status: 'active', campaign_type: 'awareness', start_date: '2026-01-20', end_date: '2026-02-28', budget: 3000, actual_spend: 1870, actual_impressions: 112500, reach: 31200, ltr: 82, currency: 'USD' },
-    { id: 'mock-3', name: 'Podcast Sponsorship Q1', status: 'active', campaign_type: 'engagement', start_date: '2026-01-01', end_date: '2026-03-31', budget: 8000, actual_spend: 4150, actual_impressions: 320000, reach: 89000, ltr: 71, currency: 'USD' },
-    { id: 'mock-4', name: 'Holiday Campaign 2025', status: 'completed', campaign_type: 'awareness', start_date: '2025-12-01', end_date: '2025-12-31', budget: 4500, actual_spend: 4480, actual_impressions: 256000, reach: 62000, ltr: 85, currency: 'USD' },
-    { id: 'mock-5', name: 'Back to School Promo', status: 'completed', campaign_type: 'conversions', start_date: '2025-08-15', end_date: '2025-09-15', budget: 2500, actual_spend: 2500, actual_impressions: 198000, reach: 41000, ltr: 76, currency: 'USD' },
-    { id: 'mock-6', name: 'National Day Special', status: 'completed', campaign_type: 'awareness', start_date: '2025-11-15', end_date: '2025-12-05', budget: 3500, actual_spend: 3490, actual_impressions: 210000, reach: 55000, ltr: 80, currency: 'USD' },
-    { id: 'mock-7', name: 'New App Install Drive', status: 'paused', campaign_type: 'conversions', start_date: '2026-01-10', end_date: '2026-02-28', budget: 6000, actual_spend: 1200, actual_impressions: 72000, reach: 18500, ltr: 68, currency: 'USD' },
-    { id: 'mock-8', name: 'Weekend Flash Sale', status: 'draft', campaign_type: 'engagement', start_date: '2026-03-01', end_date: '2026-03-03', budget: 1500, actual_spend: null, actual_impressions: null, reach: null, ltr: null, currency: 'USD' },
-  ];
+  const [statusFilter, setStatusFilter] = useState('SCHEDULED');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { t } = useTranslation();
 
   useEffect(() => {
     // const fetchCampaigns = async () => {
@@ -81,7 +63,31 @@ export default function CampaignsList() {
     //   setLoading(false);
     // };
     // fetchCampaigns();
-  }, []);
+    
+    const fetchCampaigns = async () => {
+      setLoading(true);
+    
+      const session = await auth.getSession();
+      if(!session) {
+        toast({ title: t('common.error'), description: 'Unauthorized', variant: 'destructive' });
+        setCampaigns([]);
+        setLoading(false);
+        return;
+      }
+    
+      const { data, status, error, message } = await campaignApi.getCampaigns({page, limit, search, status: statusFilter, advertiserId: session.data.session.currentAdvertiserId});
+      if(status !== 200 || error) {
+        toast({ title: t('common.error'), description: message ?? 'Unable to load campaigns', variant: 'destructive' });
+        setCampaigns([]);
+        setLoading(false);
+        return;
+      }
+      console.log("data here ", data?.data);
+      setCampaigns(data?.data ?? []);
+      setLoading(false);
+    };
+    fetchCampaigns();
+  }, [page, limit, search, statusFilter]);
 
   const filtered = useMemo(() => {
     return campaigns.filter((c) => {
@@ -90,58 +96,58 @@ export default function CampaignsList() {
     });
   }, [campaigns, statusFilter]);
 
-  const totals = useMemo(() => {
-    return campaigns.reduce(
-      (acc, c) => ({
-        budget: acc.budget + (c.budget || 0),
-        spend: acc.spend + (c.actual_spend || 0),
-        impressions: acc.impressions + (c.actual_impressions || 0),
-        reach: acc.reach + (c.reach || 0),
-      }),
-      { budget: 0, spend: 0, impressions: 0, reach: 0 }
-    );
-  }, [campaigns]);
+  // const totals = useMemo(() => {
+  //   return campaigns.reduce(
+  //     (acc, c) => ({
+  //       budget: acc.budget + (c.budget || 0),
+  //       spend: acc.spend + (c.actual_spend || 0),
+  //       impressions: acc.impressions + (c.actual_impressions || 0),
+  //       reach: acc.reach + (c.reach || 0),
+  //     }),
+  //     { budget: 0, spend: 0, impressions: 0, reach: 0 }
+  //   );
+  // }, [campaigns]);
 
-  const utilization = (c: Campaign) =>
-    c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
+  // const utilization = (c: Campaign) =>
+  //   c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
 
-  const ecpm = (c: Campaign) => {
-    const impr = c.actual_impressions ?? 0;
-    const spend = c.actual_spend ?? 0;
-    return impr > 0 ? ((spend / impr) * 1000).toFixed(2) : '—';
-  };
+  // const ecpm = (c: Campaign) => {
+  //   const impr = c.actual_impressions ?? 0;
+  //   const spend = c.actual_spend ?? 0;
+  //   return impr > 0 ? ((spend / impr) * 1000).toFixed(2) : '—';
+  // };
 
-  const exportCSV = () => {
-    const headers = ['Name', 'Status', 'Type', 'Start', 'End', 'Budget', 'Spend', 'Utilization', 'Impressions', 'Reach', 'LTR', 'eCPM'];
-    const rows = campaigns.map((c) => [
-      c.name, c.status, c.campaign_type, c.start_date, c.end_date,
-      c.budget, c.actual_spend ?? 0, `${utilization(c)}%`,
-      c.actual_impressions ?? 0, c.reach ?? 0, c.ltr != null ? `${c.ltr}%` : '—', ecpm(c),
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // const exportCSV = () => {
+  //   const headers = ['Name', 'Status', 'Type', 'Start', 'End', 'Budget', 'Spend', 'Utilization', 'Impressions', 'Reach', 'LTR', 'eCPM'];
+  //   const rows = campaigns.map((c) => [
+  //     c.name, c.status, c.campaign_type, c.start_date, c.end_date,
+  //     c.budget, c.actual_spend ?? 0, `${utilization(c)}%`,
+  //     c.actual_impressions ?? 0, c.reach ?? 0, c.ltr != null ? `${c.ltr}%` : '—', ecpm(c),
+  //   ]);
+  //   const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
+  //   const blob = new Blob([csv], { type: 'text/csv' });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
 
   const colDefs = useMemo<ColDef[]>(() => [
-    { field: 'name', headerName: 'Campaign', flex: 2, minWidth: 160, filter: true },
+    { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 160, filter: true },
     { field: 'status', headerName: 'Status', width: 110, cellRenderer: StatusRenderer },
     {
       headerName: 'Dates', width: 200,
-      valueGetter: (p) => `${p.data.start_date} — ${p.data.end_date}`,
+      valueGetter: (p) => `${p.data.startDate} — ${p.data.endDate}`,
       cellStyle: { display: 'flex', alignItems: 'center', fontSize: '0.75rem' },
     },
     {
-      field: 'budget', headerName: 'Budget', width: 110, type: 'numericColumn',
+      field: 'totalBudget', headerName: 'Budget', width: 110, type: 'numericColumn',
       valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
     },
     {
-      field: 'actual_spend', headerName: 'Spend', width: 110, type: 'numericColumn',
+      field: 'spend', headerName: 'Spend', width: 110, type: 'numericColumn',
       valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
     },
     {
@@ -169,8 +175,8 @@ export default function CampaignsList() {
       headerName: 'eCPM', width: 90, type: 'numericColumn',
       valueGetter: (p) => {
         const c = p.data as Campaign;
-        const impr = c.actual_impressions ?? 0;
-        const spend = c.actual_spend ?? 0;
+        const impr = c.impressions ?? 0;
+        const spend = c.spend ?? 0;
         return impr > 0 ? (spend / impr) * 1000 : null;
       },
       valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
@@ -201,7 +207,7 @@ export default function CampaignsList() {
           <h1 className="text-2xl font-semibold text-foreground">Campaigns</h1>
           <p className="text-muted-foreground mt-1">Manage and track your ad campaigns</p>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={campaigns.length === 0}>
+        <Button variant="outline" onClick={() => {}} disabled={campaigns.length === 0}>
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>
@@ -212,25 +218,25 @@ export default function CampaignsList() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Budget</p>
-            <p className="text-2xl font-semibold text-foreground">${totals.budget.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Spend</p>
-            <p className="text-2xl font-semibold text-foreground">${totals.spend.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Impressions</p>
-            <p className="text-2xl font-semibold text-foreground">{totals.impressions.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Reach</p>
-            <p className="text-2xl font-semibold text-foreground">{totals.reach.toLocaleString()}</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
       </div>

@@ -2,32 +2,29 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
-import { SearchableList } from '@/components/ui/searchable-list';
-import type { Column } from '@/components/ui/searchable-list';
-import { Play, Pause, CirclePlay } from 'lucide-react';
+import { ChevronDown, Play, Pause, Search } from 'lucide-react';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
-interface Ad {
-  id: string;
-  product_name: string;
-  ai_category: string | null;
-  audio_url: string | null;
-  duration_seconds: number | null;
-  created_at: string | null;
-}
+import { AdData, adsApi } from '@/services/ads';
+import { auth, AuthSession } from '@/services/auth';
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface CampaignSetupData {
-  adId: string;
+  audioId: string;
   campaignName: string;
   adName?: string;
-  externalCampaignId?: string;
+  externalReference?: string;
 }
 
 interface Props {
   data: CampaignSetupData;
   onChange: (data: CampaignSetupData) => void;
 }
+
+let activeAudioEl: HTMLAudioElement | null = null;
 
 function PlayCell({ audioUrl }: { audioUrl: string | null }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -37,16 +34,56 @@ function PlayCell({ audioUrl }: { audioUrl: string | null }) {
     e.stopPropagation();
     const audio = audioRef.current;
     if (!audio || !audioUrl) return;
-    if (playing) { audio.pause(); setPlaying(false); }
-    else { audio.play(); setPlaying(true); }
+
+    if (playing) {
+      audio.pause();
+      if (activeAudioEl === audio) activeAudioEl = null;
+      setPlaying(false);
+      return;
+    }
+
+    // Ensure only one audio plays at a time.
+    if (activeAudioEl && activeAudioEl !== audio) {
+      activeAudioEl.pause();
+    }
+    activeAudioEl = audio;
+    audio.play();
+    setPlaying(true);
   }, [playing, audioUrl]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onEnd = () => setPlaying(false);
+    const onPlay = () => {
+      if (activeAudioEl && activeAudioEl !== audio) {
+        activeAudioEl.pause();
+      }
+      activeAudioEl = audio;
+      setPlaying(true);
+    };
+    const onPause = () => {
+      if (activeAudioEl === audio) activeAudioEl = null;
+      setPlaying(false);
+    };
+    const onEnd = () => {
+      if (activeAudioEl === audio) activeAudioEl = null;
+      setPlaying(false);
+    };
+    const onError = () => {
+      if (activeAudioEl === audio) activeAudioEl = null;
+      setPlaying(false);
+    };
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onEnd);
-    return () => audio.removeEventListener('ended', onEnd);
+    audio.addEventListener('error', onError);
+    return () => {
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('error', onError);
+      if (activeAudioEl === audio) activeAudioEl = null;
+    };
   }, []);
 
   if (!audioUrl) return <span className="text-muted-foreground">—</span>;
@@ -61,35 +98,31 @@ function PlayCell({ audioUrl }: { audioUrl: string | null }) {
   );
 }
 
-const GOAL_LABELS: Record<string, string> = {
-  sales: 'Sales',
-  leads: 'Leads',
-  traffic: 'Website Traffic',
-  consideration: 'Product & Brand Consideration',
-  awareness: 'Brand Awareness & Reach',
-  app: 'App Promotion',
-  local: 'Local Store Visits & Promotions',
+type SimpleColumn<T> = {
+  key: keyof T & string;
+  label: string;
+  render?: (value: T[keyof T], item: T) => React.ReactNode;
+  className?: string;
+  hideOnMobile?: boolean;
 };
 
-const adColumns: Column<Ad>[] = [
-  { key: 'product_name', label: 'Name', sortable: true },
-  { key: 'ai_category', label: 'Goal', sortable: true, render: (val) => val ? (GOAL_LABELS[String(val)] || String(val)) : '—' },
+const adColumns: SimpleColumn<AdData>[] = [
   {
-    key: 'audio_url',
+    key: 'sourceUrl',
     label: '',
-    render: (_val, item) => <PlayCell audioUrl={item.audio_url} />,
+    render: (_val, item) => <PlayCell audioUrl={item.sourceUrl} />,
     className: 'w-10',
   },
+  { key: 'adName', label: 'Name' },
+  { key: 'campaignGoal', label: 'Goal' },
   {
-    key: 'duration_seconds',
+    key: 'duration',
     label: 'Duration',
-    sortable: true,
-    render: (val) => (val != null ? `${val}s` : '—'),
+    render: (val) => (val != null ? `${val}` : '—'),
   },
   {
-    key: 'created_at',
+    key: 'createdAt',
     label: 'Created',
-    sortable: true,
     hideOnMobile: true,
     render: (val) => val ? new Date(String(val)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
   },
@@ -98,48 +131,264 @@ const adColumns: Column<Ad>[] = [
 export default function CampaignSetupStep({ data, onChange }: Props) {
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
-  const [ads, setAds] = useState<Ad[]>([]);
+  const [ads, setAds] = useState<AdData[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [query, setQuery] = useState('');
+  const [loadingAds, setLoadingAds] = useState(false);
+  const [totalAds, setTotalAds] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const pickerWrapperRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // const fetchAds = async () => {
-    //   const { data: session } = await supabase.auth.getSession();
-    //   if (!session.session) return;
-    //   const { data: adsData } = await supabase
-    //     .from('ads')
-    //     .select('id, product_name, ai_category, audio_url, duration_seconds, created_at')
-    //     .eq('user_id', session.session.user.id)
-    //     .order('created_at', { ascending: false });
-    //   if (adsData) setAds(adsData);
-    // };
-    // fetchAds();
+    const fetchAds = async () => {
+      if (!isPickerOpen) return;
+
+      if(!session || !session.currentAdvertiserId) return;
+
+
+      setLoadingAds(true);
+      const { data: adsRes, error, status, message } = await adsApi.getAds({
+        page: page,
+        limit: limit,
+        sortBy: "createdAt",
+        advertiserId: session.currentAdvertiserId,
+        isSaved: true,
+        search: query || undefined
+      });
+  
+      console.log("adsRes here ", {adsRes, error, status, message});
+      if (status !== 200 || error) {
+        toast({ title: t('common.error'), description: message ?? 'Unable to load ads', variant: 'destructive' });
+        setAds([]);
+        setTotalAds(0);
+        setTotalPages(1);
+        setLoadingAds(false);
+        return;
+      }
+  
+      const next = adsRes?.data ?? [];
+      setTotalAds(adsRes?.meta?.total ?? next.length);
+      setTotalPages(adsRes?.meta?.totalPages ?? 1);
+      setAds((prev) => (page > 1 ? [...prev, ...next] : next));
+      setLoadingAds(false);
+    };
+    fetchAds();
+  }, [page, limit, query, t, session, isPickerOpen]);
+
+  useEffect(() => {
+    const loadSession = async () => {
+      const { data } = await auth.getSession();
+      setSession(data.session);
+      const { data: sub } = auth.onAuthStateChange((_event, nextSession) => {
+        setSession(nextSession);
+      });
+      return () => sub.subscription.unsubscribe();
+    };
+    const cleanup = loadSession();
+    return () => {
+      cleanup.then((fn) => fn?.());
+    };
   }, []);
+
+  // Debounce query -> reset paging
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    const t = setTimeout(() => {
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query, isPickerOpen]);
+
+  // Infinite scroll observer (API-backed)
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target) return;
+    const hasMore = ads.length < totalAds;
+    if (!hasMore) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        if (loadingAds) return;
+        if (ads.length >= totalAds) return;
+        setPage((p) => p + 1);
+      },
+      { root, rootMargin: "120px", threshold: 0 },
+    );
+
+    obs.observe(target);
+    return () => obs.disconnect();
+  }, [ads.length, totalAds, loadingAds, isPickerOpen]);
+
+  // Close on outside click / Escape
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (!pickerWrapperRef.current) return;
+      if (!pickerWrapperRef.current.contains(e.target as Node)) {
+        setIsPickerOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isPickerOpen]);
+
+  // When opening: reset paging and focus search
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    setPage(1);
+    const t = setTimeout(() => searchInputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [isPickerOpen]);
 
   return (
     <div className="space-y-6">
       {/* Ad Selection */}
       <div className="space-y-3">
       <Label>{t('wizard.setup.select_ad')}</Label>
-      <SearchableList<Ad>
-          items={ads}
-          columns={adColumns}
-          selectionMode="single"
-          selectedIds={data.adId ? [data.adId] : []}
-          onSelectionChange={(ids) => {
-            const selectedAd = ads.find(a => a.id === ids[0]);
-            onChange({ ...data, adId: ids[0] || '', adName: selectedAd?.product_name || '' });
-          }}
-          idKey="id"
-          searchPlaceholder="Search ads by name or goal..."
-          searchableKeys={['product_name', 'ai_category']}
-          defaultSort={{ key: 'product_name', dir: 'asc' }}
-          pageSize={10}
-          variant="table"
-          maxHeight="300px"
-          emptyMessage="No ads found. Create an audio ad first."
-          collapsible
-          collapsibleIcon={<CirclePlay className="h-4 w-4" />}
-          collapsibleLabel="Select audio ad..."
-        />
+
+      <div ref={pickerWrapperRef} className="space-y-2">
+        {/* Trigger bar */}
+        <button
+          type="button"
+          onClick={() => setIsPickerOpen((o) => !o)}
+          className={cn(
+            'w-full flex items-center justify-between gap-3 h-10 px-3 rounded-md border border-input bg-background text-sm',
+            'hover:bg-accent/30 transition-colors',
+          )}
+        >
+          <span className={cn('truncate', data.audioId ? 'text-foreground' : 'text-muted-foreground')}>
+            {data.audioId ? (data.adName || 'Selected ad') : 'Select audio ad...'}
+          </span>
+          <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isPickerOpen && 'rotate-180')} />
+        </button>
+
+        {/* Dropdown content */}
+        {isPickerOpen && (
+          <div className="border rounded-lg overflow-hidden bg-background">
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-9 h-10"
+                  placeholder="Search ads by name or goal..."
+                />
+              </div>
+            </div>
+
+            <div
+              ref={scrollRef}
+              className="overflow-auto"
+              style={{ maxHeight: '420px' }}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border sticky top-0 z-10">
+                      <th className="w-10 px-3 py-2.5" />
+                      {adColumns.map((col) => (
+                        <th
+                          key={col.key}
+                          className={cn(
+                            'text-left px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap',
+                            col.hideOnMobile && 'hidden md:table-cell',
+                            col.className,
+                          )}
+                        >
+                          {col.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-border">
+                    {loadingAds && page === 1 ? (
+                      <tr>
+                        <td
+                          colSpan={adColumns.length + 1}
+                          className="px-3 py-8 text-center text-muted-foreground"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : ads.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={adColumns.length + 1}
+                          className="px-3 py-8 text-center text-muted-foreground"
+                        >
+                          No ads found. Create an audio ad first.
+                        </td>
+                      </tr>
+                    ) : (
+                      ads.map((item) => {
+                        const isSelected = data.audioId === item.id;
+                        return (
+                          <tr
+                            key={item.id}
+                            onClick={() => {
+                              onChange({ ...data, audioId: item.id, adName: item.adName || '' });
+                              setIsPickerOpen(false);
+                            }}
+                            className={cn(
+                              'transition-colors cursor-pointer hover:bg-accent/50',
+                              isSelected && 'bg-primary/5',
+                            )}
+                          >
+                            <td className="px-3 py-2.5">
+                              <Checkbox checked={isSelected} tabIndex={-1} />
+                            </td>
+                            {adColumns.map((col) => (
+                              <td
+                                key={col.key}
+                                className={cn(
+                                  'px-3 py-2.5',
+                                  col.hideOnMobile && 'hidden md:table-cell',
+                                  col.className,
+                                )}
+                              >
+                                {col.render
+                                  ? col.render(item[col.key], item)
+                                  : String(item[col.key] ?? '')}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Sentinel + loading-more indicator */}
+              {ads.length < totalAds && (
+                <div className="py-3 text-center text-xs text-muted-foreground">
+                  {loadingAds && page > 1 ? 'Loading more…' : null}
+                </div>
+              )}
+              <div ref={sentinelRef} className="h-4" />
+            </div>
+          </div>
+        )}
+      </div>
       </div>
 
       {/* Campaign Name */}
@@ -154,12 +403,12 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
 
       {/* External Campaign ID — Pro only */}
       {isPro && (
-        <div className="space-y-2">
+        <div className="space-y-2 ">
           <Label>{t('wizard.setup.external_id')}</Label>
           <Input
             placeholder={t('wizard.setup.external_id_placeholder')}
-            value={data.externalCampaignId || ''}
-            onChange={(e) => onChange({ ...data, externalCampaignId: e.target.value })}
+            value={data.externalReference || ''}
+            onChange={(e) => onChange({ ...data, externalReference: e.target.value })}
           />
           <p className="text-xs text-muted-foreground">{t('wizard.setup.external_id_hint')}</p>
           </div>
