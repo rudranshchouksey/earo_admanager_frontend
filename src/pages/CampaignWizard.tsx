@@ -56,7 +56,7 @@ export default function CampaignWizard() {
     today.setDate(today.getDate() + 1);
     today.setHours(0, 0, 0, 0);
     const end = new Date(today);
-    end.setDate(end.getDate() + 30);
+    end.setDate(end.getDate() + 29);
     end.setHours(23, 59, 59, 999);
     return { startDate: today.toISOString(), endDate: end.toISOString(), daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
@@ -76,6 +76,9 @@ export default function CampaignWizard() {
     podcastAudiences: [] as string[],
     streamingTopics: [] as string[],
     streamingAudiences: [] as string[],
+    adPositions: ["pre-roll", "mid-roll", "post-roll"] as string[],
+    selectedShows: [] as string[],
+    savedAudiences: [] as string[],
   });
   const [budget, setBudget] = useState({
     dailyBudget: "25",
@@ -114,6 +117,7 @@ export default function CampaignWizard() {
     });
   const [CPM, setCPM] = useState(18);
   const [deviceTypes, setDeviceTypes] = useState<TargetingSegment[]>([]);
+
   // Completion checks
   const setupDone = !!(setup.audioId && setup.campaignName.trim());
   const scheduleDone = !!(schedule.startDate && schedule.endDate);
@@ -176,12 +180,12 @@ export default function CampaignWizard() {
         if (selectedCities.length > 0) {
           const cityNames = selectedCities
             .map((id) => {
-              const allCities = Object.values(MOCK_CITIES_DATA).flat();
+              const allCities = Object.values(countryCityMap[id.split("---")[0]] || []).flat();
               return allCities.find(
-                (c: { id: string; name: string }) => c.id === id,
+                (c) => c === id,
               )?.name;
             })
-            .filter(Boolean);
+            .filter(Boolean) as string[];
           if (cityNames.length <= 3) {
             parts.push(cityNames.join(", "));
           } else {
@@ -189,8 +193,8 @@ export default function CampaignWizard() {
               `${cityNames.slice(0, 2).join(", ")} +${cityNames.length - 2} more`,
             );
           }
-        } else if (inventory.country) {
-          parts.push(inventory.country);
+        } else if (inventory.selectedCountries && inventory.selectedCountries.length > 0) {
+          parts.push(inventory.selectedCountries.join(", "));
         }
         if (inventory.businessLocations.length > 0)
           parts.push(`${inventory.businessLocations.length} location(s)`);
@@ -209,7 +213,7 @@ export default function CampaignWizard() {
           }
         }
         parts.push(
-          targeting.gender === "all" ? "All genders" : targeting.gender,
+          targeting.gender === "" ? "All genders" : targeting.gender === "m" ? "Male" : "Female",
         );
         if (targeting.ageRanges.length > 0)
           parts.push(
@@ -312,6 +316,7 @@ export default function CampaignWizard() {
 
       const campaignObj = {
         campaignName: setup.campaignName,
+        externalReference: setup.externalCampaignId ? setup.externalCampaignId : null,
         advertiserId: session.currentAdvertiserId,
         startDate: campaignStartDate,
         startTime: campaignStartTime,
@@ -666,6 +671,21 @@ export default function CampaignWizard() {
 
       }
 
+      if(targeting.adPositions && targeting.adPositions.length != 3){
+      
+        audienceTargeting["groups"][0].rules.push({
+          type: "INVENTORY_ATTRIBUTES_SEGMENTS",
+          comparison: "IS_ANY_OF",
+          groups: [
+            {
+              segmentCode: "position",
+              segmentValues: targeting.adPositions,
+            }
+          ],
+        });
+      
+      }
+
       setIsLoadingForecast(true);
       try {
         const { data, error } = await targetingApi.getInventoryForecast({
@@ -804,8 +824,9 @@ export default function CampaignWizard() {
       </div>
 
       {/* Main content + sidebar */}
-      <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-6">
-        <div className="space-y-4">
+      <div className="relative">
+        {/* Main column */}
+        <div className="space-y-4 lg:pr-[304px]">
           {/* Your Ad */}
           {renderSection(
             "Your Ad",
@@ -931,21 +952,19 @@ export default function CampaignWizard() {
           </div>
         </div>
 
-        {/* Forecast + Summary sidebar */}
-        <div className="hidden lg:block">
-          <div
-            className="sticky top-4 space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
-            style={{ zIndex: 10 }}
-          >
-            <CampaignSummary items={summaryItems} />
-            <ForecastSidebar
-              isLoading={isLoadingForecast}
-              budget={Number(budget.dailyBudget) || 0}
-              cpm={CPM}
-              {...forecastData}
-              noOfDays={durationDays}
-            />
-          </div>
+        {/* Forecast + Summary sidebar (fixed on lg so always visible) */}
+        <div
+          className="hidden lg:block fixed right-6 top-40 w-[280px] space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
+          style={{ zIndex: 10 }}
+        >
+          <CampaignSummary items={summaryItems} />
+          <ForecastSidebar
+            isLoading={isLoadingForecast}
+            budget={Number(budget.dailyBudget) || 0}
+            cpm={CPM}
+            {...forecastData}
+            noOfDays={durationDays}
+          />
         </div>
       </div>
       <CampaignLaunchModal

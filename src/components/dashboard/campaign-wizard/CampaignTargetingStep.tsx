@@ -28,7 +28,26 @@ const inventoryOptions = [
   { type: 'Streaming', description: 'Connect with 100M+ listeners on top music, radio, CTV and gaming apps, in English or Arabic with powerful precision targeting.' },
 ] as const;
 
-const adPositionOptions = ['Pre-roll', 'Mid-roll', 'Post-roll'] as const;
+const adPositionOptions = [
+  {
+    "code": "position",
+    "category": "Audio Position",
+    "value": "mid-roll",
+    "label": "Mid-Roll"
+},
+{
+    "code": "position",
+    "category": "Audio Position",
+    "value": "post-roll",
+    "label": "Post-Roll"
+},
+{
+    "code": "position",
+    "category": "Audio Position",
+    "value": "pre-roll",
+    "label": "Pre-Roll"
+}
+] as const;
 
 const podcastTopicColumns: Column<{ id: string; name: string }>[] = [
   { key: 'name', label: 'Topic', sortable: true },
@@ -162,12 +181,12 @@ interface TargetingData {
   deviceTypes: string[];
   inventoryType: string;
   podcastTopics: string[];
-  podcastAudiences?: string[];
-  streamingAudiences?: string[];
-  streamingTopics?: string[];
-  adPositions?: string[];
-  selectedShows?: string[];
-  savedAudiences?: string[];
+  podcastAudiences: string[];
+  streamingAudiences: string[];
+  streamingTopics: string[];
+  adPositions: string[];
+  selectedShows: string[];
+  savedAudiences: string[];
 }
 
 interface Props {
@@ -231,7 +250,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
     <div className="space-y-6">
       {/* Inventory Type — Mode Switcher (Pro only) */}
       {isPro && (
-        <div className="space-y-3">
+        <div className="space-y-3 hidden">
           
           <div className="flex gap-1 bg-muted p-1 rounded-lg">
             <button
@@ -543,11 +562,11 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
           <Label>Ad Position</Label>
           <div className="flex flex-wrap gap-2">
             {adPositionOptions.map(pos => {
-              const selected = adPositions.includes(pos);
+              const selected = adPositions.includes(pos.value);
               return (
                 <div
-                  key={pos}
-                  onClick={() => toggleAdPosition(pos)}
+                  key={pos.value}
+                  onClick={() => toggleAdPosition(pos.value)}
                   className={cn(
                     'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                     selected
@@ -560,7 +579,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                       <Check className="h-2.5 w-2.5 text-foreground" />
                     </div>
                   )}
-                  <span className="text-sm font-medium">{pos}</span>
+                  <span className="text-sm font-medium">{pos.label}</span>
                 </div>
               );
             })}

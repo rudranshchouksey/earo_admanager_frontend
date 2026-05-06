@@ -19,6 +19,8 @@ import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 
+const PAGE_SIZE = 5;
+
 type AdMode = "ai" | "upload";
 
 const DEFAULT_PRO_VOICE: ProVoiceSettings = {
@@ -218,7 +220,7 @@ export default function AdCreator() {
 
     const { status, error, message, data } = await adsApi.getMusics({
       page: opts.page,
-      limit: isPro ? 10 : 3,
+      limit: isPro ? PAGE_SIZE : 3,
       mood: opts.mood,
       genre: opts.genre,
       instrument: opts.instrument,
@@ -256,7 +258,7 @@ export default function AdCreator() {
 
     const { status, error, message, data } = await adsApi.getVoices({
       page: opts.page,
-      limit: isPro ? 10 : 6,
+      limit: isPro ? PAGE_SIZE : 3,
       gender: opts.gender,
       language: opts.language,
       characteristic: opts.tone,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Info, Loader2, X } from 'lucide-react';
+import { FileWarning, Info, Loader2, TriangleAlert, X } from 'lucide-react';
 
 const DAILY_BASELINES: Record<string, number> = { Streaming: 80000, Podcast: 30000, Radio: 40000 };
 
@@ -81,7 +81,7 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
         <div className="space-y-3">
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalAvailableImpressions)}</p>
+              <p className="flex gap-2 items-center text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalAvailableImpressions)} {totalAvailableImpressions < estimatedAdsPlayed ? <span className='text-destructive text-xs' title='Low inventory'><TriangleAlert size={16} /> </span> : <></>} </p>
               <p className="text-xs text-muted-foreground">Total Available Impressions</p>
             </div>
 
