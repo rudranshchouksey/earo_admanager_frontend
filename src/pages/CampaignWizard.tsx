@@ -180,7 +180,7 @@ export default function CampaignWizard() {
         if (selectedCities.length > 0) {
           const cityNames = selectedCities
             .map((id) => {
-              const allCities = Object.values(countryCityMap[id.split("---")[0]] || []).flat();
+              const allCities = Object.values(countryCityMap[id.id.split("---")[0]] || []).flat();
               return allCities.find(
                 (c) => c === id,
               )?.name;
