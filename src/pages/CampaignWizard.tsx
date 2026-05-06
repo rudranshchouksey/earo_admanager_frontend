@@ -143,6 +143,7 @@ export default function CampaignWizard() {
         selectedCountries: code ? [code] : prev.selectedCountries,
       }));
       setGeoApplied(true);
+      onCountryChange([code]);
     }
   }, [geoData, geoApplied]);
 
