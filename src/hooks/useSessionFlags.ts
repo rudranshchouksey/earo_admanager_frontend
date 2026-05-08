@@ -37,8 +37,6 @@ export function useSessionFlags(): SessionFlags {
       const organizationId = session?.currentOrganizationId;
       const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
 
-      console.log({ organization });
-      console.log({ meta });
       if (meta) {
         const isAgency = Boolean(meta.isAgency ?? (organization?.orgType === 'AGENCY'));
         setFlags({
@@ -47,13 +45,6 @@ export function useSessionFlags(): SessionFlags {
           // Prefer canonical boolean; fall back to orgType match for older sessions.
           isAgency: isAgency,
         });
-        console.log({ 
-          isPro:  meta.isPro,
-          isNewUser: meta.userState === 'new',
-          // Prefer canonical boolean; fall back to orgType match for older sessions.
-          isAgency: Boolean(meta.isAgency ?? (organization?.orgType === 'AGENCY')),
-
-         });
       } else {
         setFlags(loadFallbackFlags());
       }

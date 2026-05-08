@@ -13,8 +13,6 @@ interface ForecastProps {
 }
 
 export function formatCompactNumber(value: number, locale: string = 'en-US'): string {
-  if (value < 100000)
-    return value.toFixed(0).toString();
 
   const formatter = new Intl.NumberFormat(locale, {
     notation: "compact",
@@ -42,10 +40,9 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
   }
 
   const frequency = 3;
-  const estimatedAdsPlayed = ((budget / cpm)*1000);
+  const estimatedAdsPlayed = (((budget * Number(noOfDays)) / cpm)*1000);
   const uniqueListeners = (estimatedAdsPlayed / frequency);
 
-  console.log({budget, frequency, estimatedAdsPlayed, uniqueListeners})
   return (
     <Card className="border-[#E6F4EA]">
       <CardContent className="p-4 space-y-4">
@@ -92,18 +89,18 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
             </p>
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">{(estimatedAdsPlayed).toFixed(0)}</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">~{formatCompactNumber(estimatedAdsPlayed)}</p>
               <p className="text-xs text-muted-foreground">Estimated ads played</p>
             </div>
 
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">{uniqueListeners.toFixed(0)}</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">~{formatCompactNumber(uniqueListeners)}</p>
               <p className="text-xs text-muted-foreground">Estimated unique listeners</p>
             </div>
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">{frequency.toFixed(0)}x</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">~{frequency.toFixed(0)}x</p>
               <p className="text-xs text-muted-foreground">Estimated frequency</p>
             </div>
 

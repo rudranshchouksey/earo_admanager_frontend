@@ -37,6 +37,15 @@ import { countryCPM } from "@/lib/defaults";
 import { auth } from "@/services/auth";
 import { campaignApi } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
+import { walletApi } from "@/services/wallet";
+
+interface Cards {
+  id: string;
+  cardId: string;
+  last_4: string;
+  cardHolderName: string;
+  type: string;
+}
 
 
 export default function CampaignWizard() {
@@ -58,7 +67,7 @@ export default function CampaignWizard() {
     const end = new Date(today);
     end.setDate(end.getDate() + 29);
     end.setHours(23, 59, 59, 999);
-    return { startDate: today.toISOString(), endDate: end.toISOString(), daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
+    return {  startDate: today, endDate: end, startTime: "00:00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
   const { geoData, isLoading: geoLoading } = useGeoLocation();
   const [inventory, setInventory] = useState<LocationData>({
@@ -85,7 +94,7 @@ export default function CampaignWizard() {
     totalBudget: "25",
     currency: "USD",
   });
-  const [payment, setPayment] = useState({ paymentMethod: "", couponCode: "" });
+  const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", originalAmount: 0, discountApplied: 0, finalAmount: 0 });
   const [countries, setCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [countryCityMap, setCountryCityMap] = useState<Record<string, City[]>>(
@@ -109,6 +118,8 @@ export default function CampaignWizard() {
 
   const [paymentUrl, setPaymentUrl] = useState("");
 
+  const [cards, setCards] = useState<Cards[]>([])
+
   const [audienceExtension, setAudienceExtension] =
     useState<AudienceExtensionData>({
       enabled: false,
@@ -117,6 +128,12 @@ export default function CampaignWizard() {
     });
   const [CPM, setCPM] = useState(18);
   const [deviceTypes, setDeviceTypes] = useState<TargetingSegment[]>([]);
+
+
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
+
 
   // Completion checks
   const setupDone = !!(setup.audioId && setup.campaignName.trim());
@@ -168,7 +185,7 @@ export default function CampaignWizard() {
       }
       case "schedule": {
         if (!schedule.startDate || !schedule.endDate) return "";
-        const fmt = (d: string) =>
+        const fmt = (d: Date) =>
           new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -179,21 +196,30 @@ export default function CampaignWizard() {
         const parts: string[] = [];
         const selectedCities = inventory.selectedCities || [];
         if (selectedCities.length > 0) {
-          const cityNames = selectedCities
-            .map((id) => {
-              const allCities = Object.values(countryCityMap[id.id.split("---")[0]] || []).flat();
-              return allCities.find(
-                (c) => c === id,
-              )?.name;
-            })
-            .filter(Boolean) as string[];
-          if (cityNames.length <= 3) {
-            parts.push(cityNames.join(", "));
-          } else {
-            parts.push(
-              `${cityNames.slice(0, 2).join(", ")} +${cityNames.length - 2} more`,
-            );
+          
+    
+          const countriesWithoutCities = inventory.selectedCountries.filter(country => !selectedCities.some(city => city.country === country));
+          if(countriesWithoutCities.length > 0) {
+            countriesWithoutCities.forEach(country => {
+              parts.push(country);
+            });
           }
+
+          if(selectedCities.length > 0) {
+            const obj = {};
+            selectedCities.forEach(city => {
+              if(obj[city.country]) {
+                obj[city.country].push(city.name);
+              } else {
+                obj[city.country] = [city.name];
+              }
+            });
+
+            Object.keys(obj).forEach(country => {
+              parts.push(`${country}( ${obj[country].join(", ")})`);
+            });
+          }
+
         } else if (inventory.selectedCountries && inventory.selectedCountries.length > 0) {
           parts.push(inventory.selectedCountries.join(", "));
         }
@@ -262,36 +288,25 @@ export default function CampaignWizard() {
       icon: CheckCircle2,
     }));
 
-  const getDateTime = (dateISO:string) => {
-    const date = new Date(dateISO);
-
-    // Extract Date components
-    const dd = String(date.getUTCDate()).padStart(2, '0');
-    const mm = String(date.getUTCMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const yyyy = date.getUTCFullYear();
-    
-    // Extract Time components
-    const hh = String(date.getUTCHours()).padStart(2, '0');
-    const min = String(date.getUTCMinutes()).padStart(2, '0');
-    const ss = String(date.getUTCSeconds()).padStart(2, '0');
-    
-    const formattedDate = `${yyyy}-${mm}-${dd}`;
-    const formattedTime = `${hh}:${min}:${ss}`;
-    return { formattedDate, formattedTime };
+  const getDate = (date:Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${year}-${month < 10 ? "0" + month : month}-${day < 10 ? "0" + day : day}`;
   }
 
   const saveCampaign = async () => {
-    console.log("saveCampaign", {saving, canLaunch});
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
       if (!session || !session.user) throw new Error('Not authenticated');
 
 
-      const campaignStartDate = getDateTime(schedule.startDate).formattedDate;
-      const campaignStartTime = getDateTime(schedule.startDate).formattedTime;
-      const campaignEndDate = getDateTime(schedule.endDate).formattedDate;
-      const campaignEndTime = getDateTime(schedule.endDate).formattedTime;
+      const campaignStartDate = getDate(schedule.startDate);
+      const campaignStartTime = schedule.startTime;
+      const campaignEndDate = getDate(schedule.endDate);
+      const campaignEndTime = schedule.endTime;
+
 
       const geoCountries = [];
 
@@ -341,17 +356,16 @@ export default function CampaignWizard() {
         podcastTopics: targeting.podcastTopics,
         podcastAudiences: targeting.podcastAudiences,
         streamingTopics: targeting.streamingTopics,
+        streamingAudiences: targeting.streamingAudiences,
         bannerOne: null,
         bannerTwo: null,
         bannerThree: null,
         impressionPixel: null,
-        discountCoupon: null,
         isSavedCard: false,
+        discountCoupon: payment.couponCode ? payment.couponCode : null,
+        adPosition: targeting.adPositions ? targeting.adPositions : null,
+        cardId: payment.cardId ? payment.cardId : null,
       };
-      console.log("campaign obj ", {campaignObj});
-
-
-      console.log("audience extension ", {audienceExtension});
 
 
       if (audienceExtension.enabled && audienceExtension.banners.length > 0 && audienceExtension.banners[0].file) {
@@ -378,15 +392,16 @@ export default function CampaignWizard() {
       }
       const {data, error, message, status} = await campaignApi.createCampaign(campaignObj);
 
-      console.log("data", data);
-      console.log("error", error);
-      console.log("message", message);
-
-
-
       if(status === 200 && data?.payment_url) {
         setPaymentUrl(data.payment_url);
-      }else {
+      }else if( status === 200 && data?.paid){
+        toast({
+          title: "Success",
+          description: "Campaign created successfully",
+          variant: "default",
+        });
+        navigate(`/dashboard/campaigns`);
+      } else {
         toast({
           title: "Error",
           description: message || "Something went wrong",
@@ -433,20 +448,16 @@ export default function CampaignWizard() {
 
   const onCountryChange = async (codes: string[]) => {
     setInventory((prev) => ({ ...prev, selectedCountries: codes }));
-
-    console.log("onCountryChange", codes);
-
     const newCities: City[] = [];
 
     // check if the country is in the countryCityMap
     for (const code of codes) {
       const cities = countryCityMap[code];
-      console.log("cities", cities);
       if (cities) {
         newCities.push(...cities);
       } else {
+        if(!code) continue;
         const { data, error } = await targetingApi.getCities(code);
-        console.log("data", data);
         const allCities = data?.data?.cities?.map((city) => ({
           country: code,
           id: code + "---" + city,
@@ -456,8 +467,6 @@ export default function CampaignWizard() {
         newCities.push(...allCities);
       }
     }
-
-    console.log("newCities", newCities);
 
     const newSelectedCities = newCities.filter((city) =>
       inventory.selectedCities?.find(
@@ -476,7 +485,6 @@ export default function CampaignWizard() {
     // }).filter(Boolean) as City[];
     // setInventory(prev => ({ ...prev, selectedCities: newCities }));
     // setCities(cities);
-    console.log("onCityChange", ids);
     setInventory((prev) => ({
       ...prev,
       selectedCities: ids.map(
@@ -486,14 +494,62 @@ export default function CampaignWizard() {
     }));
   };
 
+
+  const applyCoupon = async (couponCode: string) => {
+    setIsApplyingCoupon(true);
+    try {
+      const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode);
+
+      if(status !== 200) {
+        toast({
+          title: "Error",
+          description: data?.message || error?.message || "Invalid coupon code",
+          variant: "destructive",
+        });
+      }
+
+      // if(status === 200 && d)
+      if(status === 200 && data?.discountApplied){
+        setPayment((prev) => ({ ...prev, couponCode, discountValue: data.discountValue, discountType: data.discountType, originalAmount: data.originalAmount, discountApplied: data.discountApplied, finalAmount: data.finalAmount }));
+        toast({
+          title: "Success",
+          description: "Coupon applied successfully",
+          variant: "default",
+        });
+      }else {
+        toast({
+          title: "Error",
+          description: data?.message || "Invalid coupon code",
+          variant: "destructive",
+        });
+      }
+      setIsApplyingCoupon(false);
+    } catch (error) {
+      console.error(error);
+      setIsApplyingCoupon(false);
+    }
+  }
+
+
+  useEffect(() => {
+
+    if(couponCodeTimer.current) {
+      clearTimeout(couponCodeTimer.current);
+    }
+    
+    couponCodeTimer.current = setTimeout(async () => {
+      if(payment.couponCode) {
+        applyCoupon(payment.couponCode);
+      }
+    }, 1000);
+
+  }, [budget, durationDays]);
+
   useEffect(() => {
     if(forecastTimer.current) {
       clearTimeout(forecastTimer.current);
     }
     const fetchForecast = async () => {
-      console.log("fetchForecast", schedule.startDate, schedule.endDate);
-      console.log("schedule", {schedule});
-
       const audienceTargeting = {
         groups: [
           {
@@ -512,56 +568,6 @@ export default function CampaignWizard() {
           })),
         });
       }
-
-
-      if(inventory.selectedCountries && inventory.selectedCountries.length > 0) {
-
-
-        let newCPM = 0;
-        inventory.selectedCountries?.forEach(country => {
-          newCPM += countryCPM[country.toLowerCase()] ? countryCPM[country.toLowerCase()] : 18;
-        })
-
-        setCPM(newCPM/inventory.selectedCountries.length);
-
-        const listOfCities = inventory?.selectedCities || [];
-        const countriesWithoutCities = listOfCities.length ? inventory.selectedCountries.filter(country => !listOfCities.some(city => city.country === country)) : inventory.selectedCountries;
-
-        if(countriesWithoutCities.length > 0) {
-          audienceTargeting["groups"][0].rules.push({
-            type: "LOCATION_COUNTRY",
-            comparison: "CONTAIN",
-            countries: countriesWithoutCities,
-          });
-        }
-
-        if(listOfCities.length >0 ){
-          
-          const obj = {};
-
-          listOfCities.forEach(city => {
-            if(obj[city.country]) {
-              obj[city.country].push(city.name);
-            } else {
-              obj[city.country] = [city.name];
-            }
-          });
-
-          console.log("obj", obj);
-
-          if(Object.keys(obj).length > 0) {
-            Object.keys(obj).forEach(country => {
-              audienceTargeting["groups"][0].rules.push({
-                type: "LOCATION_CITY",
-                comparison: "CONTAIN",
-                country: country,
-                city: obj[country].toString(),
-              });
-            });
-          }
-        }
-      }
-
 
       const totalAges = targetingSegments.filter(segment => segment.code === "age").length;
 
@@ -687,18 +693,103 @@ export default function CampaignWizard() {
       
       }
 
+
+      if(inventory.selectedCountries && inventory.selectedCountries?.filter(country => country !== "").length > 0) {
+
+        let newCPM = 0;
+        inventory.selectedCountries?.forEach(country => {
+          newCPM += countryCPM[country.toLowerCase()] ? countryCPM[country.toLowerCase()] : 18;
+        })
+
+        setCPM(newCPM/inventory.selectedCountries.length);
+
+        const listOfCities = inventory?.selectedCities || [];
+        const countriesWithoutCities = listOfCities.length ? inventory.selectedCountries.filter(country => !listOfCities.some(city => city.country === country)) : inventory.selectedCountries;
+
+
+        const exisintgRules = audienceTargeting["groups"][0].rules;
+
+        let groupIndex = 0;
+
+
+
+        if(countriesWithoutCities.length > 0) {
+
+          if(listOfCities.length > 0) {
+            countriesWithoutCities.forEach(country => {
+
+
+              if(!audienceTargeting["groups"][groupIndex]){
+                audienceTargeting["groups"][groupIndex] = {
+                  rules: []
+                }
+              }
+
+              audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
+                type: "LOCATION_COUNTRY",
+                comparison: "CONTAIN",
+                countries: [country],
+              }];
+
+              groupIndex++;
+            })
+          }else {
+            
+            audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
+              type: "LOCATION_COUNTRY",
+              comparison: "CONTAIN",
+              countries: countriesWithoutCities,
+            }];
+
+          }
+        }
+
+
+
+        if(listOfCities.length >0 ){
+          
+          const obj = {};
+
+          listOfCities.forEach(city => {
+            if(obj[city.country]) {
+              obj[city.country].push(city.name);
+            } else {
+              obj[city.country] = [city.name];
+            }
+          });
+
+          if(Object.keys(obj).length > 0) {
+            Object.keys(obj).forEach(country => {
+
+              if(!audienceTargeting["groups"][groupIndex]){
+                audienceTargeting["groups"][groupIndex] = {
+                  rules: []
+                }
+              }
+
+              audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
+                type: "LOCATION_CITY",
+                comparison: "CONTAIN",
+                country: country,
+                city: obj[country].toString(),
+              }];
+              groupIndex++;
+            });
+          }
+        }
+      }
+
       setIsLoadingForecast(true);
       try {
         const { data, error } = await targetingApi.getInventoryForecast({
           dateRange: {
-            from: schedule.startDate,
-            to: schedule.endDate,
+            from: new Date(schedule.startDate).toISOString(),
+            to: new Date(schedule.endDate).toISOString(),
           },
           adDuration: 30,
           audienceTargeting: audienceTargeting,
         });
         setIsLoadingForecast(false);
-        console.log({ data });
 
         if (error) {
           console.error(error);
@@ -723,7 +814,6 @@ export default function CampaignWizard() {
   useEffect(() => {
     const fetchCountries = async () => {
       const { data, error } = await targetingApi.getCountries();
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -733,7 +823,6 @@ export default function CampaignWizard() {
 
     const fetchPublisherSegments = async () => {
       const { data, error } = await targetingApi.getPublisherSegments();
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -758,7 +847,6 @@ export default function CampaignWizard() {
 
     const fetchPodcastAudiences = async () => {
       const { data, error } = await targetingApi.getPodcastAudiences("", "");
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -768,7 +856,6 @@ export default function CampaignWizard() {
 
     const fetchStreamingAudiences = async () => {
       const { data, error } = await targetingApi.getStreamingAudiences("", "");
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -782,7 +869,6 @@ export default function CampaignWizard() {
         "",
         "",
       );
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -796,7 +882,6 @@ export default function CampaignWizard() {
         "",
         "",
       );
-      console.log(data);
       if (error) {
         console.error(error);
         return;
@@ -804,12 +889,25 @@ export default function CampaignWizard() {
       setDeviceTypes(data?.data || []);
     }
 
+
+    const fetchCards = async () => {
+      const { data, error, status } = await walletApi.getCards();
+      if (error || status !== 200) {
+        console.error(error);
+        return;
+      }
+      if(data?.data && data?.data.length > 0){
+        setPayment({ ...payment, cardId: data?.data[0].cardId });
+      }
+      setCards(data?.data || []);
+    }
     fetchCountries();
     fetchPublisherSegments();
     fetchPodcastAudiences();
     fetchStreamingAudiences();
     getTargetingSegments();
     fetchDeviceTypes();
+    fetchCards();
   }, []);
 
   return (
@@ -905,22 +1003,22 @@ export default function CampaignWizard() {
             </Card>
           )}
 
-          {/* Payment — Express only */}
-          {/* {!isPro && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                    6
-                  </span>
-                  <CardTitle className="text-lg">Payment</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CampaignPaymentStep data={payment} onChange={setPayment} />
-              </CardContent>
-            </Card>
-          )} */}
+
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
+                  7
+                </span>
+                <CardTitle className="text-lg">Payment</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CampaignPaymentStep cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
+            </CardContent>
+          </Card>
+
 
           {/* Action bar */}
           <div className="flex items-center justify-between border-t border-border pt-4">
@@ -946,7 +1044,7 @@ export default function CampaignWizard() {
                 {saving
                   ? "Launching..."
                   : isPro
-                    ? "Launch Campaign"
+                    ? "Pay & Launch"
                     : "Pay & Launch"}
               </Button>
             </div>

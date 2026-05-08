@@ -157,6 +157,7 @@ export interface AdData {
     conversions: number;
     CPA: string;
     eCPM: string;
+    jobId?: string;
 }
 
 export interface AdsResponse {

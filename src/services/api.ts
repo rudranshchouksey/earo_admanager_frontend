@@ -81,7 +81,6 @@ export async function request<T = unknown>(
 
 
   const storedSession =getStoredSession();
-  console.log("storedSession", storedSession);
   if(storedSession?.currentOrganizationId){
     orgId["x-org-id"] = storedSession.currentOrganizationId;
   }

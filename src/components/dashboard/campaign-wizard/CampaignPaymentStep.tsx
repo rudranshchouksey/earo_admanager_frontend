@@ -1,38 +1,61 @@
-import { useState, useEffect } from 'react';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
-import { CreditCard, Wallet, Building2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CreditCard, Wallet, Building2 } from "lucide-react";
 // import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentData {
   paymentMethod: string;
   couponCode: string;
+  discountValue: number;
+  discountType: string;
+  originalAmount: number;
+  discountApplied: number;
+  finalAmount: number;
+  cardId: string | null;
 }
 
 interface Props {
+  campaignName: string;
   data: PaymentData;
   onChange: (data: PaymentData) => void;
+  applyCoupon: (couponCode: string) => void;
+  isApplyingCoupon: boolean;
+  dailyBudget: number;
+  durationDays: number;
+  cards: Cards[];
 }
 
-const methods = [
-  { value: 'card', label: 'Credit / Debit Card', icon: CreditCard },
-  { value: 'wallet', label: 'Digital Wallet', icon: Wallet },
-  { value: 'bank', label: 'Bank Transfer', icon: Building2 },
-];
-
-interface SavedCard {
-  last4: string;
-  brand: string;
-  expiry: string;
+interface Cards {
+  id: string;
+  cardId: string;
+  last_4: string;
+  cardHolderName: string;
+  type: string;
 }
 
-export default function CampaignPaymentStep({ data, onChange }: Props) {
-  const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
-  const [isNewUser, setIsNewUser] = useState(true);
+export default function CampaignPaymentStep({
+  cards,
+  campaignName,
+  data,
+  onChange,
+  applyCoupon,
+  isApplyingCoupon = false,
+  dailyBudget,
+  durationDays,
+}: Props) {
+  const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saveCard, setSaveCard] = useState(true);
+  const [savedCards, setSavedCards] = useState([]);
+
+  const handleApplyCoupon = () => {
+    applyCoupon(couponCode);
+    setCouponCode("");
+  };
+
+  const totalAmount = dailyBudget * durationDays;
 
   useEffect(() => {
     const checkPreviousPayment = async () => {
@@ -49,7 +72,6 @@ export default function CampaignPaymentStep({ data, onChange }: Props) {
         //   .eq('status', 'paid')
         //   .order('created_at', { ascending: false })
         //   .limit(1);
-
         // if (payments && payments.length > 0) {
         //   setSavedCard({ last4: '4242', brand: 'Visa', expiry: '12/28' });
         //   setIsNewUser(false);
@@ -64,115 +86,126 @@ export default function CampaignPaymentStep({ data, onChange }: Props) {
   }, []);
 
   if (loading) {
-    return <div className="space-y-3 animate-pulse"><div className="h-10 bg-muted rounded" /><div className="h-10 bg-muted rounded" /></div>;
-  }
-
-  // Existing user with saved card
-  if (!isNewUser && savedCard && data.paymentMethod === 'card') {
     return (
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <Label>Payment Method</Label>
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] bg-[#E6F4EA]">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">{savedCard.brand} •••• {savedCard.last4}</p>
-              <p className="text-xs text-muted-foreground">Expires {savedCard.expiry}</p>
-            </div>
-            <button
-              type="button"
-              className="text-xs text-foreground hover:underline"
-              onClick={() => setIsNewUser(true)}
-            >
-              Change
-            </button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Discount Coupon (optional)</Label>
-          <Input
-            placeholder="Enter coupon code"
-            value={data.couponCode}
-            onChange={(e) => onChange({ ...data, couponCode: e.target.value })}
-          />
-        </div>
+      <div className="space-y-3 animate-pulse">
+        <div className="h-10 bg-muted rounded" />
+        <div className="h-10 bg-muted rounded" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <Label>Payment Method</Label>
-        <RadioGroup
-          value={data.paymentMethod}
-          onValueChange={(v) => onChange({ ...data, paymentMethod: v })}
-          className="space-y-2"
-        >
-          {methods.map((m) => (
-            <div key={m.value}>
-              <label
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  data.paymentMethod === m.value ? 'border-[#C8E6C9] bg-[#E6F4EA]' : 'border-border hover:border-[#C8E6C9]'
-                }`}
-              >
-                <RadioGroupItem value={m.value} />
-                <m.icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{m.label}</span>
-              </label>
-
-              {/* Card fields expanded inline when card is selected */}
-              {m.value === 'card' && data.paymentMethod === 'card' && (
-                <div className="space-y-4 border border-t-0 border-border rounded-b-lg p-4 -mt-[1px]">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Card Number</Label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="1234 5678 9012 3456" className="pl-10" maxLength={19} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Expiry Date</Label>
-                      <Input placeholder="MM / YY" maxLength={7} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">CVV</Label>
-                      <Input placeholder="•••" type="password" maxLength={4} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name on Card</Label>
-                    <Input placeholder="Full name as on card" />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="save-card"
-                      checked={saveCard}
-                      onCheckedChange={(checked) => setSaveCard(!!checked)}
-                    />
-                    <label htmlFor="save-card" className="text-sm text-foreground cursor-pointer">
-                      Save card for future campaigns
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </RadioGroup>
-      </div>
-
       <div className="space-y-2">
         <Label>Discount Coupon (optional)</Label>
-        <Input
-          placeholder="Enter coupon code"
-          value={data.couponCode}
-          onChange={(e) => onChange({ ...data, couponCode: e.target.value })}
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Enter coupon code"
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value)}
+          />
+          <button
+            className="bg-primary text-white px-4 py-2 rounded-md"
+            onClick={handleApplyCoupon}
+            disabled={isApplyingCoupon}
+          >
+            {isApplyingCoupon ? "Applying..." : "Apply"}
+          </button>
+        </div>
       </div>
+
+      {savedCards.length ? (
+        <div className="space-y-2">
+          <Label>Saved Cards</Label>
+          {savedCards.map((card) => (
+            <div key={card.id}>
+              <p>
+                {card.brand} •••• {card.last4}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <></>
+      )}
+
+      <div className="space-y-2 bg-muted p-3 rounded-md">
+        <label className="text-sm font-bold text-foreground">
+          Charge Summary
+        </label>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <label className="text-sm text-foreground">
+              {campaignName ? campaignName : "Untitled Campaign"} (
+              {durationDays} days)
+            </label>
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-foreground">
+              ${(dailyBudget * durationDays).toLocaleString()}
+            </label>
+          </div>
+        </div>
+        {data?.couponCode ? (
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <label className="text-sm text-primary">
+                Coupon - {data.couponCode}
+              </label>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-primary">
+                -${data.discountApplied.toLocaleString()}
+              </label>
+            </div>
+          </div>
+        ) : (
+          <></>
+        )}
+        <hr />
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <label className="text-sm text-foreground">Total</label>
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-foreground">
+              $
+              {data?.couponCode
+                ? data.finalAmount.toLocaleString()
+                : totalAmount.toLocaleString()}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {cards && cards.length > 0 ? (
+        <div className="space-y-3">
+          <Label>Pay using your saved card</Label>
+          {cards?.map((card) => (
+            <div key={card.id} className="flex items-center gap-2 w-full">
+              <Checkbox checked={data?.cardId === card.cardId} onCheckedChange={() => onChange({ ...data, cardId: card.cardId })} />
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] bg-[#E6F4EA] w-full">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{card.last_4}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {card.type}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center gap-2 w-full">
+          <Checkbox checked={data?.cardId === ""} onCheckedChange={() => onChange({ ...data, cardId: "" })} />
+            <p className="text-sm font-medium pl-1">Use a new card</p>
+          </div>
+
+
+        </div>
+      ) : (
+        <></>
+      )}
     </div>
   );
 }

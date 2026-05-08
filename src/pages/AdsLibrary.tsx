@@ -329,6 +329,9 @@ export default function AdsLibrary() {
 
   const EditRenderer = useCallback((params: ICellRendererParams) => {
     const ad = params.data as AdData;
+    if(!ad.jobId) return null;
+
+    
     return (
       <Button
         variant="ghost"

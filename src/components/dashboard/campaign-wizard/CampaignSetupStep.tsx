@@ -16,7 +16,7 @@ interface CampaignSetupData {
   audioId: string;
   campaignName: string;
   adName?: string;
-  externalReference?: string;
+  externalCampaignId?: string;
 }
 
 interface Props {
@@ -407,8 +407,8 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
           <Label>{t('wizard.setup.external_id')}</Label>
           <Input
             placeholder={t('wizard.setup.external_id_placeholder')}
-            value={data.externalReference || ''}
-            onChange={(e) => onChange({ ...data, externalReference: e.target.value })}
+            value={data.externalCampaignId || ''}
+            onChange={(e) => onChange({ ...data, externalCampaignId: e.target.value })}
           />
           <p className="text-xs text-muted-foreground">{t('wizard.setup.external_id_hint')}</p>
           </div>

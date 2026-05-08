@@ -64,8 +64,8 @@ export const TIME_SLOTS = [
 ];
 
 interface ScheduleData {
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
   startTime?: string;
   endTime?: string;
   daysOfWeek?: string[];
@@ -84,10 +84,6 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   const selectedDays = data.daysOfWeek || DAYS_OF_WEEK;
   const selectedSlots = data.timeSlots || TIME_SLOTS.map(s => s.value);
 
-  const [startDate, setStartDate] = useState(data.startDate);
-  const [endDate, setEndDate] = useState(data.endDate);
-  const [startTime, setStartTime] = useState('00:00');
-  const [endTime, setEndTime] = useState('23:59');
   const [daysOfWeek, setDaysOfWeek] = useState(data.daysOfWeek || DAYS_OF_WEEK);
   const [timeSlots, setTimeSlots] = useState(data.timeSlots || TIME_SLOTS.map(s => s.value));
 
@@ -116,28 +112,24 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   };
 
 
-  useEffect(() => {
+  // useEffect(() => {
   
-    console.log("date changed ");
-    const newStartDate = new Date(startDate);
-    newStartDate.setHours(Number(startTime.split(':')[0]), Number(startTime.split(':')[1]), 0, 0);
-    const newEndDate = new Date(endDate);
-    newEndDate.setHours(Number(endTime.split(':')[0]), Number(endTime.split(':')[1]), 0, 0);
-    // onChange({ ...data, startDate: newStartDate, endDate: newEndDate });
-    console.log("newStartDate", newStartDate.toISOString());
-    console.log("newEndDate", newEndDate.toISOString());
+  //   console.log("date changed ");
+  //   const newStartDate = new Date(startDate);
+  //   newStartDate.setHours(Number(startTime.split(':')[0]), Number(startTime.split(':')[1]), 0, 0);
+  //   const newEndDate = new Date(endDate);
+  //   newEndDate.setHours(Number(endTime.split(':')[0]), Number(endTime.split(':')[1]), 0, 0);
+  //   // onChange({ ...data, startDate: newStartDate, endDate: newEndDate });
+  //   console.log("newStartDate", newStartDate.toISOString());
+  //   console.log("newEndDate", newEndDate.toISOString());
 
-    onChange({ ...data, startDate: newStartDate.toISOString(), endDate: newEndDate.toISOString() });
+  //   onChange({ ...data, startDate: newStartDate.toISOString(), endDate: newEndDate.toISOString() });
 
-  }, [startDate, endDate, startTime, endTime])
+  // }, [startDate, endDate, startTime, endTime])
   
 
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
-
-
-  console.log("startDate", startDate);
-  console.log("endDate", endDate);
 
   return (
     <div className="space-y-6">
@@ -151,22 +143,22 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   variant="outline"
                   className={cn(
                     "flex-1 h-10 justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
+                    !data.startDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate
-                    ? format(startDate, 'yyyy-MM-dd')
+                  {data.startDate
+                    ? format(data.startDate, 'yyyy-MM-dd')
                     : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={startDate ? startDate : undefined}
+                  selected={data.startDate ? data.startDate : undefined}
                   onSelect={(date) => {
-                    // onChange({ ...data, startDate: date ? format(date, 'yyyy-MM-dd') : '' });
-                    setStartDate(date);
+                    onChange({ ...data, startDate: date});
+                    // setStartDate(date);
                     setStartOpen(false);
                   }}
                   disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
@@ -176,8 +168,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
               </PopoverContent>
             </Popover>
             <TimeDropdown
-              value={startTime || '00:00'}
-              onChange={(val) => setStartTime(val)}
+              value={data.startTime || '00:00'}
+              onChange={(val) => onChange({ ...data, startTime: val })}
             />
           </div>
         </div>
@@ -190,27 +182,26 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   variant="outline"
                   className={cn(
                     "flex-1 h-10 justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
+                    !data.endDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate
-                    ? format(endDate, 'yyyy-MM-dd')
+                  {data.endDate
+                    ? format(data.endDate, 'yyyy-MM-dd')
                     : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={endDate ? endDate : undefined}
+                  selected={data.endDate ? data.endDate : undefined}
                   onSelect={(date) => {
-                    // onChange({ ...data, endDate: date ? format(date, 'yyyy-MM-dd') : '' });
-                    setEndDate(date);
+                    onChange({ ...data, endDate: date});
                     setEndOpen(false);
                   }}
                   disabled={(date) => {
                     const today = new Date(new Date().setHours(0, 0, 0, 0));
-                    const start = startDate ? startDate : today;
+                    const start = data.startDate ? data.startDate : today;
                     return date < start;
                   }}
                   initialFocus
@@ -219,20 +210,20 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
               </PopoverContent>
             </Popover>
             <TimeDropdown
-              value={endTime || '23:59'}
-              onChange={(val) => setEndTime(val)}
+              value={data.endTime || '23:59'}
+              onChange={(val) => onChange({ ...data, endTime: val })}
             />
           </div>
         </div>
       </div>
-      {startDate && endDate && (() => {
-        const start = new Date(`${startDate}T${startTime || '00:00'}`);
-        const end = new Date(`${endDate}T${endTime || '23:59'}`);
+      {data.startDate && data.endDate && (() => {
+        const start = new Date(`${data.startDate}T${data.startTime || '00:00'}`);
+        const end = new Date(`${data.endDate}T${data.endTime || '23:59'}`);
         const invalid = end <= start;
         return (
           <>
             <p className="text-sm text-muted-foreground">
-              Campaign duration: {Math.max(1, differenceInCalendarDays(new Date(endDate), new Date(startDate)) + 1)} days
+              Campaign duration: {Math.max(1, differenceInCalendarDays(new Date(data.endDate), new Date(data.startDate)) + 1)} days
             </p>
             {invalid && (
               <p className="text-sm text-destructive">End date/time must be after start date/time</p>
@@ -244,19 +235,18 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
       {/* Duration presets */}
       <div className="flex flex-wrap gap-2">
           {DURATION_PRESETS.map(days => {
-            const currentDuration = startDate && endDate
-              ? Math.max(1, differenceInCalendarDays(new Date(endDate), new Date(startDate)) + 1)
+            const currentDuration = data.startDate && data.endDate
+              ? Math.max(1, differenceInCalendarDays(new Date(data.endDate), new Date(data.startDate)) + 1)
               : 0;
             const selected = currentDuration === days;
             return (
               <div
                 key={days}
                 onClick={() => {
-                  const start = new Date(startDate);
-                  const end = new Date(startDate);
+                  const start = new Date(data.startDate);
+                  const end = new Date(data.startDate);
                   end.setDate(end.getDate() + days - 1);
-                  setStartDate(start.toISOString());
-                  setEndDate(end.toISOString());
+                  onChange({ ...data, startDate: start, endDate: end });
                 }}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',

@@ -36,6 +36,7 @@ export interface Campaign {
   discountCoupon?: string;
   isSavedCard?: boolean;
   payment_url?: string;
+  paid?: boolean;
   status: 'draft' | 'active' | 'paused' | 'completed';
 }
 
@@ -52,6 +53,9 @@ export interface CampaignResponse {
 }
 
 export const campaignApi = {
+  applyCoupon: (amount: number, couponCode: string) =>
+    request<any>('/api/v1/wallet-billing/applyCoupon', { method: 'POST', body: { amount, couponCode } }),
+
   /** Fetches all campaigns for the dashboard */
   getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = ''}) => 
     request<CampaignResponse>('/api/v1/campaigns/getCampaigns', {method: "POST", body: {page, limit, search, status, advertiserId}}),
