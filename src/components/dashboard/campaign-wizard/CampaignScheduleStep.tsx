@@ -64,8 +64,8 @@ export const TIME_SLOTS = [
 ];
 
 interface ScheduleData {
-  startDate: Date;
-  endDate: Date;
+  startDate: string;
+  endDate: string;
   startTime?: string;
   endTime?: string;
   daysOfWeek?: string[];
@@ -131,6 +131,11 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
 
+  const formatDate = (date: Date) => {
+    return `${date.getFullYear()}-${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -155,9 +160,9 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={data.startDate ? data.startDate : undefined}
+                  selected={data.startDate ? new Date(data.startDate) : undefined}
                   onSelect={(date) => {
-                    onChange({ ...data, startDate: date});
+                    onChange({ ...data, startDate: formatDate(date)});
                     // setStartDate(date);
                     setStartOpen(false);
                   }}
@@ -194,9 +199,9 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={data.endDate ? data.endDate : undefined}
+                  selected={data.endDate ? new Date(data.endDate) : undefined}
                   onSelect={(date) => {
-                    onChange({ ...data, endDate: date});
+                    onChange({ ...data, endDate: formatDate(date)});
                     setEndOpen(false);
                   }}
                   disabled={(date) => {
@@ -246,7 +251,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   const start = new Date(data.startDate);
                   const end = new Date(data.startDate);
                   end.setDate(end.getDate() + days - 1);
-                  onChange({ ...data, startDate: start, endDate: end });
+                  onChange({ ...data, startDate: formatDate(start), endDate: formatDate(end) });
                 }}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',

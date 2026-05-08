@@ -288,12 +288,7 @@ export default function CampaignWizard() {
       icon: CheckCircle2,
     }));
 
-  const getDate = (date:Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return `${year}-${month < 10 ? "0" + month : month}-${day < 10 ? "0" + day : day}`;
-  }
+
 
   const saveCampaign = async () => {
     setSaving(true);
@@ -302,9 +297,9 @@ export default function CampaignWizard() {
       if (!session || !session.user) throw new Error('Not authenticated');
 
 
-      const campaignStartDate = getDate(schedule.startDate);
+      const campaignStartDate = schedule.startDate;
       const campaignStartTime = schedule.startTime;
-      const campaignEndDate = getDate(schedule.endDate);
+      const campaignEndDate = schedule.endDate;
       const campaignEndTime = schedule.endTime;
 
 
