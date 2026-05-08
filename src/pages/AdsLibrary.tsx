@@ -28,6 +28,7 @@ import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { adsApi, AdData } from '@/services/ads';
 import { campaignApi } from '@/services/campaign';
 import { appNotifications } from '@/services/appNotifications';
+import { advertiserApi } from '@/services/advertiser';
 
 interface AdStats {
   impressions: number;
@@ -77,17 +78,35 @@ export default function AdsLibrary() {
     const { data: { session } } = await auth.getSession();
     if (!session) return;
 
-    // const [adsRes, campaignsRes] = await Promise.all([
-    //   adsApi.getAds(session.user.id),
-    //   campaignApi.getCampaigns(),
-    // ]);
+    let advertiserId = session.currentAdvertiserId;
+
+    if(!advertiserId) {
+
+      /// fetch the advertisers and set the first one as the advertiserId
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      console.log("advertisersRes here ", {advertisersRes, advertisersStatus, advertisersError, advertisersMessage});
+
+      if(advertisersStatus !== 200 || advertisersError) {
+        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+
+      const advertisers = advertisersRes.data;
+      console.log("advertisers here ", {advertisers});
+      if(advertisers.length > 0) {
+        advertiserId = advertisers[0].id;
+        auth.setCurrentAdvertiserId(advertiserId);
+      }
+    }
 
     setLoading(true);
     const { data: adsRes, error, status, message } = await adsApi.getAds({
       page: opts.page,
       limit: opts.limit,
       sortBy: "createdAt",
-      advertiserId: session.currentAdvertiserId,
+      advertiserId: advertiserId,
       isSaved: true,
       search: opts.search || undefined,
       status: opts.status,
@@ -212,7 +231,25 @@ export default function AdsLibrary() {
   const handleExportCSV = async () => {
     const { data: { session } } = await auth.getSession();
     if (!session) return;
-    const {data}= await adsApi.exportAds(session.currentAdvertiserId);
+
+
+    let advertiserId = session.currentAdvertiserId;
+    if(!advertiserId) {
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      console.log("advertisersRes here ", {advertisersRes, advertisersStatus, advertisersError, advertisersMessage});
+      if(advertisersStatus !== 200 || advertisersError) {
+        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+        return;
+      }
+      const advertisers = advertisersRes.data;
+      console.log("advertisers here ", {advertisers});
+      if(advertisers.length > 0) {
+        advertiserId = advertisers[0].id;
+        auth.setCurrentAdvertiserId(advertiserId);
+      }
+    }
+
+    const {data}= await adsApi.exportAds(advertiserId);
     
     console.log("data here ", {data});
     if (!data) return;
@@ -331,7 +368,7 @@ export default function AdsLibrary() {
     const ad = params.data as AdData;
     if(!ad.jobId) return null;
 
-    
+
     return (
       <Button
         variant="ghost"

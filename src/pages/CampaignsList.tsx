@@ -17,6 +17,7 @@ import { Campaign, campaignApi } from '@/services/campaign';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { auth } from '@/services/auth';
+import { advertiserApi } from '@/services/advertiser';
 
 
 const statusColors: Record<string, string> = {
@@ -74,8 +75,35 @@ export default function CampaignsList() {
         setLoading(false);
         return;
       }
+
+      console.log("session here ", {session});
+
+
+      let advertiserId = session.data.session.currentAdvertiserId;
+
+      if(!advertiserId) {
+
+        /// fetch the advertisers and set the first one as the advertiserId
+        const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.data.session.currentOrganizationId);
+        console.log("advertisersRes here ", {advertisersRes, advertisersStatus, advertisersError, advertisersMessage});
+
+        if(advertisersStatus !== 200 || advertisersError) {
+          toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+          setCampaigns([]);
+          setLoading(false);
+          return;
+        }
+
+
+        const advertisers = advertisersRes.data;
+        console.log("advertisers here ", {advertisers});
+        if(advertisers.length > 0) {
+          advertiserId = advertisers[0].id;
+          auth.setCurrentAdvertiserId(advertiserId);
+        }
+      }
     
-      const { data, status, error, message } = await campaignApi.getCampaigns({page, limit, search, status: statusFilter, advertiserId: session.data.session.currentAdvertiserId});
+      const { data, status, error, message } = await campaignApi.getCampaigns({page, limit, search, status: statusFilter, advertiserId: advertiserId});
       if(status !== 200 || error) {
         toast({ title: t('common.error'), description: message ?? 'Unable to load campaigns', variant: 'destructive' });
         setCampaigns([]);

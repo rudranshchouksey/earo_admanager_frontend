@@ -103,6 +103,11 @@ export default function CampaignPaymentStep({
             placeholder="Enter coupon code"
             value={couponCode}
             onChange={(e) => setCouponCode(e.target.value)}
+            onKeyDown={(e) => {
+              if(e.key === 'Enter') {
+                handleApplyCoupon();
+              }
+            }}
           />
           <button
             className="bg-primary text-white px-4 py-2 rounded-md"
@@ -147,16 +152,17 @@ export default function CampaignPaymentStep({
           </div>
         </div>
         {data?.couponCode ? (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start justify-between gap-2">
             <div>
               <label className="text-sm text-primary">
                 Coupon - {data.couponCode}
               </label>
             </div>
-            <div>
+            <div className="flex flex-col items-center gap-2">
               <label className="text-sm font-semibold text-primary">
                 -${data.discountApplied.toLocaleString()}
               </label>
+              <span className="text-xs text-muted-foreground cursor-pointer" onClick={() => onChange({ ...data, couponCode: "" })}>remove</span>
             </div>
           </div>
         ) : (
