@@ -99,7 +99,7 @@ export default function CampaignsList() {
         console.log("advertisers here ", {advertisers});
         if(advertisers.length > 0) {
           advertiserId = advertisers[0].id;
-          auth.setCurrentAdvertiserId(advertiserId);
+          auth.setCurrentAdvertiserId(advertiserId, advertisers[0].isPro);
         }
       }
     

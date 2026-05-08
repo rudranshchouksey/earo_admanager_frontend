@@ -385,7 +385,7 @@ export default function AdCreator() {
         }
         const advertisers = data.data;
         if(advertisers.length > 0){
-          auth.setCurrentAdvertiserId(advertisers[0].id);
+          auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
           setAdvertiserId(advertisers[0].id);
         }
       }else {

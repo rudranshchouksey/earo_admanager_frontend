@@ -143,10 +143,13 @@ export const auth = {
     notify('ORGANIZATION_CHANGED', session);
   },
 
-  setCurrentAdvertiserId: (advertiserId: string) => {
+  setCurrentAdvertiserId: (advertiserId: string, isPro: boolean = false) => {
+    console.log("setCurrentAdvertiserId here ", {advertiserId, isPro});
     const session = getStoredSession();
     if (!session) return;
     session.currentAdvertiserId = advertiserId;
+    session.user.app_metadata!.isPro = isPro;
+    console.log("session here ", {session});
     setStoredSession(session);
     notify('ADVERTISER_CHANGED', session);
   },

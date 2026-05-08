@@ -47,6 +47,11 @@ interface Cards {
   type: string;
 }
 
+const formatDate = (date: Date) => {
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export default function CampaignWizard() {
   const navigate = useNavigate();
@@ -61,13 +66,9 @@ export default function CampaignWizard() {
     externalCampaignId?: string;
   }>({ audioId: "", campaignName: "" });
   const [schedule, setSchedule] = useState(() => {
-    const today = new Date();
-    today.setDate(today.getDate() + 1);
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(today);
-    end.setDate(end.getDate() + 29);
-    end.setHours(23, 59, 59, 999);
-    return {  startDate: today, endDate: end, startTime: "00:00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    const end = new Date(new Date().setDate(new Date().getDate() + 29));
+    return {  startDate: formatDate(today), endDate: formatDate(end), startTime: "00:00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
   const { geoData, isLoading: geoLoading } = useGeoLocation();
   const [inventory, setInventory] = useState<LocationData>({

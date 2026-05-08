@@ -10,6 +10,7 @@ export interface Advertiser {
   external_id: string;
   industry: string;
   status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+  isPro: boolean;
 }
 
 export interface AdvertiserResponse {

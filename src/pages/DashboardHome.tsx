@@ -10,6 +10,10 @@ import StatCard from '@/components/dashboard/StatCard';
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 // import headphoneWoman from '@/assets/images/headphone-woman.png';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
+import { toast } from '@/components/ui/use-toast';
+import { auth } from '@/services/auth';
+import { advertiserApi } from '@/services/advertiser';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -18,21 +22,28 @@ export default function DashboardHome() {
   const [userName, setUserName] = useState('');
   const [userState, setuserState] = useState('existing')
 
+  const { t } = useTranslation();
   const mockStats = { impressions: 124500, spend: 2340, reach: 48200 };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      // const { data: { user } } = await supabase.auth.getUser();
-      // if (user) {
-      //   const { data: profile } = await supabase
-      //     .from('user_profiles')
-      //     .select('first_name')
-      //     .eq('id', user.id)
-      //     .maybeSingle();
-      //   if (profile?.first_name) setUserName(profile.first_name);
-      // }
+    const getAdvertiserId = async () => {
+     const { data: { session } } = await auth.getSession();
+     if(!session) return;
+     const advertiserId = session.currentAdvertiserId;
+     console.log("advertiserId here ", {advertiserId});
+     if(!advertiserId) {
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if(advertisersStatus !== 200 || advertisersError) {
+        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+      }
+      const advertisers = advertisersRes.data;
+      if(advertisers.length > 0) {
+        console.log("advertisers here ", advertisers[0]);
+        auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
+      }
+     }
     };
-    fetchUser();
+    getAdvertiserId();
   }, []);
 
   useEffect(() => {
