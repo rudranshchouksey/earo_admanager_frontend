@@ -349,7 +349,7 @@ export default function CampaignWizard() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         daysOfWeek: schedule.daysOfWeek,
         timeOfDay: schedule.timeSlots,
-        budget: Number(budget.dailyBudget) * durationDays,
+        budget: Number(budget.totalBudget),
         perDayBudget: Number(budget.dailyBudget),
         duration: durationDays,
         zones: [],
@@ -534,7 +534,7 @@ export default function CampaignWizard() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         daysOfWeek: schedule.daysOfWeek,
         timeOfDay: schedule.timeSlots,
-        budget: Number(budget.dailyBudget) * durationDays,
+        budget: Number(budget.totalBudget),
         perDayBudget: Number(budget.dailyBudget),
         duration: durationDays,
         zones: [],
@@ -1426,7 +1426,8 @@ export default function CampaignWizard() {
           <CampaignSummary items={summaryItems} />
           <ForecastSidebar
             isLoading={isLoadingForecast}
-            budget={Number(budget.dailyBudget) || 0}
+            totalBudget={Number(budget.totalBudget) || 0}
+            dailyBudget={Number(budget.dailyBudget) || 0}
             cpm={CPM}
             {...forecastData}
             noOfDays={durationDays}

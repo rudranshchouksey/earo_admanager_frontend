@@ -25,7 +25,7 @@ const BUDGET_PRESETS = [25, 50, 100, 250, 500];
 
 export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }: Props) {
   const dailyValue = Number(data.dailyBudget);
-  const totalBudget = dailyValue * durationDays;
+  const totalBudget = Number(data.totalBudget);
   const [tab, settab] = useState('daily')
   const handleTabChange = (value: string) => {
     settab(value);
@@ -40,7 +40,8 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
       onChange({ ...data, dailyBudget: String(daily), totalBudget: String(total) });
     } else {
       const total = value;
-      const daily = total / durationDays;
+      const daily = Number(total / durationDays).toFixed(2);
+      console.log("daily", daily, "total", total);
       onChange({ ...data, dailyBudget: String(daily), totalBudget: String(total) });
     }
   };
@@ -65,7 +66,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
         tab === 'daily' && (
           <div className="flex items-baseline gap-1.5">
             <span className='text-4xl font-semibold text-foreground'>$</span>
-            <Input type="number" value={dailyValue} onBlur={handleBlur} onChange={(e) => handleSliderChange(Number(e.target.value))} min={MIN_BUDGET} step={STEP} className="flex bg-background py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto w-40 border-0 border-b border-border rounded-none px-0 text-4xl font-semibold focus-visible:ring-0 focus-visible:border-primary md:text-4xl" />
+            <Input type="text" value={dailyValue} onBlur={handleBlur} onChange={(e) => handleSliderChange(Number(e.target.value))} min={MIN_BUDGET} step={STEP} className="flex bg-background py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto w-40 border-0 border-b border-border rounded-none px-0 text-4xl font-semibold focus-visible:ring-0 focus-visible:border-primary md:text-4xl" />
             <span className="text-lg text-muted-foreground">/day</span>
           </div>
         )
@@ -74,7 +75,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
         tab === 'total' && (
           <div className="flex items-baseline gap-1.5">
             <span className='text-4xl font-semibold text-foreground'>$</span>
-            <Input type="number" value={totalBudget} onBlur={handleBlur} onChange={(e) => handleSliderChange(Number(e.target.value))} min={MIN_BUDGET*durationDays} step={STEP} className="flex bg-background py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto w-40 border-0 border-b border-border rounded-none px-0 text-4xl font-semibold focus-visible:ring-0 focus-visible:border-primary md:text-4xl" />
+            <Input type="text" value={totalBudget} onBlur={handleBlur} onChange={(e) => handleSliderChange(Number(e.target.value))} min={MIN_BUDGET*durationDays} step={STEP} className="flex bg-background py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto w-40 border-0 border-b border-border rounded-none px-0 text-4xl font-semibold focus-visible:ring-0 focus-visible:border-primary md:text-4xl" />
           </div>
         )
       }

@@ -7,7 +7,8 @@ const DAILY_BASELINES: Record<string, number> = { Streaming: 80000, Podcast: 300
 interface ForecastProps {
   isLoading: boolean;
   totalAvailableImpressions: number;
-  budget: number;
+  totalBudget: number;
+  dailyBudget: number;
   cpm?: number;
   noOfDays?: number | string;
 }
@@ -24,7 +25,7 @@ export function formatCompactNumber(value: number, locale: string = 'en-US'): st
 }
 
 
-export default function ForecastSidebar({ isLoading, totalAvailableImpressions, budget, cpm=18, noOfDays=1 }: ForecastProps) {
+export default function ForecastSidebar({ isLoading, totalAvailableImpressions, totalBudget, dailyBudget, cpm=18, noOfDays=1 }: ForecastProps) {
   const [showGuide, setShowGuide] = useState(false);
 
   if(isLoading) {
@@ -40,7 +41,7 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
   }
 
   const frequency = 3;
-  const estimatedAdsPlayed = (((budget * Number(noOfDays)) / cpm)*1000);
+  const estimatedAdsPlayed = ((totalBudget / cpm)*1000);
   const uniqueListeners = (estimatedAdsPlayed / frequency);
 
   return (
@@ -85,7 +86,7 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
           <div className="border-b border-border" />
 
             <p className="text-xs text-muted-foreground">
-              With a budget of USD {budget * Number(noOfDays)} we estimate you will achieve:
+              With a budget of USD {totalBudget.toLocaleString()} we estimate you will achieve:
             </p>
 
             <div>
