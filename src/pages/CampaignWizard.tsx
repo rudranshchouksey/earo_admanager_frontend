@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import type { LocationData } from "@/components/dashboard/campaign-wizard/CampaignInventoryStep";
@@ -20,7 +20,7 @@ import CampaignPaymentStep from "@/components/dashboard/campaign-wizard/Campaign
 import ForecastSidebar from "@/components/dashboard/campaign-wizard/ForecastSidebar";
 import CampaignSummary from "@/components/dashboard/campaign-wizard/CampaignSummary";
 import AudienceExtensionStep from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
-import type { AudienceExtensionData } from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
+import type { AudienceExtensionData, BannerSlot } from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
 import CampaignLaunchModal from "@/components/dashboard/campaign-wizard/CampaignLaunchModal";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import {
@@ -35,9 +35,10 @@ import {
 import { DAYS_OF_WEEK } from "@/components/dashboard/campaign-wizard/CampaignScheduleStep";
 import { countryCPM } from "@/lib/defaults";
 import { auth } from "@/services/auth";
-import { campaignApi } from "@/services/campaign";
+import { AdGroup, campaignApi } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { walletApi } from "@/services/wallet";
+import { adsApi } from "@/services/ads";
 
 interface Cards {
   id: string;
@@ -56,6 +57,7 @@ const formatDate = (date: Date) => {
 export default function CampaignWizard() {
   const navigate = useNavigate();
   const { isPro } = useSessionFlags();
+  const { id } = useParams<{ id: string }>();
   const [saving, setSaving] = useState(false);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
 
@@ -67,7 +69,8 @@ export default function CampaignWizard() {
   }>({ audioId: "", campaignName: "" });
   const [schedule, setSchedule] = useState(() => {
     const today = new Date(new Date().setHours(0, 0, 0, 0));
-    const end = new Date(new Date().setDate(new Date().getDate() + 29));
+    today.setDate(today.getDate() + 1); // Start date is tomorrow
+    const end = new Date(new Date().setDate(today.getDate() + 29));
     return {  startDate: formatDate(today), endDate: formatDate(end), startTime: "00:00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
   const { geoData, isLoading: geoLoading } = useGeoLocation();
@@ -130,10 +133,12 @@ export default function CampaignWizard() {
   const [CPM, setCPM] = useState(18);
   const [deviceTypes, setDeviceTypes] = useState<TargetingSegment[]>([]);
 
+  const [loadedExistingCampaign, setloadedExistingCampaign] = useState(false);
 
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
+  const [campaignId, setCampaignId] = useState("");
 
 
   // Completion checks
@@ -186,7 +191,7 @@ export default function CampaignWizard() {
       }
       case "schedule": {
         if (!schedule.startDate || !schedule.endDate) return "";
-        const fmt = (d: Date) =>
+        const fmt = (d: string) =>
           new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -245,8 +250,14 @@ export default function CampaignWizard() {
         );
         if (targeting.ageRanges.length > 0)
           parts.push(
-            targeting.ageRanges.slice(0, 2).join("/") +
-              (targeting.ageRanges.length > 2 ? "+" : ""),
+            targeting.ageRanges
+              .slice(0, 2)
+              .map(range => {
+                const str = range.toString();
+                return `${str.slice(0, 2)}${str.slice(2) === '00' ? '+' : '-'+str.slice(2)}`;
+              })
+              .join("/") +
+              (targeting.ageRanges.length > 2 ? "..." : "")
           );
         return parts.join(", ");
       }
@@ -291,7 +302,7 @@ export default function CampaignWizard() {
 
 
 
-  const saveCampaign = async () => {
+  const saveDraftCampaign = async () => {
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
@@ -327,6 +338,192 @@ export default function CampaignWizard() {
 
 
       const campaignObj = {
+        id,
+        campaignName: setup.campaignName,
+        externalReference: setup.externalCampaignId ? setup.externalCampaignId : null,
+        advertiserId: session.currentAdvertiserId,
+        startDate: campaignStartDate,
+        startTime: campaignStartTime,
+        endDate: campaignEndDate,
+        endTime: campaignEndTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        daysOfWeek: schedule.daysOfWeek,
+        timeOfDay: schedule.timeSlots,
+        budget: Number(budget.dailyBudget) * durationDays,
+        perDayBudget: Number(budget.dailyBudget),
+        duration: durationDays,
+        zones: [],
+        audioId: setup.audioId,
+        monthlyBilling: false,
+        billingDuration: 1,
+        inventoryType: targeting.inventoryType === "Podcast" ? "Podcast" : "Streaming",
+        geoCountries: geoCountries,
+        gender: targeting.gender === "all" ? "" : targeting.gender,
+        age: targeting.ageRanges,
+        deviceType: targeting.deviceTypes,
+        podcastTopics: targeting.podcastTopics,
+        podcastAudiences: targeting.podcastAudiences,
+        streamingTopics: targeting.streamingTopics,
+        streamingAudiences: targeting.streamingAudiences,
+        bannerOne: null,
+        bannerTwo: null,
+        bannerThree: null,
+        impressionPixel: audienceExtension.impressionPixel ? audienceExtension.impressionPixel : null,
+        isSavedCard: false,
+        discountCoupon: payment.couponCode ? payment.couponCode : null,
+        adPosition: targeting.adPositions ? targeting.adPositions : null,
+        cardId: payment.cardId ? payment.cardId : null,
+      };
+
+
+      if (audienceExtension.enabled && audienceExtension.banners.length > 0 && audienceExtension.banners[0].file) {
+        const shapeWidthHeight = {
+          rectangle: { width: 300, height: 250 },
+          square: { width: 300, height: 300 },
+          vertical: { width: 160, height: 600 },
+        };
+        const width = shapeWidthHeight[audienceExtension.banners[0].type].width;
+        const height = shapeWidthHeight[audienceExtension.banners[0].type].height;
+        const { data: bannerPayload, status: bannerStatus } = await targetingApi.uploadBanner(
+          audienceExtension.banners[0].file,
+          width,
+          height,
+        );
+        if (bannerStatus === 200 && bannerPayload != null) {
+          const url =
+            typeof bannerPayload === "string"
+              ? bannerPayload
+              : (bannerPayload as { url?: string }).url ??
+                (bannerPayload as { data?: string }).data;
+          if (url) campaignObj.bannerOne = url;
+        }
+      }
+      const {data, error, message, status} = await campaignApi.draftCampaign(campaignObj);
+
+      if(status === 200) {
+        toast({
+          title: "Draft Saved",
+        })
+        navigate(`/dashboard/campaigns`);
+      } else {
+        toast({
+          title: "Error",
+          description: message || "Something went wrong",
+          variant: "destructive",
+        });
+      }
+
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const saveCampaign = async () => {
+    setSaving(true);
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session || !session.user) throw new Error('Not authenticated');
+
+      if(!setup.campaignName.trim()) {
+        toast({
+          title: "Error",
+          description: "Campaign name is required",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      const campaignStartDate = schedule.startDate;
+      const campaignStartTime = schedule.startTime;
+      const campaignEndDate = schedule.endDate;
+      const campaignEndTime = schedule.endTime;
+
+
+      const completeStartDate = new Date(campaignStartDate);
+      completeStartDate.setHours(Number(campaignStartTime.split(":")[0]));
+      completeStartDate.setMinutes(Number(campaignStartTime.split(":")[1]));
+
+      const completeEndDate = new Date(campaignEndDate);
+      completeEndDate.setHours(Number(campaignEndTime.split(":")[0]));
+      completeEndDate.setMinutes(Number(campaignEndTime.split(":")[1]));
+
+
+      if(completeStartDate.getTime() < new Date().getTime()) {
+        toast({
+          title: "Error",
+          description: "Start date cannot be in the past",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // start time should be atleast 24 hour from now
+      if(completeStartDate.getTime() < new Date().getTime() + 86400000) {
+        toast({
+          title: "Error",
+          description: "Start date should be atleast 24 hours from now",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      if(completeEndDate.getTime() < completeStartDate.getTime()) {
+        toast({
+          title: "Error",
+          description: "End date cannot be before start date",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // end date should be atleast 1 day after start date
+      if(completeEndDate.getTime() - completeStartDate.getTime() < 86400000){
+        toast({
+          title: "Error",
+          description: "End date should be atleast 1 day after start date",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      const geoCountries = [];
+
+      if(inventory.selectedCountries && inventory.selectedCountries.length > 0) {
+
+
+        const listOfCities = inventory?.selectedCities || [];
+        const countriesWithoutCities = listOfCities.length ? inventory.selectedCountries.filter(country => !listOfCities.some(city => city.country === country)) : inventory.selectedCountries;
+
+        if(countriesWithoutCities.length > 0) {
+          countriesWithoutCities.forEach(country => {
+            geoCountries.push("COUNTRY/" + country);
+          });
+        }
+        if(listOfCities.length >0 ){
+          listOfCities.forEach(city => {
+            geoCountries.push("CITY/" + city.name + "/" + city.country);
+          });
+        }
+      }
+
+
+
+      const campaignObj = {
+        id: id || campaignId,
         campaignName: setup.campaignName,
         externalReference: setup.externalCampaignId ? setup.externalCampaignId : null,
         advertiserId: session.currentAdvertiserId,
@@ -364,6 +561,16 @@ export default function CampaignWizard() {
       };
 
 
+      if(audienceExtension.enabled && audienceExtension.banners?.length === 0){
+        toast({
+          title: "Error",
+          description: "Please upload a banner for audience extension",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
       if (audienceExtension.enabled && audienceExtension.banners.length > 0 && audienceExtension.banners[0].file) {
         const shapeWidthHeight = {
           rectangle: { width: 300, height: 250 },
@@ -387,6 +594,10 @@ export default function CampaignWizard() {
         }
       }
       const {data, error, message, status} = await campaignApi.createCampaign(campaignObj);
+
+      if(status === 200 && data?.data?.id) {
+        setCampaignId(data?.data?.id);
+      }
 
       if(status === 200 && data?.payment_url) {
         setPaymentUrl(data.payment_url);
@@ -491,7 +702,7 @@ export default function CampaignWizard() {
   };
 
 
-  const applyCoupon = async (couponCode: string) => {
+  const applyCoupon = async (couponCode: string, isManual: boolean = true) => {
     setIsApplyingCoupon(true);
     try {
       const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode);
@@ -507,6 +718,7 @@ export default function CampaignWizard() {
       // if(status === 200 && d)
       if(status === 200 && data?.discountApplied){
         setPayment((prev) => ({ ...prev, couponCode, discountValue: data.discountValue, discountType: data.discountType, originalAmount: data.originalAmount, discountApplied: data.discountApplied, finalAmount: data.finalAmount }));
+        if(isManual)
         toast({
           title: "Success",
           description: "Coupon applied successfully",
@@ -535,13 +747,14 @@ export default function CampaignWizard() {
     
     couponCodeTimer.current = setTimeout(async () => {
       if(payment.couponCode) {
-        applyCoupon(payment.couponCode);
+        applyCoupon(payment.couponCode, false);
       }
     }, 1000);
 
   }, [budget, durationDays]);
 
   useEffect(() => {
+    console.log({inventory});
     if(forecastTimer.current) {
       clearTimeout(forecastTimer.current);
     }
@@ -897,14 +1110,172 @@ export default function CampaignWizard() {
       }
       setCards(data?.data || []);
     }
-    fetchCountries();
-    fetchPublisherSegments();
-    fetchPodcastAudiences();
-    fetchStreamingAudiences();
-    getTargetingSegments();
-    fetchDeviceTypes();
-    fetchCards();
+
+
+    Promise.allSettled([
+      fetchCountries(),
+      fetchPublisherSegments(),
+      fetchPodcastAudiences(),
+      fetchStreamingAudiences(),
+      getTargetingSegments(),
+      fetchDeviceTypes(),
+      fetchCards(),
+    ]).then(() => {
+      // All data fetching attempts have completed, regardless of success or failure
+    });
+
+    if(id){
+      // Fetch existing campaign data and populate form for editing
+      const getCampaignData = async () => {
+      const { data: { session } } = await auth.getSession();
+        const {status, data, message} = await campaignApi.getCampaign({id, advertiserId: session?.currentAdvertiserId});
+
+        console.log("Existing campaign data:", {status, data, message});
+
+        if(status === 200 && data?.data) {
+
+          let adId = data.data.audioId;
+          let adName ="";
+          if(adId){
+            const ad = await adsApi.getAd(data.data.audioId, session?.currentAdvertiserId || "");
+            if(ad?.data?.data){
+              adName = ad.data.data.adName || "";
+            }
+          }
+          setloadedExistingCampaign(true);
+          setSetup({
+            ...setup,
+            audioId: data.data.audioId || "",
+            campaignName: data.data.campaignName || "",
+            adName: adName,
+            externalCampaignId: data.data.externalReference || "",
+          });
+
+          const campaignStartDate = new Date(data.data.startDate);
+          const campaignEndDate = new Date(data.data.endDate);
+
+          const hours = [...new Set(TIME_SLOTS.filter(item => data.data.timeOfDay.includes(item.value)).flatMap(item => item.valueInHours))];
+
+          const noOfDays = differenceInCalendarDays(campaignEndDate, campaignStartDate) + 1;
+          const perDay = data.data.perDayBudget ? data.data.perDayBudget : (data.data.budget ? data.data.budget / noOfDays : 0);
+          const budget = perDay * noOfDays;
+          setSchedule({
+            startDate: `${campaignStartDate.getFullYear()}-${(campaignStartDate.getMonth() + 1).toString().padStart(2, "0")}-${campaignStartDate.getDate().toString().padStart(2, "0")}` || "",
+            endDate: `${campaignEndDate.getFullYear()}-${(campaignEndDate.getMonth() + 1).toString().padStart(2, "0")}-${campaignEndDate.getDate().toString().padStart(2, "0")}` || "",
+            daysOfWeek: data.data.daysOfWeek || [],
+            timeSlots: data.data.timeOfDay || [],
+            startTime: campaignStartDate.getHours().toString().padStart(2, "0")+ ":" + campaignStartDate.getMinutes().toString().padStart(2, "0")|| "",
+            endTime: campaignEndDate.getHours().toString().padStart(2, "0") + ":" + campaignEndDate.getMinutes().toString().padStart(2, "0") || "",
+            selectedHours: hours,
+          })
+          setBudget({
+            dailyBudget: data.data.dailyCap ? data.data.dailyCap.toString() : perDay.toString(),
+            totalBudget: data?.data?.totalBudget.toString() || budget.toString(),
+            currency: "USD",
+          });
+
+          const adGroup:AdGroup = data.data.adGroups && data.data.adGroups.length > 0 ? data.data.adGroups[0] : null;
+          console.log("Ad Group data:", adGroup);
+          if(adGroup){
+            let targetingObj = {
+              ...targeting
+            }
+            if(adGroup.inventoryType === "Podcast"){
+              
+              targetingObj.inventoryType = "Podcast";
+              if(adGroup.podcastTopics && adGroup.podcastTopics.length > 0){
+                targetingObj.podcastTopics = adGroup.podcastTopics;
+              }
+              if(adGroup.podcastAudiences && adGroup.podcastAudiences.length > 0){
+                targetingObj.podcastAudiences = adGroup.podcastAudiences;
+              }
+            }else {
+              targetingObj.inventoryType = "Streaming"
+              if(adGroup.streamingTopics && adGroup.streamingTopics.length > 0){
+                targetingObj.streamingTopics = adGroup.streamingTopics;
+              }
+              if(adGroup.streamingAudiences && adGroup.streamingAudiences.length > 0){
+                targetingObj.streamingAudiences = adGroup.streamingAudiences;
+              }
+            }
+
+            console.log("Ad Group targeting data:", targetingObj);
+            targetingObj = {
+              ...targetingObj,
+              adPositions: adGroup.adPosition || [],
+              gender: adGroup.demogGender || "",
+              ageRanges: adGroup.demogAge || [],
+              deviceTypes: adGroup.deviceType || [], 
+            
+            }
+            setTargeting({...targetingObj});
+
+
+            if(adGroup.geoCountries && adGroup.geoCountries.length > 0){
+
+              const selectedCountriesFromCountry = adGroup.geoCountries.filter(geo => geo.startsWith("COUNTRY/")).map(geo => geo.split("/")[1]);
+              const selectedCountriesFromCities = adGroup.geoCountries.filter(geo => geo.startsWith("CITY/")).map(geo => geo.split("/")[2]);
+              const selectedCities = adGroup.geoCountries.filter(geo => geo.startsWith("CITY/")).map(geo => {
+                const parts = geo.split("/");
+                return {
+                  country: parts[2],
+                  name: parts[1],
+                  id: parts[2] + "---" + parts[1],
+                };
+              })
+
+
+              console.log({selectedCountriesFromCountry, selectedCountriesFromCities, selectedCities});
+              onCountryChange([...new Set([...selectedCountriesFromCountry, ...selectedCountriesFromCities])]);
+              setInventory((prev) => ({ ...prev, selectedCities: selectedCities }));
+
+            }
+
+
+
+            console.log("Ad Group banner data:", adGroup.bannerOne);
+            if(adGroup.bannerOne && adGroup.bannerOne.length){
+              const response = await fetch(adGroup.bannerOne);
+              const blob = await response.blob();
+              
+              // 2. Create a File object from the blob
+              const fileName = adGroup.bannerOne.split('/').pop() || 'uploaded-image';
+              const file = new File([blob], fileName, { type: blob.type });
+  
+  
+              const bannerSlot: BannerSlot = {
+                file: file,
+                type: "rectangle",
+                fileName: "Uploaded Banner",
+                preview: URL.createObjectURL(file),
+              }
+              console.log("Banner slot data:", bannerSlot);
+              setAudienceExtension((prev) => ({ ...prev, enabled: true, banners: [bannerSlot], impressionPixel: data.data.displayPixel ? data.data.displayPixel : "" }));
+            }
+
+          }
+          
+        }
+      }
+      getCampaignData();
+    }
   }, []);
+
+  const cancelPayment = () => {
+    setPaymentUrl("");
+    navigate(`/dashboard/campaigns/${campaignId}`);
+    window.location.reload();
+
+  }
+
+
+  if(id && !loadedExistingCampaign)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin mr-2" />
+        Loading campaign data...
+      </div>
+    );
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
@@ -1028,7 +1399,7 @@ export default function CampaignWizard() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={saveCampaign}
+                onClick={saveDraftCampaign}
                 disabled={saving || !setupDone}
               >
                 Save Draft
@@ -1072,7 +1443,7 @@ export default function CampaignWizard() {
             open={!!paymentUrl}
             onOpenChange={() => setPaymentUrl("")}
             paymentUrl={paymentUrl}
-            onCancel={() => setPaymentUrl("")}
+            onCancel={() => cancelPayment()}
           />
         )
       }

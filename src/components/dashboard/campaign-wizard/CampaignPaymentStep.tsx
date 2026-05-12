@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, Wallet, Building2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 // import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentData {
@@ -51,6 +52,27 @@ export default function CampaignPaymentStep({
   const [savedCards, setSavedCards] = useState([]);
 
   const handleApplyCoupon = () => {
+
+    if(couponCode.trim() === "") {
+      toast({
+        title: "Error",
+        description: "Please enter a coupon code",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    if(data.couponCode == couponCode) {
+  
+      toast({
+        title: "Coupon already applied",
+        description: "You have already applied this coupon code.",
+        variant: "destructive",
+      })
+      setCouponCode("");
+      return;
+    }
+
     applyCoupon(couponCode);
     setCouponCode("");
   };
@@ -96,6 +118,37 @@ export default function CampaignPaymentStep({
 
   return (
     <div className="space-y-6">
+
+      {cards && cards.length > 0 ? (
+        <div className="space-y-3">
+          <Label>Pay using your saved card</Label>
+          {cards?.map((card) => (
+            <div key={card.id} className="flex items-center gap-2 w-full">
+              <Checkbox checked={data?.cardId === card.cardId} onCheckedChange={() => onChange({ ...data, cardId: card.cardId })} />
+              <div className={`flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] ${ data?.cardId === card.cardId ? 'bg-[#E6F4EA]' : 'bg-background' } w-full`}>
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{card.last_4}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {card.type}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center gap-2 w-full">
+          <Checkbox checked={data?.cardId === ""} onCheckedChange={() => onChange({ ...data, cardId: "" })} />
+            <p className="text-sm font-medium pl-1">Use a new card</p>
+          </div>
+
+
+        </div>
+      ) : (
+        <></>
+      )}
+
+
       <div className="space-y-2">
         <Label>Discount Coupon (optional)</Label>
         <div className="flex items-center gap-2">
@@ -119,20 +172,6 @@ export default function CampaignPaymentStep({
         </div>
       </div>
 
-      {savedCards.length ? (
-        <div className="space-y-2">
-          <Label>Saved Cards</Label>
-          {savedCards.map((card) => (
-            <div key={card.id}>
-              <p>
-                {card.brand} •••• {card.last4}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <></>
-      )}
 
       <div className="space-y-2 bg-muted p-3 rounded-md">
         <label className="text-sm font-bold text-foreground">
@@ -184,34 +223,7 @@ export default function CampaignPaymentStep({
         </div>
       </div>
 
-      {cards && cards.length > 0 ? (
-        <div className="space-y-3">
-          <Label>Pay using your saved card</Label>
-          {cards?.map((card) => (
-            <div key={card.id} className="flex items-center gap-2 w-full">
-              <Checkbox checked={data?.cardId === card.cardId} onCheckedChange={() => onChange({ ...data, cardId: card.cardId })} />
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] bg-[#E6F4EA] w-full">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{card.last_4}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {card.type}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
 
-          <div className="flex items-center gap-2 w-full">
-          <Checkbox checked={data?.cardId === ""} onCheckedChange={() => onChange({ ...data, cardId: "" })} />
-            <p className="text-sm font-medium pl-1">Use a new card</p>
-          </div>
-
-
-        </div>
-      ) : (
-        <></>
-      )}
     </div>
   );
 }

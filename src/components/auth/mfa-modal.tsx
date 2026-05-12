@@ -82,6 +82,7 @@ export function SetupMFAModal({
       setStep(defaultScreen === "qrCode" ? "scan" : "verify");
       setErrorMessage(null);
       setValue("");
+      onScanBack?.();
     } else {
       onScanBack?.();
     }
@@ -163,7 +164,7 @@ export function SetupMFAModal({
             onClick={handleBack}
             disabled={loading}
           >
-            {step === "verify" ? "Back to QR Code" : "Cancel"}
+            {step === "verify" ? "Back" : "Cancel"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -50,8 +50,8 @@ export default function PaymentSuccess() {
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex justify-center pb-6">
-          <Button className="min-w-[200px]" onClick={() => navigate("/dashboard")}>
-            Go to Dashboard
+          <Button className="min-w-[200px]" onClick={() => navigate("/dashboard/campaigns")}>
+            Go to Campaigns
           </Button>
         </CardFooter>
       </Card>

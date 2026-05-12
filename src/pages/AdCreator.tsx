@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Sparkles, Upload } from "lucide-react";
+import { Loader2, Sparkles, Upload } from "lucide-react";
 import { useTranslation } from "@/contexts/TranslationContext";
 import AdCreatorForm from "@/components/dashboard/ad-creator/AdCreatorForm";
 import AdGeneratingModal from "@/components/dashboard/ad-creator/AdGeneratingModal";
@@ -50,6 +50,7 @@ export default function AdCreator() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
+  const { id } = useParams<{ id: string }>();
 
   const [mode, setMode] = useState<AdMode>("ai");
   const [generatedAd, setGeneratedAd] = useState<AdStatusResponse | null>(null);
@@ -60,14 +61,14 @@ export default function AdCreator() {
   const [goal, setGoal] = useState("sales");
   const [query, setQuery] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
-  const [accent, setAccent] = useState("");
-  const [tone, setTone] = useState("friendly");
+  const [accent, setAccent] = useState("all");
+  const [tone, setTone] = useState("all");
   const [selectedMusic, setSelectedMusic] = useState("");
 
   const [language, setLanguage] = useState("en");
-  const [gender, setGender] = useState("female");
-  const [age, setAge] = useState("");
-  const [useCase, setUseCase] = useState("");
+  const [gender, setGender] = useState("neutral");
+  const [age, setAge] = useState("all");
+  const [useCase, setUseCase] = useState("all");
 
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
@@ -81,15 +82,12 @@ export default function AdCreator() {
   const [musicsPage, setMusicsPage] = useState(1);
   const [musicsTotalPages, setMusicsTotalPages] = useState(1);
 
-
-
   const [musicMood, setMusicMood] = useState("happy");
   const [musicGenre, setMusicGenre] = useState("");
   const [musicInstrument, setMusicInstrument] = useState("");
   const [musicRhythm, setMusicRhythm] = useState("");
   const [musicUseCase, setMusicUseCase] = useState("");
   const [musicQuery, setMusicQuery] = useState("");
-
 
   const [type, setType] = useState<"PROMPT" | "SCRIPT">("PROMPT");
 
@@ -103,26 +101,34 @@ export default function AdCreator() {
   const [proContent, setProContent] =
     useState<ProContentSettings>(DEFAULT_PRO_CONTENT);
   const [advertiserId, setAdvertiserId] = useState<string | null>(null);
-
+  const [loadedExistingCampaign, setLoadedExistingCampaign] = useState(false);
 
   const getAdStatus = async (jobId: string) => {
-    const {status, error, message, data} = await adsApi.checkAdStatus(jobId);
-    console.log("getAdStatus here ", {status, error, message, data});
-    if(status != 200){
-      toast({ title: "Error checking ad status", description: message, variant: 'destructive' });
+    const { status, error, message, data } = await adsApi.checkAdStatus(jobId);
+    console.log("getAdStatus here ", { status, error, message, data });
+    if (status != 200) {
+      toast({
+        title: "Error checking ad status",
+        description: message,
+        variant: "destructive",
+      });
       setIsGenerating(false);
-    }else {
-      if(data.data.finished){
-        if(data.data.error){
-          toast({ title: "Error checking ad status", description: "Unable to check Ad Status", variant: 'destructive' });
+    } else {
+      if (data.data.finished) {
+        if (data.data.error) {
+          toast({
+            title: "Error checking ad status",
+            description: "Unable to check Ad Status",
+            variant: "destructive",
+          });
           setIsGenerating(false);
-        }else {
+        } else {
           setIsGenerating(false);
           setGeneratedAd(data.data);
           setEditedScript(data.data.script);
           setType("SCRIPT");
         }
-      }else {
+      } else {
         setTimeout(() => {
           getAdStatus(jobId);
         }, 5000);
@@ -130,60 +136,74 @@ export default function AdCreator() {
     }
   };
 
-
-  const handleSaveAd = useCallback(async (adName: string) => {
-    await adsApi.updateAdStatus(jobId, adName);
-  }, [jobId]);
-
+  const handleSaveAd = useCallback(
+    async (adName: string) => {
+      await adsApi.updateAdStatus(jobId, adName);
+    },
+    [jobId],
+  );
 
   const handleGenerate = useCallback(async () => {
-    console.log("handleGenerated here ", {selectedVoice});
-    if(!selectedVoice){
-      toast({ title: "Error generating ad", description: "No voice selected", variant: 'destructive' });
+    console.log("handleGenerated here ", { selectedVoice });
+    if (!selectedVoice) {
+      toast({
+        title: "Error generating ad",
+        description: "No voice selected",
+        variant: "destructive",
+      });
       return;
     }
     setIsGenerating(true);
     try {
+      console.log("handleGenerated here ", {
+        description,
+        goal,
+        gender,
+        language,
+        tone,
+        selectedMusic,
+      });
 
-        console.log("handleGenerated here ", {description, goal, gender, language, tone, selectedMusic});
+      const contentSettings: Record<string, any> = {};
 
+      if (isPro) {
+        contentSettings["volume"] = proContent.volume;
+        contentSettings["audioFadeIn"] = proContent.fadeIn;
+        contentSettings["audioFadeOut"] = proContent.fadeOut;
+        contentSettings["playbackStart"] = proContent.startMs;
+        contentSettings["playbackEnd"] = proContent.endMs;
+        contentSettings["pixelUrl"] = trackingPixel;
+      }
 
-        const contentSettings: Record<string, any> = {};
-
-        if(isPro) {
-          contentSettings["volume"] = proContent.volume;
-          contentSettings["audioFadeIn"] = proContent.fadeIn;
-          contentSettings["audioFadeOut"] = proContent.fadeOut;
-          contentSettings["playbackStart"] = proContent.startMs;
-          contentSettings["playbackEnd"] = proContent.endMs;
-          contentSettings["pixelUrl"] = trackingPixel;
-
-        }
-
-        const {error, status, message, data} = await adsApi.createAd({
-          type,
-          campaignGoal: goal,
-          advertiserId: advertiserId,
-          prompt: type === "SCRIPT" && !generatedAd ? description : type === "PROMPT" ? description : editedScript,
-          tone: tone,
-          voiceId: selectedVoice,
-          musicId: selectedMusic || musics[0].externalId,
-          ...contentSettings
+      const { error, status, message, data } = await adsApi.createAd({
+        type,
+        campaignGoal: goal,
+        advertiserId: advertiserId,
+        prompt:
+          type === "SCRIPT" && !generatedAd
+            ? description
+            : type === "PROMPT"
+              ? description
+              : editedScript,
+        tone: tone,
+        voiceId: selectedVoice,
+        musicId: selectedMusic || musics[0].externalId,
+        ...contentSettings,
+      });
+      console.log("createAd here ", { error, status, message, data });
+      if (status != 200) {
+        toast({
+          title: t("ad_creator.generation_failed"),
+          description: message,
+          variant: "destructive",
         });
-        console.log("createAd here ", {error, status, message, data});
-        if(status != 200){
-          toast({
-            title: t("ad_creator.generation_failed"),
-            description: message,
-            variant: "destructive",
-          });
-          return;
-        }
+        return;
+      }
       if (error) throw error;
       const ad = data;
       // setGeneratedAd(ad);
       // setEditedScript(ad.script);
-      getAdStatus(data.data.jobId)
+      getAdStatus(data.data.jobId);
       setJobId(data.data.id);
     } catch (err) {
       console.error("Generate error:", err);
@@ -206,7 +226,16 @@ export default function AdCreator() {
     tone,
   ]);
 
-  const fetchMusicsPage = async (opts: { mood: string; genre: string; instrument: string; rhythm: string; useCase: string; query: string; page: number; reset?: boolean }) => {
+  const fetchMusicsPage = async (opts: {
+    mood: string;
+    genre: string;
+    instrument: string;
+    rhythm: string;
+    useCase: string;
+    query: string;
+    page: number;
+    reset?: boolean;
+  }) => {
     if (!opts.mood) return;
     if (opts.reset) {
       setMusicsLoading(true);
@@ -221,16 +250,24 @@ export default function AdCreator() {
     const { status, error, message, data } = await adsApi.getMusics({
       page: opts.page,
       limit: isPro ? PAGE_SIZE : 3,
-      mood: opts.mood,
-      genre: opts.genre,
-      instrument: opts.instrument,
-      rhythm: opts.rhythm,
-      use_case: opts.useCase,
+      mood: opts.mood === "" || opts.mood === "all" ? null : opts.mood,
+      genre: opts.genre === "" || opts.genre === "all" ? null : opts.genre,
+      instrument:
+        opts.instrument === "" || opts.instrument === "all"
+          ? null
+          : opts.instrument,
+      rhythm: opts.rhythm === "" || opts.rhythm === "all" ? null : opts.rhythm,
+      use_case:
+        opts.useCase === "" || opts.useCase === "all" ? null : opts.useCase,
       query: opts.query,
     });
 
     if (status !== 200 || error) {
-      toast({ title: "Error loading music", description: message, variant: "destructive" });
+      toast({
+        title: "Error loading music",
+        description: message,
+        variant: "destructive",
+      });
       setMusicsLoading(false);
       setMusicsLoadingMore(false);
       return;
@@ -244,7 +281,17 @@ export default function AdCreator() {
     setMusicsLoadingMore(false);
   };
 
-  const fetchVoicesPage = async (opts: { gender: string; language: string; tone: string; accent: string; age: string; useCase: string; page: number; reset?: boolean; query?: string }) => {
+  const fetchVoicesPage = async (opts: {
+    gender: string;
+    language: string;
+    tone: string;
+    accent: string;
+    age: string;
+    useCase: string;
+    page: number;
+    reset?: boolean;
+    query?: string;
+  }) => {
     if (!opts.gender || !opts.language || !opts.tone) return;
     if (opts.reset) {
       setVoicesLoading(true);
@@ -259,17 +306,25 @@ export default function AdCreator() {
     const { status, error, message, data } = await adsApi.getVoices({
       page: opts.page,
       limit: isPro ? PAGE_SIZE : 3,
-      gender: opts.gender,
-      language: opts.language,
-      characteristic: opts.tone,
-      accent: opts.accent,
-      age: opts.age,
-      useCase: opts.useCase,
+      gender:
+        opts.gender === "" || opts.gender === "neutral" ? null : opts.gender,
+      language:
+        opts.language === "" || opts.language === "all" ? null : opts.language,
+      characteristic:
+        opts.tone === "" || opts.tone === "all" ? null : opts.tone,
+      accent: opts.accent === "" || opts.accent === "all" ? null : opts.accent,
+      age: opts.age === "" || opts.age === "all" ? null : opts.age,
+      useCase:
+        opts.useCase === "" || opts.useCase === "all" ? null : opts.useCase,
       query: opts.query,
     });
 
     if (status !== 200 || error) {
-      toast({ title: t("ad_creator.error_loading_voices"), description: message, variant: "destructive" });
+      toast({
+        title: t("ad_creator.error_loading_voices"),
+        description: message,
+        variant: "destructive",
+      });
       setVoicesLoading(false);
       setVoicesLoadingMore(false);
       return;
@@ -287,18 +342,55 @@ export default function AdCreator() {
     if (!isPro) return;
     if (voicesLoading || voicesLoadingMore) return;
     if (voicesPage >= voicesTotalPages) return;
-    void fetchVoicesPage({ gender, language, tone, accent, age, useCase, page: voicesPage + 1 });
-  }, [accent, gender, isPro, language, tone, voicesLoading, voicesLoadingMore, voicesPage, voicesTotalPages]);
+    void fetchVoicesPage({
+      gender,
+      language,
+      tone,
+      accent,
+      age,
+      useCase,
+      page: voicesPage + 1,
+    });
+  }, [
+    accent,
+    gender,
+    isPro,
+    language,
+    tone,
+    voicesLoading,
+    voicesLoadingMore,
+    voicesPage,
+    voicesTotalPages,
+  ]);
 
   const loadMoreMusics = useCallback(() => {
     if (!isPro) return;
     if (musicsLoading || musicsLoadingMore) return;
     if (musicsPage >= musicsTotalPages) return;
-    void fetchMusicsPage({ mood: musicMood, genre: musicGenre, instrument: musicInstrument, rhythm: musicRhythm, useCase: musicUseCase, query: musicQuery, page: musicsPage + 1 });
-  }, [isPro, musicMood, musicGenre, musicInstrument, musicRhythm, musicUseCase, musicsLoading, musicsLoadingMore, musicsPage, musicsTotalPages, musicQuery]);
+    void fetchMusicsPage({
+      mood: musicMood,
+      genre: musicGenre,
+      instrument: musicInstrument,
+      rhythm: musicRhythm,
+      useCase: musicUseCase,
+      query: musicQuery,
+      page: musicsPage + 1,
+    });
+  }, [
+    isPro,
+    musicMood,
+    musicGenre,
+    musicInstrument,
+    musicRhythm,
+    musicUseCase,
+    musicsLoading,
+    musicsLoadingMore,
+    musicsPage,
+    musicsTotalPages,
+    musicQuery,
+  ]);
 
   const handleSaved = async () => {
-  
     // const session = getStoredSession();
     // if (!session) {
     //   toast({ title: "Session not found", variant: "destructive" });
@@ -306,7 +398,6 @@ export default function AdCreator() {
     // }
 
     // const { status, error, message } = await adsApi.uploadFile(file);
-
 
     // const { status, error, message } = await adsApi.uploadAudioAd({
     //   type: 1,
@@ -317,55 +408,111 @@ export default function AdCreator() {
     //   voiceId: selectedVoice,
     //   musicId: selectedMusic || musics[0].externalId
     // });
-    navigate("/dashboard/ads")
+    navigate("/dashboard/ads");
   };
 
   useEffect(() => {
     if (gender && language && tone) {
-      void fetchVoicesPage({ gender, language, tone, accent, age, useCase, page: 1, reset: true, query });
+      void fetchVoicesPage({
+        gender,
+        language,
+        tone,
+        accent,
+        age,
+        useCase,
+        page: 1,
+        reset: true,
+        query,
+      });
     }
   }, [gender, language, tone, accent, query, age, useCase]);
 
   useEffect(() => {
-      void fetchMusicsPage({ mood: musicMood, genre: musicGenre, instrument: musicInstrument, rhythm: musicRhythm, useCase: musicUseCase, query: musicQuery, page: 1, reset: true });
-  }, [musicMood, musicGenre, musicInstrument, musicRhythm, musicUseCase, musicQuery]);
+    void fetchMusicsPage({
+      mood: musicMood,
+      genre: musicGenre,
+      instrument: musicInstrument,
+      rhythm: musicRhythm,
+      useCase: musicUseCase,
+      query: musicQuery,
+      page: 1,
+      reset: true,
+    });
+  }, [
+    musicMood,
+    musicGenre,
+    musicInstrument,
+    musicRhythm,
+    musicUseCase,
+    musicQuery,
+  ]);
 
   useEffect(() => {
-    const getAdFromParams = async () => {
-      const adId = new URLSearchParams(window.location.search).get('ad');
-      const session = await auth.getSession();
-      if(!session) return;
+    if (id) {
+      const loadExistingAd = async (adId: string) => {
+        const session = getStoredSession();
+        if (!session) {
+          toast({ title: "Session not found", variant: "destructive" });
+          return;
+        }
 
-      if(adId){
-        const {data} = await adsApi.getAd(adId, session.data.session.currentAdvertiserId);
-        console.log("getAdFromParams here ", {data});
-        if(data){
+        const { data } = await adsApi.getAd(adId, session.currentAdvertiserId);
+        console.log("getAdFromParams here ", { data });
+        if (data) {
           setDescription(data.data.generatedScript);
           setGoal(data.data.campaignGoal);
           setType("SCRIPT");
 
-          const {status: voiceStatus, error: voiceError, message: voiceMessage, data: voiceData} = await adsApi.getVoice(data.data.voiceId)
-          console.log("getVoiceData here ", {voiceStatus, voiceError, voiceMessage, voiceData});
-          if(voiceStatus != 200){
-            toast({ title: "Error loading current voice", description: voiceMessage, variant: 'destructive' });
-          }else {
+          const {
+            status: voiceStatus,
+            error: voiceError,
+            message: voiceMessage,
+            data: voiceData,
+          } = await adsApi.getVoice(data.data.voiceId);
+          console.log("getVoiceData here ", {
+            voiceStatus,
+            voiceError,
+            voiceMessage,
+            voiceData,
+          });
+          if (voiceStatus != 200) {
+            toast({
+              title: "Error loading current voice",
+              description: voiceMessage,
+              variant: "destructive",
+            });
+          } else {
             setCurrentVoice(voiceData.data);
             setSelectedVoice(voiceData.data.externalId);
           }
 
-          const {status: musicStatus, error: musicError, message: musicMessage, data: musicData} = await adsApi.getMusic(data.data.musicId)
-          console.log("getMusicData here ", {musicStatus, musicError, musicMessage, musicData});
-          if(musicStatus != 200){
-            toast({ title: "Error loading current music", description: musicMessage, variant: 'destructive' });
-          }else {
+          const {
+            status: musicStatus,
+            error: musicError,
+            message: musicMessage,
+            data: musicData,
+          } = await adsApi.getMusic(data.data.musicId);
+          console.log("getMusicData here ", {
+            musicStatus,
+            musicError,
+            musicMessage,
+            musicData,
+          });
+          if (musicStatus != 200) {
+            toast({
+              title: "Error loading current music",
+              description: musicMessage,
+              variant: "destructive",
+            });
+          } else {
             setCurrentMusic(musicData.data);
             setSelectedMusic(musicData.data.externalId);
           }
         }
-      }
-    };
-
-    getAdFromParams();
+        setLoadedExistingCampaign(true);
+      };
+      loadExistingAd(id);
+    }
 
     const load = async () => {
       const {
@@ -373,9 +520,10 @@ export default function AdCreator() {
       } = await auth.getSession();
       if (!session) return;
 
-      if(!session.currentAdvertiserId){
-        const {status, error, message, data} = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-        if(status != 200){
+      if (!session.currentAdvertiserId) {
+        const { status, error, message, data } =
+          await advertiserApi.getAdvertisers(session.currentOrganizationId);
+        if (status != 200) {
           toast({
             title: t("ad_creator.error_loading_advertisers"),
             description: message,
@@ -384,57 +532,88 @@ export default function AdCreator() {
           return;
         }
         const advertisers = data.data;
-        if(advertisers.length > 0){
+        if (advertisers.length > 0) {
           auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
           setAdvertiserId(advertisers[0].id);
         }
-      }else {
+      } else {
         setAdvertiserId(session.currentAdvertiserId);
       }
-
     };
     load();
   }, []);
 
+  if (id && !loadedExistingCampaign)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin mr-2" />
+        Loading campaign data...
+      </div>
+    );
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">{t("ad_creator.title")}</h1>
-          <p className="text-muted-foreground">{t("ad_creator.subtitle")}</p>
+        {id ? (
+          <h1 className="text-2xl font-semibold text-foreground">
+            Edit your audio ad
+          </h1>
+        ) : (
+          <h1 className="text-2xl font-semibold text-foreground">
+            {t("ad_creator.title")}
+          </h1>
+        )}
       </div>
 
       {/* Mode Switcher — Pro only */}
-      {isPro && (
+      {isPro && !id && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setMode('ai')}
+            onClick={() => setMode("ai")}
             className={cn(
-              'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
-              mode === 'ai'
-                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                : 'border-border hover:border-primary/40'
+              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+              mode === "ai"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:border-primary/40",
             )}
           >
-            <Sparkles className={cn('h-5 w-5 shrink-0', mode === 'ai' ? 'text-primary' : 'text-muted-foreground')} />
+            <Sparkles
+              className={cn(
+                "h-5 w-5 shrink-0",
+                mode === "ai" ? "text-primary" : "text-muted-foreground",
+              )}
+            />
             <div>
-              <p className="text-sm font-medium text-foreground">{t("ad_creator.ai_mode_title")}</p>
-              <p className="text-xs text-muted-foreground">{t("ad_creator.ai_mode_desc")}</p>
+              <p className="text-sm font-medium text-foreground">
+                {t("ad_creator.ai_mode_title")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Write a short description, we'll generate a complete ad.
+              </p>
             </div>
           </button>
           <button
-            onClick={() => setMode('upload')}
+            onClick={() => setMode("upload")}
             className={cn(
-              'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
-              mode === 'upload'
-                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                : 'border-border hover:border-primary/40'
+              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+              mode === "upload"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:border-primary/40",
             )}
           >
-            <Upload className={cn('h-5 w-5 shrink-0', mode === 'upload' ? 'text-primary' : 'text-muted-foreground')} />
+            <Upload
+              className={cn(
+                "h-5 w-5 shrink-0",
+                mode === "upload" ? "text-primary" : "text-muted-foreground",
+              )}
+            />
             <div>
-              <p className="text-sm font-medium text-foreground">{t("ad_creator.upload_mode_title")}</p>
-              <p className="text-xs text-muted-foreground">{t("ad_creator.upload_mode_desc")}</p>
+              <p className="text-sm font-medium text-foreground">
+                {t("ad_creator.upload_mode_title")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("ad_creator.upload_mode_desc")}
+              </p>
             </div>
           </button>
         </div>
@@ -461,9 +640,7 @@ export default function AdCreator() {
               onAccentChange={setAccent}
               tone={tone}
               onToneChange={setTone}
-
               type={type}
-              
               musicMood={musicMood}
               onMusicMoodChange={setMusicMood}
               musicGenre={musicGenre}
@@ -509,6 +686,7 @@ export default function AdCreator() {
               onSelectedMusicChange={setSelectedMusic}
               currentVoice={currentVoice}
               currentMusic={currentMusic}
+              isEditing={!!id}
             />
           ) : (
             <UploadAdForm onSaved={handleSaved} />
@@ -516,8 +694,11 @@ export default function AdCreator() {
         </CardContent>
       </Card>
 
-      {mode === 'ai' && (
-        <AdGeneratingModal open={isGenerating} onCancel={() => setIsGenerating(false)} />
+      {mode === "ai" && (
+        <AdGeneratingModal
+          open={isGenerating}
+          onCancel={() => setIsGenerating(false)}
+        />
       )}
     </div>
   );

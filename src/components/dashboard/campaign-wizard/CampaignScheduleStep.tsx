@@ -87,6 +87,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   const [daysOfWeek, setDaysOfWeek] = useState(data.daysOfWeek || DAYS_OF_WEEK);
   const [timeSlots, setTimeSlots] = useState(data.timeSlots || TIME_SLOTS.map(s => s.value));
 
+  const today = new Date();
+
   const timezone = useMemo(() => {
     try {
       return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -138,8 +140,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   }
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
+      <div className=" flex flex-col lg:flex-row gap-4">
+        <div className="space-y-2 w-full">
           <Label>Start campaign from ({timezone})</Label>
           <div className="flex gap-2">
             <Popover open={startOpen} onOpenChange={setStartOpen}>
@@ -162,11 +164,13 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   mode="single"
                   selected={data.startDate ? new Date(data.startDate) : undefined}
                   onSelect={(date) => {
-                    onChange({ ...data, startDate: formatDate(date)});
+                    const nextDate = new Date(date);
+                    nextDate.setDate(nextDate.getDate() + 1);
+                    onChange({ ...data, startDate: formatDate(date), endDate: new Date(data.endDate) <= date ? formatDate(nextDate) : data.endDate });
                     // setStartDate(date);
                     setStartOpen(false);
                   }}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  disabled={(date) => date < today}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
@@ -178,7 +182,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
             />
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           <Label>End campaign at</Label>
           <div className="flex gap-2">
             <Popover open={endOpen} onOpenChange={setEndOpen}>
@@ -206,8 +210,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   }}
                   disabled={(date) => {
                     const today = new Date(new Date().setHours(0, 0, 0, 0));
-                    const start = data.startDate ? data.startDate : today;
-                    return date < start;
+                    const start = data.startDate ? new Date(data.startDate) : today;
+                    return date < start || date < today;
                   }}
                   initialFocus
                   className="p-3 pointer-events-auto"

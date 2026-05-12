@@ -196,6 +196,10 @@ export const adsApi = {
   createAd: (payload: Partial<Ad>) => 
     request<{status: number, message: string, data: Ad}>('/api/v1/creatives/createAds', { method: 'POST', body: {...payload, voice: payload.voiceId, music: payload.musicId} }),
 
+
+  deleteAd: (adId: string) =>
+    request<{status: number, message: string, data: Ad}>('/api/v1/creatives/deleteAd', { method: 'POST', body: { adId: adId } }),
+
   checkAdStatus: (jobId: string) =>
     request<{status: number, message: string, data: AdStatusResponse }>('/api/v1/creatives/checkAdStatus', { method: 'POST', body: { jobId: jobId } }),
 

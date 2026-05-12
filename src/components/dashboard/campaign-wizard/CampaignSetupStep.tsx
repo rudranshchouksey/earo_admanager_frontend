@@ -91,8 +91,8 @@ function PlayCell({ audioUrl }: { audioUrl: string | null }) {
   return (
     <>
       <audio ref={audioRef} src={audioUrl} preload="none" />
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={toggle}>
-        {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+      <Button variant="dark" size="icon" className="h-6 w-6 bg-[#0f1729] text-white hover:bg-[#0f1729]/90 rounded-full" onClick={toggle}>
+        {playing ? <Pause className="h-3 w-3 p-1" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
       </Button>
     </>
   );
@@ -398,19 +398,27 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
           placeholder={t('wizard.setup.campaign_name_placeholder')}
           value={data.campaignName}
           onChange={(e) => onChange({ ...data, campaignName: e.target.value })}
+          maxLength={200}
         />
+        <div className='flex justify-end'>
+          <span className='text-xs text-slate-900'>{data.campaignName.length}/200</span>
+        </div>
       </div>
 
       {/* External Campaign ID — Pro only */}
       {isPro && (
-        <div className="space-y-2 ">
+        <div className="space-y-2" style={{marginTop: 0}}>
           <Label>{t('wizard.setup.external_id')}</Label>
           <Input
             placeholder={t('wizard.setup.external_id_placeholder')}
             value={data.externalCampaignId || ''}
             onChange={(e) => onChange({ ...data, externalCampaignId: e.target.value })}
+            maxLength={50}
           />
-          <p className="text-xs text-muted-foreground">{t('wizard.setup.external_id_hint')}</p>
+          <div className='flex justify-between'>
+            <p className="text-xs text-muted-foreground">{t('wizard.setup.external_id_hint')}</p>
+            <span className='text-xs text-slate-900'>{(data.externalCampaignId || '').length}/50</span>
+          </div>
           </div>
       )}
     </div>

@@ -84,6 +84,20 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
 
   const handleSave = async () => {
     if (!file || !adName.trim()) return;
+
+
+    if(adName.length > 100){
+      toast({ title: t('Ad Name must be less than 100 characters'), variant: 'destructive' });
+      return;
+    }
+    const regex = /^[a-z0-9]+$/i;
+    if(!regex.test(adName)){
+      toast({ title: t('Ad Name must contain only letters and numbers'), variant: 'destructive' });
+      return;
+    }
+  
+
+
     setIsSaving(true);
     try {
       const { data: { session } } = await auth.getSession();

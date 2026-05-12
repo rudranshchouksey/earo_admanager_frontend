@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import {
 
 export default function PaymentFailed() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get("campaignId")?.trim() || undefined;
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
@@ -26,9 +28,21 @@ export default function PaymentFailed() {
             problem continues.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="flex justify-center pb-6">
-          <Button className="min-w-[200px]" variant="outline" onClick={() => navigate("/dashboard")}>
-            Go to Dashboard
+        <CardFooter className="flex flex-col items-center gap-2 pb-6 sm:flex-row sm:justify-center">
+          {campaignId ? (
+            <Button
+              className="min-w-[200px]"
+              onClick={() => navigate(`/dashboard/campaigns/${campaignId}`)}
+            >
+              Return to campaign
+            </Button>
+          ) : null}
+          <Button
+            className="min-w-[200px]"
+            variant="outline"
+            onClick={() => navigate("/dashboard/campaigns")}
+          >
+            Go to Campaigns
           </Button>
         </CardFooter>
       </Card>

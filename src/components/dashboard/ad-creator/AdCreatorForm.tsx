@@ -54,6 +54,7 @@ import { musicDefaults, voiceDefaults } from "@/lib/defaults";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { MyTooltip } from "@/components/ui/MyTooltip";
 
 interface AdCreatorFormProps {
   type: "PROMPT" | "SCRIPT";
@@ -121,6 +122,7 @@ interface AdCreatorFormProps {
   currentMusic: Music | null;
   onQueryChange: (q: string) => void;
   onMusicQueryChange: (q: string) => void;
+  isEditing: boolean
 }
 const LANGUAGES = [
   { id: "en", label: "English" },
@@ -352,7 +354,7 @@ function ExpressVoicePreview({
         </>
       )}
 
-      <Label className="text-xs text-muted-foreground">Voices</Label>
+      <Label className="text-xs text-muted-foreground">Available voices {voices.length}</Label>
       <div
         ref={scrollRef}
         className={`space-y-1 ${isPro ? "max-h-[250px] overflow-y-auto" : ""}`}
@@ -463,7 +465,7 @@ function ExpressMusicPreview({
           </div>
         </>
       )}
-      <Label className="text-xs text-muted-foreground">Music</Label>
+      <Label className="text-xs text-muted-foreground">Available music</Label>
       <div
         ref={scrollRef}
         className="max-h-[250px] overflow-y-auto"
@@ -471,8 +473,7 @@ function ExpressMusicPreview({
         {tracks &&
           tracks.length > 0 &&
           tracks.map((track) => (
-            <>
-              <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+              <div key={track.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
                 <Checkbox
                   id="music-preview"
                   checked={selectedMusic === track.externalId}
@@ -493,7 +494,6 @@ function ExpressMusicPreview({
                 </div>
                 <InlineAudioPlayer audioUrl={track.audioUrl} />
               </div>
-            </>
           ))}
         <div className="py-2 flex items-center justify-center">
           {musicsLoadingMore ? (
@@ -618,6 +618,7 @@ function ExpressCustomization({
   const availableGenders = voiceDefaults.gender;
   const availableAges = voiceDefaults.age;
   const availableUseCases = voiceDefaults.use_case;
+  const availableLanguages = voiceDefaults.language.map((l) => ({ id: l.code, label: l.name }));
 
   const availableMusicGenre = musicDefaults.genre;
   const availableMusicInstrument = musicDefaults.instrument;
@@ -645,8 +646,10 @@ function ExpressCustomization({
   }, [musicQuery, onMusicQueryChange]);
 
   return (
-    <div className="space-y-4">
-      <Label className="text-base font-semibold">Customization</Label>
+    <div className="space-y-4 mt-0 pt-0">
+      <Label className="text-base font-semibold flex flex-row gap-2 ">Choose your voice
+        <MyTooltip infoText="These are pre-cleared voices ready to use, no licensing required. The preview plays a sample so you can hear tone and pacing before committing." />
+      </Label>
       <div className="space-y-2">
         {isPro && (
           <div
@@ -686,8 +689,11 @@ function ExpressCustomization({
               <SelectValue placeholder="Select a language" />
             </SelectTrigger>
             <SelectContent>
-              {LANGUAGES.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
+              <SelectItem value={"all"}>
+                <span className="capitalize">Any</span>
+              </SelectItem>
+              {availableLanguages.map((l,index) => (
+                <SelectItem key={index} value={l.id}>
                   <span className="capitalize">{l.label}</span>
                 </SelectItem>
               ))}
@@ -701,6 +707,9 @@ function ExpressCustomization({
               <SelectValue placeholder="Select an accent" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={"all"}>
+                <span className="capitalize">Any</span>
+              </SelectItem>
               {availableAccents.map((a) => (
                 <SelectItem key={a} value={a}>
                   <span className="capitalize">{a}</span>
@@ -716,6 +725,9 @@ function ExpressCustomization({
               <SelectValue placeholder="Select a tone" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={"all"}>
+                <span className="capitalize">Any</span>
+              </SelectItem>
               {availableTones.map((t) => (
                 <SelectItem key={t} value={t}>
                   <span className="capitalize">{t}</span>
@@ -733,6 +745,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select a tone" />
               </SelectTrigger>
               <SelectContent>
+              <SelectItem value={"all"}>
+                <span className="capitalize">Any</span>
+              </SelectItem>
                 {availableAges.map((t) => (
                   <SelectItem key={t} value={t}>
                     <span className="capitalize">{t}</span>
@@ -751,6 +766,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select a use case" />
               </SelectTrigger>
               <SelectContent>
+              <SelectItem value={"all"}>
+                <span className="capitalize">Any</span>
+              </SelectItem>
                 {availableUseCases.map((t) => (
                   <SelectItem key={t} value={t}>
                     <span className="capitalize">{t}</span>
@@ -761,6 +779,13 @@ function ExpressCustomization({
           </div>
         )}
       </div>
+      {
+        !voicesLoading && voices.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No voices found for the selected criteria. Try adjusting your filters or search term.
+          </p>
+        )
+      }
 
       {/* Voice preview */}
       <ExpressVoicePreview
@@ -777,7 +802,9 @@ function ExpressCustomization({
 
       {/* Music */}
       <div className="space-y-2 mt-15">
-        <Label className="text-sm">Music</Label>
+        <Label className="text-base font-semibold flex flex-row gap-2">Choose your music
+          <MyTooltip infoText="Background music is optional but increases listener retention. It plays beneath your voiceover, use the Advanced Settings after selecting a track to control how the two blend together." />
+        </Label>
         <div className="space-y-2">
           {isPro && (
             <div
@@ -802,6 +829,9 @@ function ExpressCustomization({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={"all"}>
+                  <span className="capitalize">Any</span>
+                </SelectItem>
                 {availableMusicMoods.map((m) => (
                   <SelectItem key={m} value={m}>
                     <span className="capitalize">{m}</span>
@@ -817,6 +847,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select a genre" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={"all"}>
+                  <span className="capitalize">Any</span>
+                </SelectItem>
                 {availableMusicGenre.map((g) => (
                   <SelectItem key={g} value={g}>
                     <span className="capitalize">{g}</span>
@@ -835,6 +868,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select an instrument" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={"all"}>
+                  <span className="capitalize">Any</span>
+                </SelectItem>
                 {availableMusicInstrument.map((i) => (
                   <SelectItem key={i} value={i}>
                     <span className="capitalize">{i}</span>
@@ -850,6 +886,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select a rhythm" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={"all"}>
+                  <span className="capitalize">Any</span>
+                </SelectItem>
                 {availableMusicRhythm.map((r) => (
                   <SelectItem key={r} value={r}>
                     <span className="capitalize">{r}</span>
@@ -865,6 +904,9 @@ function ExpressCustomization({
                 <SelectValue placeholder="Select a use case" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={"all"}>
+                  <span className="capitalize">Any</span>
+                </SelectItem>
                 {availableMusicUseCase.map((u) => (
                   <SelectItem key={u} value={u}>
                     <span className="capitalize">{u}</span>
@@ -875,6 +917,14 @@ function ExpressCustomization({
           </div>
         </div>
       </div>
+
+      {
+        !musicsLoadingMore && musics.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No music tracks found for the selected criteria. Try adjusting your filters or search term.
+          </p>
+        )
+      }
 
       <ExpressMusicPreview
         tracks={musics}
@@ -1047,6 +1097,7 @@ export default function AdCreatorForm({
   currentMusic,
   onQueryChange,
   onMusicQueryChange,
+  isEditing=false
 }: AdCreatorFormProps) {
   const { t } = useTranslation();
   const canSubmit = description?.trim().length > 0;
@@ -1153,13 +1204,13 @@ export default function AdCreatorForm({
   return (
     <div className="space-y-6">
       {/* ── Generate Section (hidden after ad is created) ── */}
-      {!hasAd && (
+      {!hasAd && !isEditing && (
         <div className="space-y-1">
           <h3 className="text-lg font-semibold text-foreground">
-            What are you advertising?
+            Start with your brand
           </h3>
           <p className="text-sm text-muted-foreground">
-            Tell us about your business and we'll create a script for you.
+            we'll create a script for you.
           </p>
         </div>
       )}
@@ -1168,7 +1219,9 @@ export default function AdCreatorForm({
         <>
           {type === "PROMPT" && (
             <div className="space-y-2">
-              <Label>{t("ad_creator.campaign_goal")}</Label>
+              <Label className="flex flex-row gap-2 justify-start items-center w-full">{t("ad_creator.campaign_goal")}
+                <MyTooltip infoText=" This tells the AI what outcome you're optimising for, a sales-focused script sounds different from an awareness one. Pick the goal that matches how you'll measure success." />
+              </Label>
               <Select value={goal} onValueChange={onGoalChange}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1201,10 +1254,11 @@ export default function AdCreatorForm({
           )}
 
           <div className="space-y-2">
-            <Label>
+            <Label className="flex flex-row gap-2 justify-start items-center w-full">
               {type === "PROMPT"
                 ? t("ad_creator.tell_business")
                 : t("ad_creator.ad_script")}
+                <MyTooltip infoText="The more specific you are, the better your script. Include your URL, what makes you different, and exactly what you want listeners to do, the AI will do the rest." />
             </Label>
             <Textarea
               placeholder={
@@ -1224,6 +1278,10 @@ export default function AdCreatorForm({
                 {description.length || 0}/{500} characters
               </span>
             </div>
+          </div>
+
+          <div className="my-0 py-0">
+            <h6 className="text-[18px] font-semibold my-0 py-0">Filter to find a voice and music track that fits your brand</h6>
           </div>
 
           <ExpressCustomization
@@ -1287,7 +1345,15 @@ export default function AdCreatorForm({
             disabled={!canSubmit || !selectedVoice || !selectedMusic || isGenerating}
           >
             {t("ad_creator.generate_ad")}
+            <MyTooltip infoText="Your ad will be generated in seconds. You can preview it, adjust the script, swap the voice or music, and regenerate as many times as you need before saving." />
           </Button>
+          {
+            (!canSubmit || !selectedVoice || !selectedMusic || isGenerating) ? (
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                Complete the details above to generate your ad
+              </p>
+            ): null
+          }
         </>
       )}
 

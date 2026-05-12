@@ -89,6 +89,8 @@ export default function Account() {
   const [mfaToken, setMFAToken] = useState("");
   const [session, setSession] = useState<AuthSession | null>(null);
 
+  const [paymentMethods, setPaymentMethods] = useState<[]>([]);
+
   const getAdvertisers = async (orgId: string) => {
     const {
       data: advertisers,
@@ -419,14 +421,14 @@ export default function Account() {
         <TabsList
           className={`grid w-full ${isAgency ? "grid-cols-5" : isPro ? "grid-cols-4" : "grid-cols-4"}`}
         >
-          {!isPro && (
+          {(
             <TabsTrigger value="profile">
               {t("account.tab_profile")}
             </TabsTrigger>
           )}
-          {isPro && (
+          {/* {isPro && (
             <TabsTrigger value="users">{t("account.tab_users")}</TabsTrigger>
-          )}
+          )} */}
           {isAgency && (
             <TabsTrigger value="advertisers">
               {t("account.tab_advertisers")}
@@ -711,7 +713,7 @@ export default function Account() {
         {/* BILLING TAB */}
         <TabsContent value="billing" className="mt-4 space-y-4">
           <Tabs defaultValue="prepaid">
-            <TabsList
+            {/* <TabsList
               className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
             >
               <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
@@ -720,11 +722,11 @@ export default function Account() {
                   {t("account.postpaid")}
                 </TabsTrigger>
               )}
-            </TabsList>
+            </TabsList> */}
 
             {/* PREPAID SUB-TAB */}
             <TabsContent value="prepaid" className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card>
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -871,7 +873,7 @@ export default function Account() {
             </TabsContent>
 
             {/* POSTPAID SUB-TAB (Pro only) */}
-            {isAgency && (
+            {/* {isAgency && (
               <TabsContent value="postpaid" className="mt-4 space-y-4">
                 <Card>
                   <CardHeader>
@@ -1008,7 +1010,7 @@ export default function Account() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            )}
+            )} */}
           </Tabs>
         </TabsContent>
       </Tabs>

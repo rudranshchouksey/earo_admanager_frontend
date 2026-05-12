@@ -3,6 +3,35 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
 
+/** All inline WaveSurfer instances — pause others before playing one. */
+const inlineWaveSurferInstances = new Set<WaveSurfer>();
+
+type WaveSurferWithPlayback = WaveSurfer & { isPlaying: () => boolean; pause: () => void };
+
+function pauseOtherInlineWaveSurfers(except: WaveSurfer) {
+  for (const w of inlineWaveSurferInstances) {
+    if (w === except) continue;
+    try {
+      const p = w as unknown as WaveSurferWithPlayback;
+      if (p.isPlaying()) p.pause();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Pause any playing HTML media so only one source plays at a time. */
+function pauseAllDomHtmlMedia() {
+  document.querySelectorAll('audio, video').forEach((el) => {
+    const media = el as HTMLMediaElement;
+    try {
+      if (!media.paused) media.pause();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
 interface InlineAudioPlayerProps {
   audioUrl: string;
 }
@@ -68,6 +97,7 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
       }
     });
     waveSurferRef.current = ws;
+    inlineWaveSurferInstances.add(ws);
 
     const unsubscribers: Array<() => void> = [];
 
@@ -106,18 +136,26 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
 
     return () => {
       unsubscribers.forEach((u) => u());
+      inlineWaveSurferInstances.delete(ws);
       ws.destroy();
       if (waveSurferRef.current === ws) waveSurferRef.current = null;
     };
   }, [audioUrl]);
 
-  const toggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!audioUrl) return;
-    const ws = waveSurferRef.current;
-    if (!ws) return;
-    ws.playPause();
-  }, []);
+  const toggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!audioUrl) return;
+      const ws = waveSurferRef.current;
+      if (!ws) return;
+      if (!isPlaying) {
+        pauseOtherInlineWaveSurfers(ws);
+        pauseAllDomHtmlMedia();
+      }
+      void ws.playPause();
+    },
+    [audioUrl, isPlaying]
+  );
 
   return (
     <div

@@ -1,25 +1,17 @@
 import { useState, useRef, useCallback } from 'react';
+import { Globe, Upload, X, Image, Eye, ChevronDown, RectangleHorizontal, Square, RectangleVertical, Gem } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Upload, X, Image, Eye, ChevronDown, RectangleHorizontal, Square, RectangleVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialogHeader } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 
-const BANNER_TYPES = [
+
+export const BANNER_TYPES = [
   { type: 'rectangle' as const, label: 'Rectangle', dimensions: '300×250', icon: RectangleHorizontal },
   { type: 'square' as const, label: 'Square', dimensions: '300×300', icon: Square },
   { type: 'vertical' as const, label: 'Vertical', dimensions: '160×600', icon: RectangleVertical },
@@ -27,7 +19,7 @@ const BANNER_TYPES = [
 
 type BannerType = typeof BANNER_TYPES[number]['type'];
 
-interface BannerSlot {
+export interface BannerSlot {
   type: BannerType;
   fileName: string | null;
   preview: string | null;
@@ -65,11 +57,74 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget }: P
     setUploadDialogOpen(true);
   };
 
-  const processFile = useCallback((file: File) => {
+  async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      // 1. Read the file as a Data URL
+      reader.readAsDataURL(file);
+
+      reader.onload = (e) => {
+        const img = new window.Image();
+        
+        // 2. Set the image source to the result of the reader
+        img.src = e.target.result.toString();
+
+        img.onload = () => {
+          // 3. Access the naturalWidth and naturalHeight
+          const dimensions = {
+            width: img.naturalWidth,
+            height: img.naturalHeight
+          };
+          resolve(dimensions);
+        };
+
+        img.onerror = (err) => reject("Error loading image: " + err);
+      };
+
+      reader.onerror = (err) => reject("Error reading file: " + err);
+    });
+  }
+
+  const processFile = useCallback( async (file: File) => {
     if (!selectedType) return;
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-    if (!validTypes.includes(file.type)) return;
-    if (file.size > 20 * 1024 * 1024) return;
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Please upload an image file (JPEG, JPG, PNG, GIF).",
+        variant: "destructive",
+      });
+      return;
+      }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    };
+
+    console.log("Processing file:", file);
+    const dimensions = await getImageDimensions(file);
+
+    const acceptedDimensions = {
+      rectangle: { width: 300, height: 250 },
+      square: { width: 300, height: 300 },
+      vertical: { width: 160, height: 600 },
+    };
+
+    const required = acceptedDimensions[selectedType];
+    if (dimensions.width != required.width || dimensions.height != required.height) {
+      toast({
+        title: "Image dimensions incorrect",
+        description: `Your image is ${dimensions.width}×${dimensions.height}px. Please upload an image that is exactly ${required.width}×${required.height}px.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const preview = URL.createObjectURL(file);
     const existingIndex = data.banners.findIndex(b => b.type === selectedType);
@@ -234,7 +289,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget }: P
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Upload a .JPEG, .JPG, .PNG, .GIF ({selectedTypeInfo?.dimensions} min, 6000×6000 max). Max file size: 20MB.
+                Upload a .JPEG, .JPG, .PNG, .GIF ({selectedTypeInfo?.dimensions} min, 6000×6000 max). Max file size: 5MB.
               </p>
 
               <input

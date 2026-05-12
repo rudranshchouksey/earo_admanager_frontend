@@ -89,18 +89,18 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
             </p>
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">~{formatCompactNumber(estimatedAdsPlayed)}</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(estimatedAdsPlayed)}</p>
               <p className="text-xs text-muted-foreground">Estimated ads played</p>
             </div>
 
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">~{formatCompactNumber(uniqueListeners)}</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(uniqueListeners)}</p>
               <p className="text-xs text-muted-foreground">Estimated unique listeners</p>
             </div>
 
             <div>
-              <p className="text-lg font-semibold text-foreground leading-tight">~{frequency.toFixed(0)}x</p>
+              <p className="text-lg font-semibold text-foreground leading-tight">{frequency.toFixed(0)}x</p>
               <p className="text-xs text-muted-foreground">Estimated frequency</p>
             </div>
 

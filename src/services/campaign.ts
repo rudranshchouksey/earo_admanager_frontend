@@ -1,5 +1,35 @@
 import { request } from './api';
 
+export interface AdGroup {
+  "id": string,
+  "extGoalId": string | null,
+  "campaignId": string,
+  "inventoryType": string,
+  "adPosition": string[],
+  "showIds": [],
+  "geoData": null,
+  "geoCountries": string[],
+  "businessLocations": [],
+  "demogGender": string,
+  "demogAge": [],
+  "deviceType": [],
+  "podcastTopics": [ ],
+  "podcastAudiences": [],
+  "streamingTopics": [],
+  "streamingAudiences": [],
+  "showsInventory": [],
+  "bannerOne": string,
+  "bannerTwo": string,
+  "bannerThree": string,
+  "crossDevice": false,
+  "manualCpm": null,
+  "dayParting": null,
+  "rotationMode": null,
+  "createdAt": string,
+  "updatedAt": string,
+  "deletedAt": null
+}
+
 export interface Campaign {
   id?: string;
   campaignName?: string;
@@ -19,6 +49,7 @@ export interface Campaign {
   monthlyBilling?: boolean;
   billingDuration?: number;
   externalId?: string;
+  externalReference?: string;
   inventoryType?: string;
   geoCountries?: string[];
   businessLocations?: string[];
@@ -33,14 +64,18 @@ export interface Campaign {
   bannerTwo?: string;
   bannerThree?: string;
   impressionPixel?: string;
+  displayPixel?: string;
   discountCoupon?: string;
   isSavedCard?: boolean;
   payment_url?: string;
   paid?: boolean;
+  dailyCap?: number;
+  totalBudget?: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
+  adGroups?: AdGroup[];
 }
 
-export interface CampaignResponse {
+export interface CampaignsResponse {
   status: number;
   message: string;
   data: Campaign[];
@@ -52,17 +87,39 @@ export interface CampaignResponse {
   };
 }
 
+export interface CampaignResponse {
+  status: number;
+  message: string;
+  data: Campaign;
+}
+
+interface CreateCampaignResponse {
+  status: number;
+  message: string;
+  data: {
+    id: string;
+  };
+  payment_url: string;
+}
+
 export const campaignApi = {
   applyCoupon: (amount: number, couponCode: string) =>
     request<any>('/api/v1/wallet-billing/applyCoupon', { method: 'POST', body: { amount, couponCode } }),
 
   /** Fetches all campaigns for the dashboard */
-  getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = ''}) => 
-    request<CampaignResponse>('/api/v1/campaigns/getCampaigns', {method: "POST", body: {page, limit, search, status, advertiserId}}),
+  getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = '', sortBy = 'createdAt', sortOrder = 'desc'}) => 
+    request<CampaignsResponse>('/api/v1/campaigns/getCampaigns', {method: "POST", body: {page, limit, search, status, advertiserId, sortBy, sortOrder}}),
+
+  /** Fetches all campaigns for the dashboard */
+  getCampaign: ({id, advertiserId = ''}) => 
+    request<CampaignResponse>('/api/v1/campaigns/getCampaign', {method: "POST", body: {campaignId: id, advertiserId}}),
 
   /** Creates a new distribution campaign linked to an Ad ID */
   createCampaign: (payload: Partial<Campaign>) => 
-    request<Campaign>('/api/v1/campaigns/launchCampaign', { method: 'POST', body: payload }),
+    request<CreateCampaignResponse>('/api/v1/campaigns/launchCampaign', { method: 'POST', body: payload }),
+
+  draftCampaign: (payload: Partial<Campaign>) =>
+    request<Campaign>('/api/v1/campaigns/saveDraftCampaign', { method: 'POST', body: payload }),
 
   /** Fetches real-time analytics for the reports page */
   getCampaignStats: () => 

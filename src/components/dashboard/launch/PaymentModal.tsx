@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { Loader2 } from "lucide-react";
+import { Cross, CrossIcon, Loader2 } from "lucide-react";
+import { Close } from "@radix-ui/react-toast";
 
 export interface PaymentModalProps {
   open: boolean;
@@ -50,7 +51,6 @@ export default function PaymentModal({
         // 1. Check if the script is already present to avoid duplicates
         if (document.querySelector(`script[src="${SCRIPT_URL}"]`)) {
 
-            
             const mamoPay = new MamoPay();
 
             mamoPay.addIframeToWebsite(elementID, paymentLinkUrl);
@@ -62,6 +62,7 @@ export default function PaymentModal({
         scriptTag.src = SCRIPT_URL;
         scriptTag.async = true;
     
+        
         scriptTag.onload = () => {
             // MamoPay is attached to the window object by the script
             const mamoPay = new MamoPay();
@@ -78,7 +79,6 @@ export default function PaymentModal({
     addIframeToWebsite(mountId.current, paymentUrl);
 
     return () => {
-
     //   setIframeLoading(false);
     };
   }, [open, paymentUrl]);
@@ -93,6 +93,9 @@ export default function PaymentModal({
           "flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-full md:max-w-[400px] flex-col gap-0 overflow-hidden p-4",
         )}
       >
+        <div className="w-full flex justify-end">
+        <span className="text-md font-semibold py-2 cursor-pointer"  onClick={handleCancel}>Cancel Payment</span>
+        </div>
         {paymentUrl ? (
           <div className="relative min-h-[min(70vh,640px)] w-full flex-1 bg-muted/20">
             {iframeLoading && (

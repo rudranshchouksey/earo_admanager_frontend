@@ -219,13 +219,16 @@ export default function AdsLibrary() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    // const { error } = await adsApi.deleteAd(id);
-    // if (error) {
-    //   toast({ title: t('ads.delete_failed'), variant: 'destructive' });
-    // } else {
-    //   setAds((prev) => prev.filter((a) => a.id !== id));
-    //   toast({ title: t('ads.deleted') });
-    // }
+    const { error, status, message } = await adsApi.deleteAd(id);
+
+    if (status !== 200 || error) {
+      toast({ title: t('ads.delete_failed'), variant: 'destructive' });
+      return;
+    }
+    
+    fetchAds({ page, limit, search: search.trim() || undefined, status: apiStatus });
+    toast({ title: t('ads.deleted') });
+  
   };
 
   const handleExportCSV = async () => {
@@ -342,7 +345,7 @@ export default function AdsLibrary() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
             onClick={(e) => e.stopPropagation()}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -373,10 +376,10 @@ export default function AdsLibrary() {
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
         onClick={(e) => {
           e.stopPropagation();
-          navigate(`/dashboard/ads/new?ad=${ad.id}`);
+          navigate(`/dashboard/ads/${ad.id}`);
         }}
       >
         <Pencil className="h-3.5 w-3.5" />
