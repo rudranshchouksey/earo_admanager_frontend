@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-         sans: ["Switzer", "system-ui", "sans-serif"],
+         sans: ["Poppins", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

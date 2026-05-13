@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -22,19 +22,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { api } from '@/services/api';
+import { auth, AuthSession } from '@/services/auth';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { useTranslation } from '@/contexts/TranslationContext';
 import AlertBar from '@/components/dashboard/AlertBar';
 import { useDirection } from '@/contexts/DirectionContext';
+import { AgencySignup, OnboardingRole } from './AgencySignup';
+import { organizationApi } from '@/services/organization';
+import { toast } from '@/hooks/use-toast';
+import { Advertiser, advertiserApi } from '@/services/advertiser';
+import { appNotifications } from '@/services/appNotifications';
+import { cn } from '@/lib/utils';
 
-const MOCK_ADVERTISERS = [
-  { id: 'adv-001', name: 'Careem' },
-  { id: 'adv-002', name: 'Noon' },
-  { id: 'adv-003', name: 'Emirates NBD' },
-  { id: 'adv-004', name: 'Talabat' },
-  { id: 'adv-005', name: 'Kitopi' },
-];
+import logoFull from '@/assets/logo-full.png';
+import logo from '@/assets/logo.png';
 
 const BREADCRUMB_KEYS: Record<string, string> = {
   dashboard: 'layout.nav_dashboard',
@@ -73,6 +74,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
+  const [showAgencySignup, setShowAgencySignup] = useState(false);
+  const [showAgencySignupBtn, setShowAgencySignupBtn] = useState(false)
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+
+  const onSelectRole = async (role: OnboardingRole) => {
+    setShowAgencySignup(false);
+    const { error, status, message } = await organizationApi.updateOrganizationType(session?.user?.id, role);
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } else {
+      auth.userUpgradedToAgency();
+      toast({
+        title: t("common.success"),
+        description: "Upgraded to agency successfully",
+        variant: "default",
+      });
+    }
+  };
 
   const navItems = [
     { path: '/dashboard', label: t('layout.nav_dashboard'), icon: LayoutDashboard },
@@ -82,14 +106,63 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
   const accountItem = { path: '/dashboard/account', label: t('layout.nav_account'), icon: Settings };
 
+
+  const getAdvertisers = useCallback(async (organizationId: string, preferredAdvertiserId?: string) => {
+    if (!organizationId) return;
+    const { data, error, status } = await advertiserApi.getAdvertisers(organizationId);
+    if (error || status !== 200) {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } else {
+      const list = data.data ?? [];
+      setAdvertisers(list);
+      setSelectedAdvertiser((prev) => {
+        const desired = preferredAdvertiserId || prev;
+        if (desired && list.some((a) => a.id === desired)) return desired;
+        return list[0]?.id ?? '';
+      });
+    }
+  }, [t]);
+
   useEffect(() => {
-    api.auth.getSession().then(({ data: { session } }) => {
+    if (selectedAdvertiser) {
+      console.log("selectedAdvertiser", selectedAdvertiser);
+      appNotifications.notify('advertiser:selected', { advertiserId: selectedAdvertiser });
+      auth.setCurrentAdvertiserId(selectedAdvertiser, advertisers.find((a) => a.id === selectedAdvertiser)?.isPro ?? false);
+      const orgId = advertisers.find((a) => a.id === selectedAdvertiser)?.orgId;
+      if (orgId) {
+        auth.setCurrentOrganizationId(orgId);
+      }
+    }
+  }, [selectedAdvertiser])
+  
+
+  useEffect(() => {
+    auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
+      setSession(session);
+      if(!session.user.app_metadata.isAgency) setShowAgencySignupBtn(true);
+      else {
+        // Prefer the stored advertiserId (from last selection) on reload.
+        getAdvertisers(session?.currentOrganizationId ?? '', session?.currentAdvertiserId ?? '');
+      }
+      setSelectedAdvertiser(session?.currentAdvertiserId ?? '');
     });
-  }, []);
+  }, [getAdvertisers]);
+
+  useEffect(() => {
+    return appNotifications.subscribe('advertisers:changed', (payload) => {
+      const orgId = payload?.organizationId ?? session?.currentOrganizationId;
+      if (!orgId || !session?.user?.app_metadata?.isAgency) return;
+      void getAdvertisers(orgId);
+    });
+  }, [getAdvertisers, session?.currentOrganizationId, session?.user?.app_metadata?.isAgency]);
 
   const handleSignOut = async () => {
-    await api.auth.signOut();
+    await auth.signOut();
     navigate('/login');
   };
 
@@ -105,10 +178,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-sidebar-border">
-        <Headphones className="h-7 w-7 text-sidebar-foreground" />
-        {!collapsed && (
-          <span className="text-sm font-semibold text-sidebar-foreground">{t('layout.brand_name')}</span>
+      <div className={`flex items-center h-14 shrink-0 border-b border-sidebar-border ${collapsed ? 'justify-center px-4' : 'px-4'}`}>
+        {collapsed ? (
+          <img src={logo} alt="EARO" className="h-7 w-auto" />
+        ) : (
+          <img src={logoFull} alt="EARO" className="h-7" />
         )}
       </div>
 
@@ -131,16 +205,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         ))}
       </nav>
 
-      <div className="hidden px-3 py-3 border-t border-sidebar-border space-y-3">
-        <a
-          href="/docs/nextads-technical-overview.md"
-          download
-          className={`flex items-center gap-2 rounded-lg text-xs font-medium transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 py-1.5 ${collapsed ? 'justify-center px-1' : 'px-3'}`}
-        >
-          <Download className="h-3.5 w-3.5 shrink-0" />
-          {!collapsed && <span>{t('layout.tech_spec')}</span>}
-        </a>
-      </div>
 
       {/* Footer */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
@@ -159,6 +223,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
+        {showAgencySignupBtn && (
+          <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
+        )}
+
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 w-full transition-colors"
@@ -239,9 +307,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SelectValue placeholder={t('layout.choose_advertiser')} />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_ADVERTISERS.map((adv) => (
+                {advertisers.map((adv) => (
                   <SelectItem key={adv.id} value={adv.id} className="text-xs">
-                    {adv.name}
+                    {adv.advertiserName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -261,8 +329,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </Button>
             </div>
           )}
-
-            <Select value={localeValue} onValueChange={changeLocale}>
+          {/* TODO: Add locale selector */}
+            {/* <Select value={localeValue} onValueChange={changeLocale}>
               <SelectTrigger className="h-9 w-[180px] text-xs border-border gap-2">
                 <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <SelectValue placeholder={t('layout.choose_locale')} />
@@ -271,17 +339,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SelectItem value="en">{t('layout.language_en')}</SelectItem>
                 <SelectItem value="ar">{t('layout.language_ar')}</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </header>
 
         <AlertBar />
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className={cn(
+          "flex-1 overflow-auto p-4 lg:p-6",
+          (location.pathname === '/dashboard/campaigns/new' || location.pathname === '/dashboard/ads/new') && 'bg-[hsl(240,5%,96%)]'
+        )}>
           {children}
         </main>
       </div>
+
+      {showAgencySignup && (
+        <AgencySignup
+          open={showAgencySignup}
+          onOpenChange={(open) => {
+            if (!open) setShowAgencySignup(false);
+          }}
+          onSelectRole={onSelectRole}
+        />
+      )}
     </div>
   );
 }

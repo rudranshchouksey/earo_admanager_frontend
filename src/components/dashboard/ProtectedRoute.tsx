@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
 import type { AuthSession } from '@/services/auth';
 
 interface ProtectedRouteProps {
@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     let isMounted = true;
 
-    const { data: { subscription } } = api.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = auth.onAuthStateChange((_event, nextSession) => {
       if (!isMounted) return;
       setSession(nextSession);
       if (!nextSession) {
@@ -25,7 +25,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     });
 
     const init = async () => {
-      const { data: { session: initial } } = await api.auth.getSession();
+      const { data: { session: initial } } = await auth.getSession();
       if (!isMounted) return;
       setSession(initial);
       if (!initial) navigate('/login');

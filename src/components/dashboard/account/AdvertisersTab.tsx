@@ -14,16 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards } from '@/components/ui/mobile-data-card';
-
+import { OrganizationIndustry } from '@/services/organization';
+import { Advertiser } from '@/services/advertiser';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-interface Advertiser {
-  id: string;
-  name: string;
-  external_id: string;
-  industry: string;
-  status: 'active' | 'paused' | 'ended';
-}
 
 const INDUSTRIES = [
   'Retail', 'Food & Beverage', 'Technology', 'Healthcare', 'Education',
@@ -36,28 +30,41 @@ const statusColors: Record<string, string> = {
   ended: 'destructive',
 };
 
-const MOCK_ADVERTISERS: Advertiser[] = [
-  { id: '1', name: 'Careem', external_id: 'ADV-10231', industry: 'Technology', status: 'active' },
-  { id: '2', name: 'Noon', external_id: 'ADV-10232', industry: 'Retail', status: 'active' },
-  { id: '3', name: 'Emirates NBD', external_id: 'ADV-10233', industry: 'Finance', status: 'active' },
-  { id: '4', name: 'Talabat', external_id: 'ADV-10234', industry: 'Food & Beverage', status: 'paused' },
-  { id: '5', name: 'Kitopi', external_id: 'ADV-10235', industry: 'Food & Beverage', status: 'ended' },
-];
 
-const defaultForm: Omit<Advertiser, 'id'> = {
+const defaultForm: Record<string, string> = {
+  id: '',
+  extId: '',
   name: '',
   external_id: '',
-  industry: '',
-  status: 'active',
+  industry: 'HOSPITALITY',
+  status: 'ACTIVE',
 };
 
-export default function AdvertisersTab() {
+export interface AdvertiserCreateObj {
+  advertiserName: string;
+  industry: string;
+}
+
+export interface AdvertiserUpdateObj {
+  advertiserId: string;
+  advertiserName: string;
+  industry: string;
+  status: string;
+  extId: string;
+}
+
+interface AdvertiserTabProps {
+  advertisers: Advertiser[];
+  createAdvertiser: (advertiser: AdvertiserCreateObj) => Promise<{status: number, error: Error, message: string}>;
+  updateAdvertiser: (advertiser: AdvertiserUpdateObj) => Promise<{status: number, error: Error, message: string}>;
+}
+
+export default function AdvertisersTab({ advertisers, createAdvertiser, updateAdvertiser }: AdvertiserTabProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const [advertisers, setAdvertisers] = useState<Advertiser[]>(MOCK_ADVERTISERS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
-  const [form, setForm] = useState<Omit<Advertiser, 'id'>>(defaultForm);
+  const [form, setForm] = useState<Omit<Record<string, string>, 'id'>>(defaultForm);
 
   const openCreate = () => {
     setEditing(null);
@@ -67,32 +74,47 @@ export default function AdvertisersTab() {
 
   const openEdit = (adv: Advertiser) => {
     setEditing(adv);
-    setForm({ name: adv.name, external_id: adv.external_id, industry: adv.industry, status: adv.status });
+    setForm({ name: adv.advertiserName, id: adv.id, industry: adv.industry, status: adv.status, extId: adv.extId });
     setDialogOpen(true);
   };
 
   const handleSuspend = (advId: string) => {
-    setAdvertisers((prev) =>
-      prev.map((a) => (a.id === advId ? { ...a, status: 'paused' as const } : a))
-    );
+    // setAdvertisers((prev) =>
+    //   prev.map((a) => (a.id === advId ? { ...a, status: 'paused' as const } : a))
+    // );
     toast({ title: t('account.advertiser_suspended') });
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.external_id || !form.industry) {
+  const handleSave = async () => {
+    if (!form.name || !form.industry) {
       toast({ title: t('account.fill_all_required'), variant: 'destructive' });
       return;
     }
 
     if (editing) {
-      setAdvertisers((prev) =>
-        prev.map((a) => (a.id === editing.id ? { ...a, ...form } : a))
-      );
-      toast({ title: t('account.advertiser_updated') });
+      const { status, error,  message} = await updateAdvertiser({
+        advertiserId: form.id,
+        advertiserName: form.name,
+        industry: form.industry,
+        status: form.status,
+        extId: form.extId
+      });
+      if(status !== 200 || error){
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: message });
+
     } else {
-      const newAdv: Advertiser = { ...form, id: crypto.randomUUID() };
-      setAdvertisers((prev) => [...prev, newAdv]);
-      toast({ title: t('account.advertiser_created') });
+      const { status, error,  message} = await createAdvertiser({
+        advertiserName: form.name,
+        industry: form.industry
+      });
+      if(status !== 200 || error){
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: message });
     }
     setDialogOpen(false);
   };
@@ -136,8 +158,8 @@ export default function AdvertisersTab() {
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
-      { field: 'name', headerName: t('account.advertiser_name').replace(' *', ''), flex: 1.2 },
-      { field: 'external_id', headerName: t('account.external_id').replace(' *', ''), flex: 1 },
+      { field: 'advertiserName', headerName: t('account.advertiser_name').replace(' *', ''), flex: 1.2 },
+      { field: 'id', headerName: t('account.external_id').replace(' *', ''), flex: 1 },
       { field: 'industry', headerName: t('account.industry'), flex: 1 },
       { field: 'status', headerName: 'Status', flex: 0.7, cellRenderer: StatusRenderer },
       {
@@ -231,22 +253,13 @@ export default function AdvertisersTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('account.external_id')}</Label>
-              <Input
-                value={form.external_id}
-                onChange={(e) => updateForm('external_id', e.target.value)}
-                placeholder="e.g. ADV-10236"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label>{t('account.industry_required')}</Label>
               <Select value={form.industry} onValueChange={(v) => updateForm('industry', v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('account.select_industry')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {INDUSTRIES.map((i) => (
+                  {Object.values(OrganizationIndustry).map((i) => (
                     <SelectItem key={i} value={i}>{i}</SelectItem>
                   ))}
                 </SelectContent>
@@ -261,9 +274,9 @@ export default function AdvertisersTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">{t('account.status_active')}</SelectItem>
-                    <SelectItem value="paused">{t('account.status_paused')}</SelectItem>
-                    <SelectItem value="ended">{t('account.status_ended')}</SelectItem>
+                    <SelectItem value="ACTIVE">{t('account.status_active')}</SelectItem>
+                    <SelectItem value="PAUSED">{t('account.status_paused')}</SelectItem>
+                    <SelectItem value="ARCHIVED">{t('account.status_archived')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

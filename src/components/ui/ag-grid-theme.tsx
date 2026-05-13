@@ -10,7 +10,7 @@ export const appGridTheme = themeQuartz.withParams({
   rowBorder: 'transparent',
   columnBorder: false,
   rowHoverColor: 'hsl(220, 14%, 96%)',
-  fontFamily: 'Switzer, sans-serif',
+  fontFamily: 'Poppins, system-ui, sans-serif',
   fontSize: 13,
   headerFontSize: 12,
   cellHorizontalPadding: 16,

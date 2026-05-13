@@ -1,37 +1,27 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, BarChart3 } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card';
+import { Plus, Megaphone, Search, Filter, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { api } from '@/services/api';
-import { useTranslation } from '@/contexts/TranslationContext';
-import { AgGridReact } from 'ag-grid-react';
-import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent } from 'ag-grid-community';
-import { appGridTheme } from '@/components/ui/ag-grid-theme';
 
-interface Campaign {
-  id: string;
-  name: string;
-  status: string;
-  campaign_type: string;
-  start_date: string;
-  end_date: string;
-  budget: number;
-  actual_spend: number | null;
-  actual_impressions: number | null;
-  reach: number | null;
-  ltr: number | null;
-  currency: string | null;
-}
+import { AgGridReact } from 'ag-grid-react';
+import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent, type SortChangedEvent } from 'ag-grid-community';
+import { appGridTheme } from '@/components/ui/ag-grid-theme';
+import { Campaign, campaignApi } from '@/services/campaign';
+import { toast } from '@/hooks/use-toast';
+import { useTranslation } from '@/contexts/TranslationContext';
+import { auth } from '@/services/auth';
+import { advertiserApi } from '@/services/advertiser';
+import { appNotifications } from '@/services/appNotifications';
+
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
+  scheduled: 'bg-blue-100 text-blue-800',
   active: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-primary/10 text-primary',
@@ -41,11 +31,19 @@ const StatusRenderer = (params: ICellRendererParams) => (
   <Badge variant="secondary" className={statusColors[params.value] || ''}>{params.value}</Badge>
 );
 
+/** Maps AG Grid colId (or field) to getCampaigns `sortBy` */
+const GRID_COL_TO_SORT_BY: Record<string, string> = {
+  campaignName: 'campaignName',
+  status: 'status',
+  dates: 'startDate',
+  totalBudget: 'totalBudget',
+};
+
 const UtilizationRenderer = (params: ICellRendererParams) => {
   const c = params.data as Campaign;
   const util = c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 h-full">
       <Progress value={util} className="h-1.5 w-16" />
       <span className="text-xs text-muted-foreground">{util}%</span>
     </div>
@@ -54,154 +52,285 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
 
 export default function CampaignsList() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const advertiserIdCacheRef = useRef<string | null>(null);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const { t } = useTranslation();
+  const [meta, setMeta] = useState<{ total: number; page: number; limit: number; totalPages: number }>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+  
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
 
-  const mockCampaigns: Campaign[] = [
-    { id: 'mock-1', name: 'Ramadan Brand Awareness', status: 'active', campaign_type: 'awareness', start_date: '2026-02-01', end_date: '2026-03-15', budget: 5000, actual_spend: 2340, actual_impressions: 187200, reach: 45800, ltr: 78, currency: 'USD' },
-    { id: 'mock-2', name: 'Summer Product Launch', status: 'active', campaign_type: 'awareness', start_date: '2026-01-20', end_date: '2026-02-28', budget: 3000, actual_spend: 1870, actual_impressions: 112500, reach: 31200, ltr: 82, currency: 'USD' },
-    { id: 'mock-3', name: 'Podcast Sponsorship Q1', status: 'active', campaign_type: 'engagement', start_date: '2026-01-01', end_date: '2026-03-31', budget: 8000, actual_spend: 4150, actual_impressions: 320000, reach: 89000, ltr: 71, currency: 'USD' },
-    { id: 'mock-4', name: 'Holiday Campaign 2025', status: 'completed', campaign_type: 'awareness', start_date: '2025-12-01', end_date: '2025-12-31', budget: 4500, actual_spend: 4480, actual_impressions: 256000, reach: 62000, ltr: 85, currency: 'USD' },
-    { id: 'mock-5', name: 'Back to School Promo', status: 'completed', campaign_type: 'conversions', start_date: '2025-08-15', end_date: '2025-09-15', budget: 2500, actual_spend: 2500, actual_impressions: 198000, reach: 41000, ltr: 76, currency: 'USD' },
-    { id: 'mock-6', name: 'National Day Special', status: 'completed', campaign_type: 'awareness', start_date: '2025-11-15', end_date: '2025-12-05', budget: 3500, actual_spend: 3490, actual_impressions: 210000, reach: 55000, ltr: 80, currency: 'USD' },
-    { id: 'mock-7', name: 'New App Install Drive', status: 'paused', campaign_type: 'conversions', start_date: '2026-01-10', end_date: '2026-02-28', budget: 6000, actual_spend: 1200, actual_impressions: 72000, reach: 18500, ltr: 68, currency: 'USD' },
-    { id: 'mock-8', name: 'Weekend Flash Sale', status: 'draft', campaign_type: 'engagement', start_date: '2026-03-01', end_date: '2026-03-03', budget: 1500, actual_spend: null, actual_impressions: null, reach: null, ltr: null, currency: 'USD' },
-  ];
+  useLayoutEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, sortBy, sortOrder, limit]);
+
+
+  const fetchCampaigns = async () => {
+    setLoading(true);
+
+    const session = await auth.getSession();
+    if (!session) {
+      toast({ title: t('common.error'), description: 'Unauthorized', variant: 'destructive' });
+      setCampaigns([]);
+      setMeta((m) => ({ ...m, total: 0, page: 1, totalPages: 1 }));
+      setLoading(false);
+      return;
+    }
+
+    let advertiserId = session.data.session.currentAdvertiserId ?? advertiserIdCacheRef.current ?? undefined;
+
+    if (!advertiserId) {
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
+        await advertiserApi.getAdvertisers(session.data.session.currentOrganizationId);
+
+      if (advertisersStatus !== 200 || advertisersError) {
+        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+        setCampaigns([]);
+        setMeta((m) => ({ ...m, total: 0, page: 1, totalPages: 1 }));
+        setLoading(false);
+        return;
+      }
+
+      const advertisers = advertisersRes.data;
+      if (advertisers.length > 0) {
+        advertiserId = advertisers[0].id;
+        auth.setCurrentAdvertiserId(advertiserId, advertisers[0].isPro);
+      }
+    }
+
+    if (advertiserId) {
+      advertiserIdCacheRef.current = advertiserId;
+    }
+
+    const { data, status, error, message } = await campaignApi.getCampaigns({
+      page,
+      limit,
+      search: debouncedSearch,
+      status: statusFilter === 'all' ? '' : statusFilter,
+      advertiserId: advertiserId ?? '',
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+
+    });
+
+
+    if (status !== 200 || error) {
+      toast({ title: t('common.error'), description: message ?? 'Unable to load campaigns', variant: 'destructive' });
+      setCampaigns([]);
+      setMeta((m) => ({ ...m, total: 0, page: 1, totalPages: 1 }));
+      setLoading(false);
+      return;
+    }
+
+    const rows = data?.data ?? [];
+    const responseMeta = data?.meta;
+    const total = responseMeta?.total ?? 0;
+    const apiPage = responseMeta?.page ?? page;
+    const apiLimit = responseMeta?.limit ?? limit;
+    const apiTotalPages = responseMeta?.totalPages;
+    const totalPages =
+      typeof apiTotalPages === 'number' && apiTotalPages > 0
+        ? apiTotalPages
+        : total > 0
+          ? Math.max(1, Math.ceil(total / apiLimit))
+          : 1;
+
+    setMeta({
+      total,
+      page: apiPage,
+      limit: apiLimit,
+      totalPages,
+    });
+    setCampaigns(rows);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      const { data } = await api.getCampaigns();
-      setCampaigns(data && data.length > 0 ? data : mockCampaigns);
-      setLoading(false);
-    };
     fetchCampaigns();
-  }, []);
+  }, [page, limit, debouncedSearch, statusFilter, t, sortBy, sortOrder]);
 
-  const filtered = useMemo(() => {
-    return campaigns.filter((c) => {
-      const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-      return matchesStatus;
+  const hasActiveFilters = debouncedSearch.length > 0 || statusFilter !== 'all';
+
+  useEffect(() => {
+    return appNotifications.subscribe('advertiser:selected', async () => {
+      setTimeout(() => {
+        setPage(1);
+        fetchCampaigns();  
+      }, 500);
     });
-  }, [campaigns, statusFilter]);
+  
+  }, [fetchCampaigns])
+  
+  // const totals = useMemo(() => {
+  //   return campaigns.reduce(
+  //     (acc, c) => ({
+  //       budget: acc.budget + (c.budget || 0),
+  //       spend: acc.spend + (c.actual_spend || 0),
+  //       impressions: acc.impressions + (c.actual_impressions || 0),
+  //       reach: acc.reach + (c.reach || 0),
+  //     }),
+  //     { budget: 0, spend: 0, impressions: 0, reach: 0 }
+  //   );
+  // }, [campaigns]);
 
-  const totals = useMemo(() => {
-    return campaigns.reduce(
-      (acc, c) => ({
-        budget: acc.budget + (c.budget || 0),
-        spend: acc.spend + (c.actual_spend || 0),
-        impressions: acc.impressions + (c.actual_impressions || 0),
-        reach: acc.reach + (c.reach || 0),
-      }),
-      { budget: 0, spend: 0, impressions: 0, reach: 0 }
-    );
-  }, [campaigns]);
+  // const utilization = (c: Campaign) =>
+  //   c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
 
-  const utilization = (c: Campaign) =>
-    c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
+  // const ecpm = (c: Campaign) => {
+  //   const impr = c.actual_impressions ?? 0;
+  //   const spend = c.actual_spend ?? 0;
+  //   return impr > 0 ? ((spend / impr) * 1000).toFixed(2) : '—';
+  // };
 
-  const ecpm = (c: Campaign) => {
-    const impr = c.actual_impressions ?? 0;
-    const spend = c.actual_spend ?? 0;
-    return impr > 0 ? ((spend / impr) * 1000).toFixed(2) : '—';
-  };
-
-  const exportCSV = () => {
-    const headers = ['Name', 'Status', 'Type', 'Start', 'End', 'Budget', 'Spend', 'Utilization', 'Impressions', 'Reach', 'LTR', 'eCPM'];
-    const rows = campaigns.map((c) => [
-      c.name, c.status, c.campaign_type, c.start_date, c.end_date,
-      c.budget, c.actual_spend ?? 0, `${utilization(c)}%`,
-      c.actual_impressions ?? 0, c.reach ?? 0, c.ltr != null ? `${c.ltr}%` : '—', ecpm(c),
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // const exportCSV = () => {
+  //   const headers = ['Name', 'Status', 'Type', 'Start', 'End', 'Budget', 'Spend', 'Utilization', 'Impressions', 'Reach', 'LTR', 'eCPM'];
+  //   const rows = campaigns.map((c) => [
+  //     c.name, c.status, c.campaign_type, c.start_date, c.end_date,
+  //     c.budget, c.actual_spend ?? 0, `${utilization(c)}%`,
+  //     c.actual_impressions ?? 0, c.reach ?? 0, c.ltr != null ? `${c.ltr}%` : '—', ecpm(c),
+  //   ]);
+  //   const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
+  //   const blob = new Blob([csv], { type: 'text/csv' });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
 
   const colDefs = useMemo<ColDef[]>(() => [
-    { field: 'name', headerName: t('reports.campaign'), flex: 2, minWidth: 160, filter: true },
-    { field: 'status', headerName: t('campaigns.status'), width: 110, cellRenderer: StatusRenderer },
+    { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 160, filter: false, sortable: true },
+    { field: 'status', headerName: 'Status', width: 110, cellRenderer: StatusRenderer, sortable: true },
     {
-      headerName: t('campaigns.dates'), width: 180,
-      valueGetter: (p) => `${p.data.start_date} — ${p.data.end_date}`,
-      cellClass: 'text-xs text-muted-foreground',
-    },
-    {
-      field: 'budget', headerName: t('campaigns.budget'), width: 110, type: 'numericColumn',
-      valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
-    },
-    {
-      field: 'actual_spend', headerName: t('campaigns.spend'), width: 110, type: 'numericColumn',
-      valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
-    },
-    {
-      headerName: t('campaigns.utilization'), width: 140,
-      cellRenderer: UtilizationRenderer,
+      colId: 'dates',
+      headerName: 'Dates', width: 200,
+      valueGetter: (p) => `${p.data.startDate} — ${p.data.endDate}`,
+      cellStyle: { display: 'flex', alignItems: 'center', fontSize: '0.75rem' },
       sortable: true,
+    },
+    {
+      field: 'totalBudget', headerName: 'Budget', width: 110, type: 'numericColumn',
+      valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
+      sortable: true,
+    },
+    {
+      field: 'spend', headerName: 'Spend', width: 110, type: 'numericColumn',
+      valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
+      sortable: false
+    },
+    {
+      headerName: 'Utilization', width: 140,
+      cellRenderer: UtilizationRenderer,
       valueGetter: (p) => {
         const c = p.data as Campaign;
         return c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
       },
+      sortable: false,
     },
     {
-      field: 'actual_impressions', headerName: t('reports.impressions'), width: 120, type: 'numericColumn',
+      field: 'actual_impressions', headerName: 'Impressions', width: 120, type: 'numericColumn',
       valueFormatter: (p) => (p.value ?? 0).toLocaleString(),
+      sortable: false,
     },
     {
-      field: 'reach', headerName: t('reports.reach'), width: 100, type: 'numericColumn',
+      field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn',
       valueFormatter: (p) => (p.value ?? 0).toLocaleString(),
+      sortable: false,
     },
     {
       field: 'ltr', headerName: 'LTR', width: 80, type: 'numericColumn',
       valueFormatter: (p) => p.value != null ? `${p.value}%` : '—',
+      sortable: false,
     },
     {
       headerName: 'eCPM', width: 90, type: 'numericColumn',
       valueGetter: (p) => {
         const c = p.data as Campaign;
-        const impr = c.actual_impressions ?? 0;
-        const spend = c.actual_spend ?? 0;
+        const impr = c.impressions ?? 0;
+        const spend = c.spend ?? 0;
         return impr > 0 ? (spend / impr) * 1000 : null;
       },
       valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
+      sortable: false,
     },
     {
-      headerName: '', width: 130, sortable: false, filter: false,
+      headerName: '', sortable: false, filter: false,
       cellRenderer: (params: ICellRendererParams) => (
-        <Button
-          variant="default"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={() => navigate(`/dashboard/reports?campaign=${params.data.id}`)}
-        >
-          {t('campaigns.see_details')}
-        </Button>
+        <>
+        
+          {
+            params.data.status === 'DRAFT' ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 text-xs mr-2"
+                onClick={() => navigate(`/dashboard/campaigns/${params.data.id}`)}
+              >
+                Edit
+              </Button>
+            ): (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => navigate(`/dashboard/reports?campaign=${params.data.id}`)}
+              >
+                See Details
+              </Button>
+            )
+          }
+        </>
       ),
     },
-  ], [navigate, t]);
+  ], [navigate]);
 
   const onRowClicked = useCallback((e: RowClickedEvent<Campaign>) => {
     if (e.data) navigate(`/dashboard/campaigns/${e.data.id}`);
   }, [navigate]);
 
+  const onSortChanged = useCallback((e: SortChangedEvent<Campaign>) => {
+    const sorted = e.api
+      .getColumnState()
+      .filter((c) => c.sort != null)
+      .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0));
+    const primary = sorted[0];
+    if (!primary?.sort) {
+      setSortBy('createdAt');
+      setSortOrder('desc');
+      return;
+    }
+    const key = primary.colId ?? '';
+    const apiSortBy = GRID_COL_TO_SORT_BY[key] ?? 'createdAt';
+    setSortBy(apiSortBy);
+    setSortOrder(primary.sort === 'asc' ? 'asc' : 'desc');
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('campaigns.title')}</h1>
-          <p className="text-muted-foreground mt-1">{t('campaigns.subtitle')}</p>
+          <h1 className="text-2xl font-semibold text-foreground">Campaigns</h1>
+          <p className="text-muted-foreground mt-1">Manage and track your ad campaigns</p>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={campaigns.length === 0}>
+        <Button variant="outline" onClick={() => {}} disabled={campaigns.length === 0}>
           <Download className="h-4 w-4 mr-2" />
-          {t('campaigns.export_csv')}
+          Export CSV
         </Button>
       </div>
 
@@ -209,128 +338,143 @@ export default function CampaignsList() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_budget')}</p>
-            <p className="text-2xl font-bold text-foreground">${totals.budget.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Budget</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_spend')}</p>
-            <p className="text-2xl font-bold text-foreground">${totals.spend.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Spend</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_impressions')}</p>
-            <p className="text-2xl font-bold text-foreground">{totals.impressions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Impressions</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('campaigns.total_reach')}</p>
-            <p className="text-2xl font-bold text-foreground">{totals.reach.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Reach</p>
+            <p className="text-2xl font-semibold text-foreground"></p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Performance table */}
-      {loading ? (
-        <div className="text-center py-12 text-muted-foreground">{t('common.loading')}</div>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Megaphone className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {campaigns.length === 0 ? t('campaigns.no_campaigns') : t('campaigns.no_matching')}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {campaigns.length === 0
-                ? t('campaigns.no_campaigns_desc')
-                : t('campaigns.adjust_filters')}
-            </p>
-            {campaigns.length === 0 && (
-              <Button onClick={() => navigate('/dashboard/campaigns/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                {t('dashboard.create_campaign')}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('campaigns.campaign_performance')}</CardTitle>
-          </CardHeader>
-          <div className="px-6 pb-4 flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('campaigns.search_placeholder')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('campaigns.all_statuses')}</SelectItem>
-                <SelectItem value="draft">{t('campaigns.drafts')}</SelectItem>
-                <SelectItem value="active">{t('dashboard.active')}</SelectItem>
-                <SelectItem value="paused">{t('campaigns.paused')}</SelectItem>
-                <SelectItem value="completed">{t('campaigns.completed')}</SelectItem>
-              </SelectContent>
-            </Select>
+      <Card>
+        <CardHeader>
+          <CardTitle>Campaign Performance</CardTitle>
+        </CardHeader>
+        <div className="px-6 pb-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search campaigns..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
           </div>
-          <CardContent>
-            {isMobile ? (
-              <MobileDataCards
-                data={filtered.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))}
-                emptyMessage={t('campaigns.no_campaigns_search')}
-                renderCard={(c) => (
-                  <div
-                    key={c.id}
-                    className="border rounded-lg p-4 space-y-3"
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+              <SelectItem value="Processing">Processing</SelectItem>
+              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="PAUSED">Paused</SelectItem>
+              <SelectItem value="COMPLETED">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading...</div>
+          ) : campaigns.length === 0 ? (
+            <div className="py-16 text-center">
+              <Megaphone className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {hasActiveFilters ? 'No matching campaigns' : 'No campaigns yet'}
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {hasActiveFilters
+                  ? 'Try adjusting your search or filters.'
+                  : 'Create your first campaign to start reaching listeners.'}
+              </p>
+              {!hasActiveFilters && (
+                <Button onClick={() => navigate('/dashboard/campaigns/new')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Campaign
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="w-full h-[380px]">
+                <AgGridReact
+                  theme={appGridTheme}
+                  modules={[AllCommunityModule]}
+                  rowData={campaigns}
+                  columnDefs={colDefs}
+                  defaultColDef={{ comparator: () => 0 }}
+                  suppressMultiSort
+                  onRowClicked={onRowClicked}
+                  onSortChanged={onSortChanged}
+                  suppressCellFocus
+                  animateRows
+                />
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  {meta.total > 0
+                    ? `Showing ${(meta.page - 1) * meta.limit + 1}-${Math.min(meta.page * meta.limit, meta.total)} of ${meta.total}`
+                    : 'Showing 0'}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(limit)}
+                    onValueChange={(v) => setLimit(Number(v))}
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-foreground truncate">{c.name}</p>
-                      <Badge variant="secondary" className={statusColors[c.status] || ''}>{c.status}</Badge>
-                    </div>
-                    <div className="space-y-1.5">
-                      <MobileStatRow label={t('campaigns.budget')} value={`$${c.budget.toLocaleString()}`} />
-                      <MobileStatRow label={t('campaigns.spend')} value={`$${(c.actual_spend ?? 0).toLocaleString()}`} />
-                      <MobileStatRow label={t('reports.impressions')} value={(c.actual_impressions ?? 0).toLocaleString()} />
-                      <MobileStatRow label="LTR" value={c.ltr != null ? `${c.ltr}%` : '—'} />
-                    </div>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full h-8 text-xs"
-                      onClick={() => navigate(`/dashboard/reports?campaign=${c.id}`)}
-                    >
-                      {t('campaigns.see_details')}
-                    </Button>
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={loading || page <= 1}
+                  >
+                    Prev
+                  </Button>
+                  <div className="text-sm text-foreground px-2">
+                    {meta.page} / {meta.totalPages}
                   </div>
-                )}
-              />
-            ) : (
-              <AgGridReact
-                theme={appGridTheme}
-                modules={[AllCommunityModule]}
-                rowData={filtered}
-                columnDefs={colDefs}
-                quickFilterText={search}
-                domLayout="autoHeight"
-                suppressCellFocus
-                animateRows
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                    disabled={loading || page >= meta.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

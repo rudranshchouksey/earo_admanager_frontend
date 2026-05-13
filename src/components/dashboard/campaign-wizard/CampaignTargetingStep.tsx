@@ -1,91 +1,213 @@
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import { Users, User, Smartphone, Monitor, Speaker, Tv, CalendarDays, Check, Mic, Music, Radio, Search, X, Bookmark, LayoutGrid, List } from 'lucide-react';
+import { Check, Mic, Music, Radio, LayoutGrid, List, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+// import { useDevFlags } from '@/contexts/DevFlagsContext';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
-import { useTranslation } from '@/contexts/TranslationContext';
+import { SearchableList } from '@/components/ui/searchable-list';
+import type { Column, FilterDef } from '@/components/ui/searchable-list';
+// import dubaiStarsImg from '@/assets/podcasts/dubai-stars.png';
+// import j2HubImg from '@/assets/podcasts/j2-hub.png';
+import bitesizeBusinessImg from '@/assets/podcasts/bitesize-business.png';
+import { PodcastAudience, StreamingAudience, TargetingSegment } from '@/services/targeting';
+// import airDxbImg from '@/assets/podcasts/air-dxb.png';
+// import cityLightsImg from '@/assets/podcasts/city-lights.png';
+// import dubaiRealEstateImg from '@/assets/podcasts/dubai-real-estate.png';
+// import expatsInDubaiImg from '@/assets/podcasts/expats-in-dubai.png';
+// import dubaiPodcastImg from '@/assets/podcasts/dubai-podcast.png';
+// import portraitImg from '@/assets/podcasts/portrait.png';
+// import takingCareBusinessImg from '@/assets/podcasts/taking-care-business.png';
+// import lovinDubaiImg from '@/assets/podcasts/lovin-dubai.png';
+// import bigBreakfastImg from '@/assets/podcasts/big-breakfast.png';
 
-const ageRanges = ['18-24', '25-34', '35-44', '45-54', '55-65', '65+'];
-
-const deviceOptions = [
-  { value: 'Mobile', icon: Smartphone },
-  { value: 'Desktop', icon: Monitor },
-  { value: 'Smart Speaker', icon: Speaker },
-  { value: 'Connected TV', icon: Tv },
-] as const;
 
 const inventoryOptions = [
-  { type: 'Podcast', icon: Mic, descKey: 'wizard.targeting.podcast_desc' },
-  { type: 'Streaming', icon: Music, descKey: 'wizard.targeting.streaming_desc' },
-  { type: 'Radio', icon: Radio, descKey: 'wizard.targeting.radio_desc' },
+  { type: 'Podcast', description: 'Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.' },
+  { type: 'Streaming', description: 'Connect with 100M+ listeners on top music, radio, CTV and gaming apps, in English or Arabic with powerful precision targeting.' },
 ] as const;
 
-const adPositionOptions = ['Pre-roll', 'Mid-roll', 'Post-roll'] as const;
+const adPositionOptions = [
+  {
+    "code": "position",
+    "category": "Audio Position",
+    "value": "mid-roll",
+    "label": "Mid-Roll"
+},
+{
+    "code": "position",
+    "category": "Audio Position",
+    "value": "post-roll",
+    "label": "Post-Roll"
+},
+{
+    "code": "position",
+    "category": "Audio Position",
+    "value": "pre-roll",
+    "label": "Pre-Roll"
+}
+] as const;
 
-const podcastTopics = ['News & Politics', 'True Crime', 'Comedy', 'Business', 'Technology', 'Health & Wellness', 'Sports', 'Education', 'Entertainment', 'Society & Culture'];
+const podcastTopicColumns: Column<{ id: string; name: string }>[] = [
+  { key: 'name', label: 'Topic', sortable: true },
+];
+
+
+const podcastAudienceColumns: Column<{ id: string; name: string }>[] = [
+  {
+    key: 'name',
+    label: 'Audience Segment',
+    sortable: true,
+    render: (_val, item) => (
+      <div>
+        <div className="font-medium text-foreground">{item.name}</div>
+      </div>
+    ),
+  },
+];
+
+const streamingAudienceColumns: Column<StreamingAudience>[] = [
+  { key: 'label', label: 'Segment', sortable: true },
+  { key: 'category', label: 'Category', sortable: true },
+
+];
+
+const streamingTopicsColumns: Column<{ id: string; name: string }>[] = [
+  { key: 'name', label: 'Genre / Content', sortable: true },
+];
 
 type InventoryMode = 'categories' | 'topics';
 
-// Extended mock shows with more data for grid display
-const MOCK_SHOWS = [
-  { id: '1', name: 'The Daily', inventoryType: 'Podcast', topic: 'News & Politics', audience: '2.1M', country: 'US', description: 'Daily news deep dives from The New York Times' },
-  { id: '2', name: 'Crime Junkie', inventoryType: 'Podcast', topic: 'True Crime', audience: '1.8M', country: 'US', description: 'Weekly true crime stories with host Ashley Flowers' },
-  { id: '3', name: 'SmartLess', inventoryType: 'Podcast', topic: 'Comedy', audience: '1.2M', country: 'US', description: 'Celebrity interviews with Bateman, Arnett and Hayes' },
-  { id: '4', name: 'How I Built This', inventoryType: 'Podcast', topic: 'Business', audience: '950K', country: 'US', description: 'Stories behind successful companies and movements' },
-  { id: '5', name: 'Lex Fridman Podcast', inventoryType: 'Podcast', topic: 'Technology', audience: '3.5M', country: 'US', description: 'Conversations about AI, science, and philosophy' },
-  { id: '6', name: 'Huberman Lab', inventoryType: 'Podcast', topic: 'Health & Wellness', audience: '4.2M', country: 'US', description: 'Neuroscience tools for everyday life' },
-  { id: '7', name: 'New Heights', inventoryType: 'Podcast', topic: 'Sports', audience: '2.8M', country: 'US', description: 'Football and culture with the Kelce brothers' },
-  { id: '8', name: 'Anghami Sessions', inventoryType: 'Streaming', topic: 'Music', audience: '850K', country: 'AE', description: 'Live music sessions from Arab artists on Anghami' },
-  { id: '9', name: 'Arab Radio Live', inventoryType: 'Radio', topic: 'Entertainment', audience: '1.5M', country: 'AE', description: 'Top-rated Arabic radio entertainment show' },
-  { id: '10', name: 'Finyal Media', inventoryType: 'Podcast', topic: 'Society & Culture', audience: '400K', country: 'AE', description: 'Arabic storytelling and documentary podcasts' },
-  { id: '11', name: 'Spotify Hits', inventoryType: 'Streaming', topic: 'Music', audience: '12M', country: 'GB', description: 'Top chart hits playlist on Spotify UK' },
-  { id: '12', name: 'BBC Radio 1', inventoryType: 'Radio', topic: 'Music', audience: '8M', country: 'GB', description: 'UK\'s biggest youth radio station' },
-  { id: '13', name: 'Desert Drive FM', inventoryType: 'Radio', topic: 'Entertainment', audience: '600K', country: 'SA', description: 'Saudi Arabia\'s favourite drive-time show' },
-  { id: '14', name: 'TED Radio Hour', inventoryType: 'Podcast', topic: 'Education', audience: '1.1M', country: 'US', description: 'TED Talks turned into compelling radio stories' },
-  { id: '15', name: 'Stuff You Should Know', inventoryType: 'Podcast', topic: 'Education', audience: '1.6M', country: 'US', description: 'Exploring how everything works since 2008' },
+// Extended mock shows
+const MOCK_SHOWS = [];
+
+const MOCK_SAVED_AUDIENCES = [];
+// Column definitions for SearchableList
+const showColumns: Column<typeof MOCK_SHOWS[0]>[] = [
+  {
+    key: 'image',
+    label: '',
+    render: (_val, item) => (
+      <div className="h-10 w-10 rounded-md overflow-hidden shrink-0 aspect-square">
+        <img
+          src={item.image}
+          alt={item.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    ),
+  },
+  { key: 'name', label: 'Name', sortable: true },
+  {
+    key: 'inventoryType',
+    label: 'Type',
+    sortable: true,
+    render: (val) => {
+      const v = String(val);
+      const colorMap: Record<string, string> = {
+        Podcast: 'bg-violet-100 text-violet-700',
+        Streaming: 'bg-blue-100 text-blue-700',
+        Radio: 'bg-amber-100 text-amber-700',
+      };
+      return (
+        <span className={cn('inline-flex items-center text-xs px-2 py-0.5 rounded-full', colorMap[v] || '')}>
+          {v}
+        </span>
+      );
+    },
+  },
+  { key: 'topic', label: 'Topic', sortable: true },
+  {
+    key: 'description',
+    label: 'Description',
+    render: (val) => (
+      <span className="text-sm text-muted-foreground line-clamp-2">{String(val)}</span>
+    ),
+  },
 ];
 
-const MOCK_SAVED_AUDIENCES = [
-  { id: 'sa1', name: 'Website Visitors (30d)', type: 'retarget', size: '12,400' },
-  { id: 'sa2', name: 'Cart Abandoners', type: 'retarget', size: '3,200' },
-  { id: 'sa3', name: 'UAE Tech Enthusiasts 25-44', type: 'saved', size: '85,000' },
-  { id: 'sa4', name: 'GCC Female 18-34', type: 'saved', size: '120,000' },
+const showColumnsWithCountry: Column<typeof MOCK_SHOWS[0]>[] = [
+  ...showColumns.slice(0, 4),
+  { key: 'country', label: 'Country', sortable: true },
+  ...showColumns.slice(4),
+];
+
+const showFilters: FilterDef[] = [
+  {
+    key: 'inventoryType',
+    label: 'Type',
+    options: [
+      { value: 'Podcast', label: 'Podcast' },
+      { value: 'Streaming', label: 'Streaming' },
+      { value: 'Radio', label: 'Radio' },
+    ],
+  },
+  {
+    key: 'topic',
+    label: 'Topic',
+    options: [...new Set(MOCK_SHOWS.map((s) => s.topic))].sort().map((t) => ({ value: t, label: t })),
+  },
+];
+
+const audienceColumns: Column<typeof MOCK_SAVED_AUDIENCES[0]>[] = [
+  { key: 'name', label: 'Name', sortable: true },
+  {
+    key: 'type',
+    label: 'Type',
+    render: (val) => (val === 'retarget' ? 'Retargeting' : 'Saved'),
+  },
+  {
+    key: 'size',
+    label: 'Size',
+    render: (val) => `~${val} users`,
+  },
+];
+
+interface DeviceType {
+  code: string;
+  label: string;
+  value: string;
+}
+
+const deviceColumns: Column<DeviceType>[] = [
+  { key: 'label', label: 'Device Type', sortable: true }
 ];
 
 interface TargetingData {
   gender: string;
   ageRanges: string[];
   deviceTypes: string[];
-  inventoryTypes: string[];
+  inventoryType: string;
   podcastTopics: string[];
-  adPositions?: string[];
-  selectedShows?: string[];
-  savedAudiences?: string[];
+  podcastAudiences: string[];
+  streamingAudiences: string[];
+  streamingTopics: string[];
+  adPositions: string[];
+  selectedShows: string[];
+  savedAudiences: string[];
 }
 
 interface Props {
   data: TargetingData;
   onChange: (data: TargetingData) => void;
-  multiCountry?: boolean;
+  podcastTopics: string[];
+  streamingTopics: string[];
+  podcastAudiences: PodcastAudience[];
+  streamingAudiences: StreamingAudience[];
+  targetingSegments: TargetingSegment[];
+  deviceTypes: TargetingSegment[];
 }
 
-export default function CampaignTargetingStep({ data, onChange, multiCountry = false }: Props) {
-  const { t } = useTranslation();
+export default function CampaignTargetingStep({ data, onChange, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes }: Props) {
   const { isPro } = useSessionFlags();
-
-  const genderOptions = [
-    { value: 'all', label: t('wizard.targeting.all'), icon: Users },
-    { value: 'male', label: t('wizard.targeting.male'), icon: User },
-    { value: 'female', label: t('wizard.targeting.female'), icon: User },
-  ] as const;
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
-  const [showSearch, setShowSearch] = useState('');
-  const [topicFilter, setTopicFilter] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [openListId, setOpenListId] = useState<string | null>(null);
 
+  const handleOpenChange = (listId: string) => (open: boolean) => {
+    setOpenListId(open ? listId : null);
+  };
   const adPositions = data.adPositions || ['Pre-roll', 'Mid-roll', 'Post-roll'];
   const selectedShows = data.selectedShows || [];
   const savedAudiences = data.savedAudiences || [];
@@ -105,10 +227,9 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
   };
 
   const toggleInventory = (type: string) => {
-    const next = data.inventoryTypes.includes(type)
-      ? data.inventoryTypes.filter((t) => t !== type)
-      : [...data.inventoryTypes, type];
-    onChange({ ...data, inventoryTypes: next });
+    // Mutually exclusive: clicking the already-selected type does nothing
+    if (data.inventoryType ===type) return;
+    onChange({ ...data, inventoryType: type });
   };
 
   const toggleTopic = (topic: string) => {
@@ -125,40 +246,12 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
     onChange({ ...data, adPositions: next });
   };
 
-  const toggleShow = (showId: string) => {
-    const next = selectedShows.includes(showId)
-      ? selectedShows.filter(s => s !== showId)
-      : [...selectedShows, showId];
-    onChange({ ...data, selectedShows: next });
-  };
-
-  const toggleSavedAudience = (audienceId: string) => {
-    const next = savedAudiences.includes(audienceId)
-      ? savedAudiences.filter(a => a !== audienceId)
-      : [...savedAudiences, audienceId];
-    onChange({ ...data, savedAudiences: next });
-  };
-
-  // Filter shows for grid
-  const filteredShows = MOCK_SHOWS.filter(s => {
-    const matchesSearch = !showSearch ||
-      s.name.toLowerCase().includes(showSearch.toLowerCase()) ||
-      s.description.toLowerCase().includes(showSearch.toLowerCase());
-    const matchesTopic = !topicFilter || s.topic === topicFilter;
-    const matchesType = !typeFilter || s.inventoryType === typeFilter;
-    return matchesSearch && matchesTopic && matchesType;
-  });
-
-  // Unique topics & types for filter dropdowns
-  const allTopics = [...new Set(MOCK_SHOWS.map(s => s.topic))].sort();
-  const allTypes = [...new Set(MOCK_SHOWS.map(s => s.inventoryType))].sort();
-
   return (
     <div className="space-y-6">
       {/* Inventory Type — Mode Switcher (Pro only) */}
       {isPro && (
-        <div className="space-y-3">
-          <Label>{t('wizard.targeting.inventory_type')}</Label>
+        <div className="space-y-3 hidden">
+          
           <div className="flex gap-1 bg-muted p-1 rounded-lg">
             <button
               type="button"
@@ -171,7 +264,7 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
               )}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              {t('wizard.targeting.content_categories')}
+              Content Categories
             </button>
             <button
               type="button"
@@ -184,7 +277,7 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
               )}
             >
               <List className="h-3.5 w-3.5" />
-              {t('wizard.targeting.topics_shows')}
+              Interests & Shows
             </button>
           </div>
         </div>
@@ -193,210 +286,301 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
       {/* Mode: Content Categories (Pro only) */}
       {isPro && inventoryMode === 'categories' && (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            {inventoryOptions.map(({ type, icon: Icon, descKey }) => {
-              const selected = data.inventoryTypes.includes(type);
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {inventoryOptions.map(({ type, description }) => {
+              const selected = data.inventoryType === type;
               return (
                 <div
                   key={type}
                   onClick={() => toggleInventory(type)}
                   className={cn(
-                    'border rounded-lg p-3 cursor-pointer transition-all relative',
+                    'border rounded-lg p-4 cursor-pointer transition-all',
                     selected
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/30'
+                      ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                      : 'border-border hover:border-[#C8E6C9]'
                   )}
                 >
-                  {selected && (
-                    <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-3 w-3 text-primary-foreground" />
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={cn(
+                      'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                      selected ? 'border-[#C8E6C9] bg-[#E6F4EA]' : 'border-muted-foreground/40'
+                    )}>
+                      {selected && <div className="h-2.5 w-2.5 rounded-full bg-foreground" />}
                     </div>
-                  )}
-                  <Icon className={cn('h-5 w-5 mb-1', selected ? 'text-primary' : 'text-muted-foreground')} />
-                  <p className="text-sm font-medium">{t(`wizard.targeting.${type.toLowerCase()}`)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{t(descKey)}</p>
+                    <span className="text-sm font-semibold">{type}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
                 </div>
               );
             })}
           </div>
 
-          {data.inventoryTypes.includes('Podcast') && (
-            <div className="space-y-3">
-              <Label>{t('wizard.targeting.podcast_topics')}</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {podcastTopics.map((topic) => (
-                  <label key={topic} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={data.podcastTopics.includes(topic)}
-                      onCheckedChange={() => toggleTopic(topic)}
-                    />
-                    <span className="text-sm">{topic}</span>
-                  </label>
-                ))}
+          {data.inventoryType === 'Podcast' && (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label>Podcast Topics</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">Choose the content genre where your ads will be placed.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <SearchableList
+                  selectionMode="multi"
+                  items={podcastTopics?.map(topic => ({ id: topic, name: topic })) || []}
+                  columns={podcastTopicColumns}
+                  selectedIds={data.podcastTopics}
+                  onSelectionChange={(ids) => {
+                    onChange({ ...data, podcastTopics: ids });
+                  }}
+                  variant="table"
+                  collapsible
+                  isOpen={openListId === 'podcast-topics'}
+                  onOpenChange={handleOpenChange('podcast-topics')}
+                  collapsibleLabel="Search or select segment"
+                  searchPlaceholder="Search topics..."
+                  emptyMessage="No topics match your search"
+                />
               </div>
-            </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label>Podcast Audiences</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">Reach your desired audience directly based that targets podcasts with the content that the audience has a high affinity for.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <SearchableList
+                  items={podcastAudiences?.map(audience => ({ id: audience.code, name: audience.name })) || []}
+                  columns={podcastAudienceColumns}
+                  selectionMode="multi"
+                  selectedIds={data.podcastAudiences || []}
+                  onSelectionChange={(ids) => onChange({ ...data, podcastAudiences: ids })}
+                  selectAllFiltered
+                  idKey="id"
+                  searchPlaceholder="Search by name"
+                  searchableKeys={['name']}
+                  filters={null}
+                  variant="table"
+                  maxHeight="300px"
+                  collapsible
+                  isOpen={openListId === 'podcast-audiences'}
+                  onOpenChange={handleOpenChange('podcast-audiences')}
+                  collapsibleLabel="Search or select segments"
+                  emptyMessage="No audiences match your search"
+                />
+              </div>
+
+
+              <div className="space-y-3 hidden">
+                <Label>
+                  Saved & Re-targeting Audiences
+                </Label>
+                <SearchableList
+                  items={MOCK_SAVED_AUDIENCES}
+                  columns={audienceColumns}
+                  selectionMode="multi"
+                  selectedIds={savedAudiences}
+                  onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
+                  selectAllFiltered
+                  idKey="id"
+                  searchPlaceholder="Search audiences..."
+                  searchableKeys={['name', 'type']}
+                  filters={[
+                    {
+                      key: 'type',
+                      label: 'Type',
+                      options: [
+                        { value: 'retarget', label: 'Retargeting' },
+                        { value: 'saved', label: 'Saved' },
+                      ],
+                    },
+                  ]}
+                  variant="table"
+                  maxHeight="250px"
+                  emptyMessage="No saved audiences"
+                  collapsible
+                  isOpen={openListId === 'saved-audiences-podcast'}
+                  onOpenChange={handleOpenChange('saved-audiences-podcast')}
+                  collapsibleLabel="Select audiences..."
+                />
+              </div>
+            </>
+          )}
+
+          {data.inventoryType === 'Streaming' && (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label>Streaming Topics</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">Target listeners by the type of content they stream like music genres.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <SearchableList
+                  items={streamingTopics?.map(topic => ({ id: topic, name: topic })) || []}
+                  columns={streamingTopicsColumns}
+                  selectionMode="multi"
+                  selectedIds={data.streamingTopics || []}
+                  onSelectionChange={(ids) => onChange({ ...data, streamingTopics: ids })}
+                  selectAllFiltered
+                  idKey="id"
+                  searchPlaceholder="Search by genre, mood, or content type..."
+                  searchableKeys={['name']}
+                  variant="table"
+                  maxHeight="300px"
+                  collapsible
+                  isOpen={openListId === 'streaming-topics'}
+                  onOpenChange={handleOpenChange('streaming-topics')}
+                  collapsibleLabel="Search or select segments"
+                  emptyMessage="No content matches your search"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label>Streaming Audiences</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-sm">Target listeners based on their habits and behaviors.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <SearchableList
+                  items={streamingAudiences || []}
+                  columns={streamingAudienceColumns}
+                  selectionMode="multi"
+                  selectedIds={data.streamingAudiences || []}
+                  onSelectionChange={(ids) => {console.log(ids); onChange({ ...data, streamingAudiences: ids })}}
+                  selectAllFiltered
+                  idKey="value"
+                  searchPlaceholder="Search by category, behavior, or segment..."
+                  searchableKeys={['label', 'category']}
+                  variant="table"
+                  maxHeight="300px"
+                  collapsible
+                  isOpen={openListId === 'streaming-audiences'}
+                  onOpenChange={handleOpenChange('streaming-audiences')}
+                  collapsibleLabel="Search or select segments"
+                  emptyMessage="No segments match your search"
+                />
+              </div>
+
+              <div className="space-y-3 hidden">
+                <Label>Saved & Re-targeting Audiences</Label>
+                <SearchableList
+                  items={MOCK_SAVED_AUDIENCES}
+                  columns={audienceColumns}
+                  selectionMode="multi"
+                  selectedIds={savedAudiences}
+                  onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
+                  selectAllFiltered
+                  idKey="id"
+                  searchPlaceholder="Search audiences..."
+                  searchableKeys={['name', 'type']}
+                  filters={[{
+                    key: 'type',
+                    label: 'Type',
+                    options: [
+                      { value: 'retarget', label: 'Retargeting' },
+                      { value: 'saved', label: 'Saved' },
+                    ],
+                  }]}
+                  variant="table"
+                  maxHeight="250px"
+                  emptyMessage="No saved audiences"
+                  collapsible
+                  isOpen={openListId === 'saved-audiences-streaming'}
+                  onOpenChange={handleOpenChange('saved-audiences-streaming')}
+                  collapsibleLabel="Select audiences..."
+                />
+              </div>
+            </>
           )}
         </>
       )}
 
-      {/* Express mode: show topics directly */}
-      {!isPro && (
-        <div className="space-y-3">
-          <Label>{t('wizard.targeting.topics')}</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {podcastTopics.map((topic) => (
-              <label key={topic} className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={data.podcastTopics.includes(topic)}
-                  onCheckedChange={() => toggleTopic(topic)}
-                />
-                <span className="text-sm">{topic}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Mode: Topics & Shows — searchable grid */}
+      {/* Mode: Topics & Shows — SearchableList */}
       {inventoryMode === 'topics' && (
         <div className="space-y-3">
-          {/* Selected shows chips */}
-          {selectedShows.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedShows.map(id => {
-                const show = MOCK_SHOWS.find(s => s.id === id);
-                if (!show) return null;
-                return (
-                  <span key={id} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2.5 py-1 rounded-full">
-                    {show.name}
-                    <button type="button" onClick={() => toggleShow(id)}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Search + filters */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('wizard.targeting.search_placeholder')}
-                value={showSearch}
-                onChange={e => setShowSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <select
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">{t('wizard.targeting.all_types')}</option>
-              {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select
-              value={topicFilter}
-              onChange={e => setTopicFilter(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">{t('wizard.targeting.all_topics')}</option>
-              {allTopics.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          {/* Grid table */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/50 border-b border-border">
-                    <th className="w-10 px-3 py-2.5"></th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">{t('wizard.targeting.name')}</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">{t('wizard.targeting.type')}</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">{t('wizard.targeting.topic')}</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">{t('wizard.targeting.audience')}</th>
-                    {multiCountry && (
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">{t('wizard.targeting.country')}</th>
-                    )}
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground hidden md:table-cell">{t('wizard.targeting.description')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredShows.length === 0 ? (
-                    <tr>
-                      <td colSpan={multiCountry ? 7 : 6} className="px-3 py-6 text-center text-muted-foreground">
-                        {t('wizard.targeting.no_shows')}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredShows.map(show => {
-                      const selected = selectedShows.includes(show.id);
-                      return (
-                        <tr
-                          key={show.id}
-                          onClick={() => toggleShow(show.id)}
-                          className={cn(
-                            'cursor-pointer transition-colors hover:bg-accent/50',
-                            selected && 'bg-primary/5'
-                          )}
-                        >
-                          <td className="px-3 py-2.5">
-                            <Checkbox checked={selected} tabIndex={-1} />
-                          </td>
-                          <td className="px-3 py-2.5 font-medium text-foreground whitespace-nowrap">{show.name}</td>
-                          <td className="px-3 py-2.5">
-                            <span className={cn(
-                              'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
-                              show.inventoryType === 'Podcast' && 'bg-violet-100 text-violet-700',
-                              show.inventoryType === 'Streaming' && 'bg-blue-100 text-blue-700',
-                              show.inventoryType === 'Radio' && 'bg-amber-100 text-amber-700',
-                            )}>
-                              {show.inventoryType}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{show.topic}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{show.audience}</td>
-                          {multiCountry && (
-                            <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{show.country}</td>
-                          )}
-                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">{show.description}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">{t('wizard.targeting.shows_selected', { count: String(filteredShows.length), selected: String(selectedShows.length) })}</p>
+          <Label>Shows & Inventory</Label>
+          <SearchableList
+            items={MOCK_SHOWS}
+            columns={showColumns}
+            selectionMode="multi"
+            selectedIds={selectedShows}
+            onSelectionChange={(ids) => onChange({ ...data, selectedShows: ids })}
+            selectAllFiltered
+            idKey="id"
+            searchPlaceholder="Search shows, interests, networks..."
+            searchableKeys={['name', 'description', 'topic', 'inventoryType']}
+            filters={showFilters}
+            defaultSort={{ key: 'name', dir: 'asc' }}
+            pageSize={10}
+            variant="table"
+            maxHeight="350px"
+            emptyMessage="No shows match your search"
+            collapsible
+            isOpen={openListId === 'shows'}
+            onOpenChange={handleOpenChange('shows')}
+            collapsibleIcon={<List className="h-4 w-4" />}
+            collapsibleLabel="Select shows & interests..."
+          />
         </div>
       )}
+
 
       {/* Ad Position — Pro only */}
       {isPro && (
         <div className="space-y-3">
-          <Label>{t('wizard.targeting.ad_position')}</Label>
+          <Label>Ad Position</Label>
           <div className="flex flex-wrap gap-2">
             {adPositionOptions.map(pos => {
-              const selected = adPositions.includes(pos);
+              const selected = adPositions.includes(pos.value);
               return (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => toggleAdPosition(pos)}
+                <div
+                  key={pos.value}
+                  onClick={() => toggleAdPosition(pos.value)}
                   className={cn(
-                    'px-4 py-2 rounded-lg border text-sm font-medium transition-colors',
+                    'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                     selected
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:border-primary/30'
+                      ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                      : 'border-border hover:border-[#C8E6C9]'
                   )}
                 >
-                  {selected && <Check className="h-3 w-3 inline mr-1.5 -mt-0.5" />}
-                  {pos}
-                </button>
+                  {selected && (
+                    <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                      <Check className="h-2.5 w-2.5 text-foreground" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium">{pos.label}</span>
+                </div>
               );
             })}
           </div>
@@ -404,138 +588,91 @@ export default function CampaignTargetingStep({ data, onChange, multiCountry = f
       )}
 
       {/* Gender */}
-      {(
-        <div className="space-y-3">
-          <Label>{t('wizard.targeting.gender')}</Label>
-          <div className="grid grid-cols-3 gap-3">
-            {genderOptions.map(({ value, label, icon: Icon }) => {
-              const selected = data.gender === value;
-              return (
-                <div
-                  key={value}
-                  onClick={() => onChange({ ...data, gender: value })}
-                  className={cn(
-                    'border rounded-lg p-3 cursor-pointer transition-all flex flex-col items-center text-center relative',
-                    selected
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/30'
-                  )}
-                >
-                  {selected && (
-                    <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-3 w-3 text-primary-foreground" />
-                    </div>
-                  )}
-                  <Icon className={cn('h-5 w-5 mb-1', selected ? 'text-primary' : 'text-muted-foreground')} />
-                  <p className="text-sm font-medium">{label}</p>
-                </div>
-              );
-            })}
-          </div>
+      <div className="space-y-3">
+        <Label>Gender</Label>
+        <div className="flex flex-wrap gap-2">
+          {[ {value: '', label: 'All'}, ...targetingSegments?.filter(segment => segment.code === 'gender')].map(({ value, label }) => {
+            const selected = data.gender === value;
+            return (
+              <div
+                key={value}
+                onClick={() => onChange({ ...data, gender: value })}
+                className={cn(
+                  'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
+                  selected
+                    ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                    : 'border-border hover:border-[#C8E6C9]'
+                )}
+              >
+                {selected && (
+                  <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                    <Check className="h-2.5 w-2.5 text-foreground" />
+                  </div>
+                )}
+                <span className="text-sm font-medium">{label}</span>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Age Range */}
-      {(
-        <div className="space-y-3">
-          <Label>{t('wizard.targeting.age_range')}</Label>
-          <div className="flex flex-wrap gap-2">
-            {ageRanges.map((age) => {
-              const selected = data.ageRanges.includes(age);
-              return (
-                <div
-                  key={age}
-                  onClick={() => toggleAge(age)}
-                  className={cn(
-                    'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
-                    selected
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/30'
-                  )}
-                >
-                  {selected && (
-                    <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center shrink-0">
-                      <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                    </div>
-                  )}
-                  <CalendarDays className={cn('h-4 w-4', selected ? 'text-primary' : 'text-muted-foreground')} />
-                  <span className="text-sm font-medium">{age}</span>
-                </div>
-              );
-            })}
-          </div>
+      <div className="space-y-3">
+        <Label>Age Range</Label>
+        <div className="flex flex-wrap gap-2">
+          {targetingSegments.filter(segment => segment.code === "age").map((age) => {
+            const selected = data.ageRanges.includes(age.value);
+            return (
+              <div
+                key={age.value}
+                onClick={() => toggleAge(age.value)}
+                className={cn(
+                  'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
+                  selected
+                    ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                    : 'border-border hover:border-[#C8E6C9]'
+                )}
+              >
+                {selected && (
+                  <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                    <Check className="h-2.5 w-2.5 text-foreground" />
+                  </div>
+                )}
+                <span className="text-sm font-medium">{age.label}</span>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Device Types — Pro only */}
       {isPro && (
         <div className="space-y-3">
-          <Label>{t('wizard.targeting.device_types')}</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {deviceOptions.map(({ value, icon: Icon }) => {
-              const selected = data.deviceTypes.includes(value);
-              return (
-                <div
-                  key={value}
-                  onClick={() => toggleDevice(value)}
-                  className={cn(
-                    'border rounded-lg p-3 cursor-pointer transition-all flex flex-col items-center text-center relative',
-                    selected
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/30'
-                  )}
-                >
-                  {selected && (
-                    <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-3 w-3 text-primary-foreground" />
-                    </div>
-                  )}
-                  <Icon className={cn('h-5 w-5 mb-1', selected ? 'text-primary' : 'text-muted-foreground')} />
-                  <p className="text-sm font-medium">{value}</p>
-                </div>
-              );
-            })}
-          </div>
+          <Label>Device Type</Label>
+          <p className="text-sm text-muted-foreground -mt-1">Target listeners by the type of device they are listening to.</p>
+          <SearchableList
+            items={deviceTypes.filter(device => device.code === 'MOBILE_AND_TABLETS' || device.code === 'DESKTOPS_AND_LAPTOPS')}
+            columns={deviceColumns}
+            selectionMode="multi"
+            selectedIds={data.deviceTypes}
+            onSelectionChange={(ids) => onChange({ ...data, deviceTypes: ids })}
+            selectAllFiltered
+            idKey="value"
+            searchPlaceholder="Search device types..."
+            searchableKeys={['label']}
+            defaultSort={{ key: 'label', dir: 'asc' }}
+            pageSize={10}
+            variant="table"
+            maxHeight="350px"
+            emptyMessage="No device types match your search"
+            collapsible
+            isOpen={openListId === 'devices'}
+            onOpenChange={handleOpenChange('devices')}
+            collapsibleLabel="Select device types..."
+          />
         </div>
       )}
 
-      {/* Saved & Re-targeting Audiences — Pro only */}
-      {isPro && (
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2">
-            <Bookmark className="h-4 w-4" />
-            {t('wizard.targeting.saved_audiences')}
-          </Label>
-          <div className="space-y-2">
-            {MOCK_SAVED_AUDIENCES.map(audience => {
-              const selected = savedAudiences.includes(audience.id);
-              return (
-                <button
-                  key={audience.id}
-                  type="button"
-                  onClick={() => toggleSavedAudience(audience.id)}
-                  className={cn(
-                    'w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors',
-                    selected
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/30'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox checked={selected} tabIndex={-1} />
-                    <div>
-                      <p className="text-sm font-medium">{audience.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {audience.type === 'retarget' ? `🔄 ${t('wizard.targeting.retargeting')}` : `📁 ${t('wizard.targeting.saved')}`} · {t('wizard.targeting.users', { count: audience.size })}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

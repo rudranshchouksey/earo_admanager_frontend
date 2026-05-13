@@ -13,7 +13,7 @@
    submit_text,
    onAction
  }: Props) {
-   // SDUI magic input shell
+   // This is a shell - the actual input logic lives in the landing page
    return (
      <div className="w-full max-w-xl mx-auto" data-block="magic-input">
        {/* Placeholder for integration with existing InputStep */}

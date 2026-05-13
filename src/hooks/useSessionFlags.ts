@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { auth, AuthSession } from '@/services/auth';
 
 const STORAGE_KEY = 'nextads_dev_flags';
 
@@ -32,24 +32,27 @@ export function useSessionFlags(): SessionFlags {
   const [flags, setFlags] = useState<SessionFlags>(loadFallbackFlags);
 
   useEffect(() => {
-    const applySession = (session: {
-      user: { app_metadata?: { isPro: boolean; userState: string; isAgency?: boolean } };
-    } | null) => {
+    const applySession = (session: AuthSession | null) => {
       const meta = session?.user?.app_metadata;
+      const organizationId = session?.currentOrganizationId;
+      const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
+
       if (meta) {
+        const isAgency = Boolean(meta.isAgency ?? (organization?.orgType === 'AGENCY'));
         setFlags({
-          isPro: meta.isPro,
+          isPro: isAgency || meta.isPro,
           isNewUser: meta.userState === 'new',
-          isAgency: meta.isAgency ?? false,
+          // Prefer canonical boolean; fall back to orgType match for older sessions.
+          isAgency: isAgency,
         });
       } else {
         setFlags(loadFallbackFlags());
       }
     };
 
-    api.auth.getSession().then(({ data: { session } }) => applySession(session));
+    auth.getSession().then(({ data: { session } }) => applySession(session));
 
-    const { data: { subscription } } = api.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
       applySession(session);
     });
 

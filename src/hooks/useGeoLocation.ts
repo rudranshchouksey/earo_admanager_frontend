@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { getGeoData } from '@/services/geo';
 import type { GeoData } from '@/types/landing';
 
 const defaultGeoData: GeoData = {
+  locale: 'en-US',
   city: 'your city',
   country: 'your country',
-  countryCode: 'US',
+  country_code: 'US',
   language: 'en',
-  currency: {
-    code: 'USD',
-    symbol: '$',
-  },
-  listenerCount: '10 million',
-  minPrice: '50',
+  currency: 'USD',
+  currencySymbol: '$',
+  ip: '127.0.0.1',
 };
 
 export function useGeoLocation() {
@@ -23,7 +21,7 @@ export function useGeoLocation() {
   useEffect(() => {
     async function detectLocation() {
       try {
-        const { data, error: err } = await api.invokeGeoDetect();
+        const { data, error: err } = await getGeoData();
         if (err) {
           console.error('Geo detection error:', err);
           setGeoData(defaultGeoData);

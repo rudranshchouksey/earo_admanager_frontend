@@ -14,6 +14,9 @@ import CampaignsList from "./pages/CampaignsList";
 import CampaignWizard from "./pages/CampaignWizard";
 import Reports from "./pages/Reports";
 import Account from "./pages/Account";
+import ResetPassword from "./pages/ResetPassword";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailed from "./pages/PaymentFailed";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +42,10 @@ const App = () => (
                   <Route path="reports" element={<Reports />} />
                  <Route path="account" element={<Account />} />
                </Route>
+               <Route path="paymentSuccess" element={<PaymentSuccess />} />
+               <Route path="paymentFailed" element={<PaymentFailed />} />
+              <Route path="/resetPassword" element={<ResetPassword />} />
+              <Route path="/resetPassword/:token" element={<ResetPassword />} />
                <Route path="*" element={<Auth />} />
              </Routes>
            </BrowserRouter>

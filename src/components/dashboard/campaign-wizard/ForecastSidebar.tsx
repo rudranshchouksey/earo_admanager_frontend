@@ -1,71 +1,59 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Radio, Repeat, Globe, Info, X } from 'lucide-react';
-import { useTranslation } from '@/contexts/TranslationContext';
+import { FileWarning, Info, Loader2, TriangleAlert, X } from 'lucide-react';
 
 const DAILY_BASELINES: Record<string, number> = { Streaming: 80000, Podcast: 30000, Radio: 40000 };
 
 interface ForecastProps {
+  isLoading: boolean;
+  totalAvailableImpressions: number;
   totalBudget: number;
   dailyBudget: number;
-  inventoryTypes: string[];
-  durationDays: number;
-  ageRangeCount?: number;
-  deviceTypeCount?: number;
-  hasLocation?: boolean;
+  cpm?: number;
+  noOfDays?: number | string;
 }
 
-export default function ForecastSidebar({ totalBudget, dailyBudget, inventoryTypes, durationDays, ageRangeCount = 1, deviceTypeCount = 1, hasLocation = false }: ForecastProps) {
-  const { t } = useTranslation();
+export function formatCompactNumber(value: number, locale: string = 'en-US'): string {
+
+  const formatter = new Intl.NumberFormat(locale, {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  });
+
+  return formatter.format(value);
+}
+
+
+export default function ForecastSidebar({ isLoading, totalAvailableImpressions, totalBudget, dailyBudget, cpm=18, noOfDays=1 }: ForecastProps) {
   const [showGuide, setShowGuide] = useState(false);
-  const cpm = 8;
-  const baseImpressions = totalBudget > 0 ? Math.round((totalBudget / cpm) * 1000) : 0;
 
-  const inventoryCount = inventoryTypes.length;
-  const dailyBase = inventoryTypes.reduce((sum, t) => sum + (DAILY_BASELINES[t] || 50000), 0);
+  if(isLoading) {
+    return (
+      <Card className="border-[#E6F4EA]">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center min-h-[200px] justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const ageMultiplier = 1 + Math.log2(Math.max(1, ageRangeCount)) * 0.15;
-  const deviceMultiplier = 1 + (Math.max(1, deviceTypeCount) - 1) * 0.1;
-  const durationMultiplier = durationDays > 0 ? 1 + Math.min(Math.log10(durationDays) * 0.1, 0.3) : 1;
-  const locationMultiplier = hasLocation ? 0.85 : 1;
-
-  const combinedMultiplier = ageMultiplier * deviceMultiplier * durationMultiplier * locationMultiplier;
-
-  const totalAvailable = Math.round(dailyBase * Math.max(1, durationDays) * combinedMultiplier);
-
-  const impressions = Math.round(baseImpressions * Math.max(1, inventoryCount) * combinedMultiplier);
-  const reach = Math.round(impressions * 0.6);
-  const frequency = reach > 0 ? (impressions / reach).toFixed(1) : '0';
-
-  const highlightMetric = { label: t('wizard.forecast.total_available'), value: totalAvailable.toLocaleString(), icon: Globe };
-  const estimateMetrics = [
-    { label: t('wizard.forecast.ads_played'), value: Math.round(impressions * 0.85).toLocaleString(), icon: Radio },
-    { label: t('wizard.forecast.unique_listeners'), value: reach.toLocaleString(), icon: Users },
-    { label: t('wizard.forecast.max_frequency'), value: `${frequency}x`, icon: Repeat },
-  ];
-
-  const renderMetric = (m: { label: string; value: string; icon: React.ElementType }, highlight = false) => (
-    <div key={m.label} className="flex items-center gap-3">
-      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${highlight ? 'bg-accent/20' : 'bg-primary/10'}`}>
-        <m.icon className={`h-4 w-4 ${highlight ? 'text-accent-foreground' : 'text-primary'}`} />
-      </div>
-      <div>
-        <p className="text-lg font-bold text-foreground leading-tight">{m.value}</p>
-        <p className="text-xs text-muted-foreground">{m.label}</p>
-      </div>
-    </div>
-  );
+  const frequency = 3;
+  const estimatedAdsPlayed = ((totalBudget / cpm)*1000);
+  const uniqueListeners = (estimatedAdsPlayed / frequency);
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-[#E6F4EA]">
       <CardContent className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">{t('wizard.forecast.title')}</h3>
+          <h3 className="text-sm font-semibold text-foreground">Campaign Forecast</h3>
           <button
             type="button"
             onClick={() => setShowGuide(!showGuide)}
             className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={t('wizard.forecast.audience_guide')}
+            aria-label="Audience guide"
           >
             <Info className="h-4 w-4" />
           </button>
@@ -74,35 +62,55 @@ export default function ForecastSidebar({ totalBudget, dailyBudget, inventoryTyp
         {showGuide && (
           <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-2 text-xs text-muted-foreground">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground text-xs">{t('wizard.forecast.audience_guide_title')}</span>
+              <span className="font-semibold text-foreground text-xs">Audience Guide</span>
               <button type="button" onClick={() => setShowGuide(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            <p>{t('wizard.forecast.estimates_intro')}</p>
-            <p><span className="font-medium text-foreground">{t('wizard.forecast.ads_played')}:</span> {t('wizard.forecast.ads_played_hint')}</p>
-            <p><span className="font-medium text-foreground">{t('wizard.forecast.unique_listeners')}:</span> {t('wizard.forecast.unique_listeners_hint')}</p>
-            <p><span className="font-medium text-foreground">{t('wizard.forecast.max_frequency')}:</span> {t('wizard.forecast.max_frequency_hint')}</p>
-            <p><span className="font-medium text-foreground">{t('wizard.forecast.deliverability')}:</span> {t('wizard.forecast.deliverability_hint')}</p>
-            <p>{t('wizard.forecast.adjust_hint')}</p>
+            <p>These estimates help you understand how your targeting, budget, and settings translate into potential campaign results.</p>
+            <p><span className="font-medium text-foreground">Estimated ads played:</span> The number of ad impressions you're likely to deliver with your current budget.</p>
+            <p><span className="font-medium text-foreground">Estimated unique listeners:</span> The approximate number of distinct listeners your ads will reach.</p>
+            <p><span className="font-medium text-foreground">Max frequency:</span> The average number of times each listener may hear your ad.</p>
+            <p><span className="font-medium text-foreground">Deliverability:</span> Indicates how achievable your setup is based on targeting scope and inventory availability.</p>
+            <p>Adjusting your targeting or budget can impact these estimates.</p>
           </div>
         )}
 
         <div className="space-y-3">
-          {inventoryCount > 0 && renderMetric(highlightMetric, true)}
+
+            <div>
+              <p className="flex gap-2 items-center text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalAvailableImpressions)} {totalAvailableImpressions < estimatedAdsPlayed ? <span className='text-destructive text-xs' title='Low inventory'><TriangleAlert size={16} /> </span> : <></>} </p>
+              <p className="text-xs text-muted-foreground">Total Available Impressions</p>
+            </div>
+
           <div className="border-b border-border" />
-          {totalBudget > 0 && (
+
             <p className="text-xs text-muted-foreground">
-              {t('wizard.forecast.budget_estimate', { total: totalBudget.toLocaleString() })}
+              With a budget of USD {totalBudget.toLocaleString()} we estimate you will achieve:
             </p>
-          )}
-          {estimateMetrics.map((m) => renderMetric(m))}
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(estimatedAdsPlayed)}</p>
+              <p className="text-xs text-muted-foreground">Estimated ads played</p>
+            </div>
+
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(uniqueListeners)}</p>
+              <p className="text-xs text-muted-foreground">Estimated unique listeners</p>
+            </div>
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">{frequency.toFixed(0)}x</p>
+              <p className="text-xs text-muted-foreground">Estimated frequency</p>
+            </div>
+
+
+
         </div>
-        {totalBudget > 0 && (
-          <p className="text-xs text-muted-foreground border-t border-border pt-3">
-            {t('wizard.forecast.based_on', { daily: dailyBudget.toLocaleString(), days: String(durationDays), count: String(inventoryCount) })}
-          </p>
-        )}
+          {/* <p className="text-xs text-muted-foreground border-t border-border pt-3">
+            Based on ${budget.toLocaleString()}/day over {durationDays} days across {inventoryCount} channel{inventoryCount > 1 ? 's' : ''}
+          </p> */}
       </CardContent>
     </Card>
   );

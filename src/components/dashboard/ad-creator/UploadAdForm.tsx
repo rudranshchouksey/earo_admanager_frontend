@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api } from '@/services/api';
+import { auth } from '@/services/auth';
+import { adsApi } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
 
 const MAX_SIZE_MB = 10;
@@ -36,12 +37,12 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     setError(null);
 
     if (!ACCEPTED_TYPES.includes(selected.type)) {
-      setError(t('ad_creator.upload.unsupported_format'));
+      setError('Unsupported format. Please upload MP3, WAV, M4A, or OGG.');
       return;
     }
 
     if (selected.size > MAX_SIZE_MB * 1024 * 1024) {
-      setError(t('ad_creator.upload.file_too_large', { max: String(MAX_SIZE_MB) }));
+      setError(`File must be under ${MAX_SIZE_MB}MB.`);
       return;
     }
 
@@ -50,7 +51,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     const tempAudio = new Audio(url);
     tempAudio.addEventListener('loadedmetadata', () => {
       if (tempAudio.duration > MAX_DURATION_SEC) {
-        setError(t('ad_creator.upload.duration_error', { max: String(MAX_DURATION_SEC), actual: String(Math.round(tempAudio.duration)) }));
+        setError(`Audio must be ${MAX_DURATION_SEC} seconds or less. This file is ${Math.round(tempAudio.duration)}s.`);
         URL.revokeObjectURL(url);
         return;
       }
@@ -60,7 +61,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       if (!adName) setAdName(selected.name.replace(/\.[^.]+$/, ''));
     });
     tempAudio.addEventListener('error', () => {
-      setError(t('ad_creator.upload.read_error'));
+      setError('Could not read audio file.');
       URL.revokeObjectURL(url);
     });
   };
@@ -83,26 +84,45 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
 
   const handleSave = async () => {
     if (!file || !adName.trim()) return;
+
+
+    if(adName.length > 100){
+      toast({ title: t('Ad Name must be less than 100 characters'), variant: 'destructive' });
+      return;
+    }
+    const regex = /^[a-z0-9]+$/i;
+    if(!regex.test(adName)){
+      toast({ title: t('Ad Name must contain only letters and numbers'), variant: 'destructive' });
+      return;
+    }
+  
+
+
     setIsSaving(true);
     try {
-      const { data: { session } } = await api.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       if (!session) {
-        toast({ title: t('ad_creator.not_authenticated'), variant: 'destructive' });
+        toast({ title: 'Not authenticated', variant: 'destructive' });
         return;
       }
+      console.log("file", file);
 
-      const path = `${session.user.id}/${Date.now()}.mp3`;
-      await api.uploadAudio(path, file);
-      const finalAudioUrl = audioUrl || api.getPublicUrl(path).publicUrl;
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const { error: dbError } = await api.createAd({
-        product_name: adName.trim(),
-        brand_name: adName.trim(),
-        audio_url: finalAudioUrl,
-        duration_seconds: duration,
-        status: 'completed',
-        source_type: 'upload',
-        user_id: session.user.id,
+      const { status, error, message, data } = await adsApi.uploadFile(formData);
+      if (status !== 200 || error) {
+        toast({ title: message, variant: 'destructive' });
+        return;
+      }
+      const finalAudioUrl = data.data.url;
+
+      const { error: dbError } = await adsApi.uploadAudioAd({
+        adName: adName.trim(),
+        advertiserId: session.currentAdvertiserId,
+        fileUrl: finalAudioUrl,
+        duration: duration,
+        campaignGoal: goal,
       });
       if (dbError) throw dbError;
 

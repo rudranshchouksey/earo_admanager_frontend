@@ -1,7 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle2, Settings, CalendarDays, Radio, Target, DollarSign } from 'lucide-react';
 import { useTranslation } from '@/contexts/TranslationContext';
-
 interface SummaryItem {
   key: string;
   label: string;
@@ -13,12 +11,12 @@ interface CampaignSummaryProps {
   items: SummaryItem[];
 }
 
-const iconMap: Record<string, React.ElementType> = {
-  setup: Settings,
-  schedule: CalendarDays,
-  inventory: Radio,
-  targeting: Target,
-  budget: DollarSign,
+const keyToNumber: Record<string, number> = {
+  setup: 1,
+  schedule: 2,
+  budget: 3,
+  inventory: 4,
+  targeting: 5,
 };
 
 export default function CampaignSummary({ items }: CampaignSummaryProps) {
@@ -26,19 +24,19 @@ export default function CampaignSummary({ items }: CampaignSummaryProps) {
   if (items.length === 0) return null;
 
   return (
-    <Card className="border-primary/20 animate-fade-in mt-4">
+    <Card className="border-[#E6F4EA] animate-fade-in">
       <CardContent className="p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">{t('wizard.review.summary')}</h3>
-        <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-foreground">{t('wizard.review.summary')}</h3>
+      <div className="space-y-2">
           {items.map((item) => {
-            const Icon = iconMap[item.key] || CheckCircle2;
+            const num = keyToNumber[item.key] ?? '?';
             return (
               <div key={item.key} className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                </div>
+                <span className="flex items-center justify-center h-5 w-5 rounded-md text-[10px] font-semibold shrink-0 mt-0.5 bg-foreground text-background">
+                  {num}
+                </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">{item.label}</p>
+                <p className="text-xs font-medium text-foreground">{item.label}</p>
                   <p className="text-xs text-muted-foreground truncate">{item.value}</p>
                 </div>
               </div>
