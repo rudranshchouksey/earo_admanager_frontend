@@ -354,7 +354,7 @@ function ExpressVoicePreview({
         </>
       )}
 
-      <Label className="text-xs text-muted-foreground">Available voices {voices.length}</Label>
+      <Label className="text-xs text-muted-foreground">Available voices</Label>
       <div
         ref={scrollRef}
         className={`space-y-1 ${isPro ? "max-h-[250px] overflow-y-auto" : ""}`}
