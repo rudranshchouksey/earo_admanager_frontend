@@ -68,10 +68,11 @@ export default function CampaignWizard() {
     externalCampaignId?: string;
   }>({ audioId: "", campaignName: "" });
   const [schedule, setSchedule] = useState(() => {
-    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    const today = new Date(new Date());
     today.setDate(today.getDate() + 1); // Start date is tomorrow
+    today.setHours(today.getHours() + 1);
     const end = new Date(new Date().setDate(today.getDate() + 29));
-    return {  startDate: formatDate(today), endDate: formatDate(end), startTime: "00:00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
+    return {  startDate: formatDate(today), endDate: formatDate(end), startTime: today.getHours().toString().padStart(2, "0") + ":00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
   const { geoData, isLoading: geoLoading } = useGeoLocation();
   const [inventory, setInventory] = useState<LocationData>({
@@ -83,7 +84,7 @@ export default function CampaignWizard() {
   const [targeting, setTargeting] = useState({
     gender: "",
     ageRanges: ["1824", "2124", "2534", "3544", "4554", "5564","6500"] as string[],
-    deviceTypes: ["tablet", "desktop", "phone"] as string[],
+    deviceTypes: ["tablet", "desktop", "phone", "portable_media_player"] as string[],
     inventoryType: "Podcast",
     podcastTopics: [] as string[],
     podcastAudiences: [] as string[],
@@ -95,7 +96,7 @@ export default function CampaignWizard() {
   });
   const [budget, setBudget] = useState({
     dailyBudget: "25",
-    totalBudget: "25",
+    totalBudget: "750",
     currency: "USD",
   });
   const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", originalAmount: 0, discountApplied: 0, finalAmount: 0 });

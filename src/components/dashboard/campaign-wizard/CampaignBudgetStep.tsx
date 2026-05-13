@@ -36,11 +36,11 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
   const handleSliderChange = (value: number) => {
     if(tab === 'daily') {
       const daily = value;
-      const total = daily * durationDays;
+      const total = parseInt(String(daily * durationDays));
       onChange({ ...data, dailyBudget: String(daily), totalBudget: String(total) });
     } else {
       const total = value;
-      const daily = Number(total / durationDays).toFixed(2);
+      const daily = parseInt(String(total / durationDays));
       console.log("daily", daily, "total", total);
       onChange({ ...data, dailyBudget: String(daily), totalBudget: String(total) });
     }
@@ -99,8 +99,9 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
 
       {/* Total + duration summary */}
       
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground space-y-1">
         Total budget: <span className="font-semibold text-foreground">${totalBudget.toLocaleString()}</span> over {durationDays} day{durationDays !== 1 ? 's' : ''}, <span className="font-semibold text-foreground">${dailyValue.toLocaleString()}/day</span>
+        <h6>Minimum daily budget: ${MIN_BUDGET.toLocaleString()}</h6>
       </p>
 
       {/* Budget presets */}
@@ -125,7 +126,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
                     <Check className="h-2.5 w-2.5 text-foreground" />
                   </div>
                 )}
-                <span className="text-sm font-medium">${amount}/day</span>
+                <span className="text-sm font-medium">${amount.toLocaleString()}/day</span>
               </div>
             );
           })}
@@ -153,7 +154,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
                     <Check className="h-2.5 w-2.5 text-foreground" />
                   </div>
                 )}
-                <span className="text-sm font-medium">${amount}</span>
+                <span className="text-sm font-medium">${amount.toLocaleString()}</span>
               </div>
             );
           })}
