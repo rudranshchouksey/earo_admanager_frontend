@@ -70,7 +70,7 @@ export default function CampaignWizard() {
   const [schedule, setSchedule] = useState(() => {
     const today = new Date(new Date());
     today.setDate(today.getDate() + 1); // Start date is tomorrow
-    today.setHours(today.getHours() + 1);
+    today.setHours(today.getHours() + 2);
     const end = new Date(new Date().setDate(today.getDate() + 29));
     return {  startDate: formatDate(today), endDate: formatDate(end), startTime: today.getHours().toString().padStart(2, "0") + ":00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
   });
