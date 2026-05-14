@@ -1483,7 +1483,6 @@ export default function AdCreatorForm({
                 variant="outline"
                 className="flex-1 h-12"
                 onClick={onRegenerate}
-                disabled={!scriptDirty || isRegenerating}
               >
                 {isRegenerating ? (
                   <>
