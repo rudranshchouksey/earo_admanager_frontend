@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pause, Trash2, Volume2, Download, Search, Filter, Pencil } from 'lucide-react';
+import { Plus, Play, Pause, Trash2, Volume2, Download, Search, Filter, Pencil, RefreshCcw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card';
 import { Button } from '@/components/ui/button';
@@ -443,7 +443,7 @@ export default function AdsLibrary() {
   ], [PlayRenderer, DeleteRenderer, StatusRenderer, NameRenderer, t]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       <audio ref={audioRef} preload="none" />
 
       <div className="flex items-center justify-between">
@@ -509,7 +509,14 @@ export default function AdsLibrary() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{t('ads.ad_performance')}</CardTitle>
+            <CardTitle className='flex justify-between'>
+              {t('ads.ad_performance')}
+              
+              <Button variant="outline" size="sm" className="ml-4" onClick={() => fetchAds({ page, limit, search: search.trim() || undefined, status: apiStatus })} >
+                <RefreshCcw className="h-4 w-4 mr-2" />
+              </Button>
+              
+              </CardTitle>
           </CardHeader>
           <div className="px-6 pb-4 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">

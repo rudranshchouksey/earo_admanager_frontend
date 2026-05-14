@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -175,6 +175,13 @@ export default function CampaignsList() {
     });
   
   }, [fetchCampaigns])
+
+
+  const refresh = () => {
+    setPage(1);
+    fetchCampaigns();
+  };
+
   
   // const totals = useMemo(() => {
   //   return campaigns.reduce(
@@ -322,7 +329,7 @@ export default function CampaignsList() {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Campaigns</h1>
@@ -364,7 +371,12 @@ export default function CampaignsList() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Campaign Performance</CardTitle>
+          <CardTitle className='flex justify-between'>
+            Campaign Performance
+            <Button variant="outline" size="sm" className="ml-4" onClick={refresh} >
+              <RefreshCcw className="h-4 w-4 mr-2" />
+            </Button>
+          </CardTitle>
         </CardHeader>
         <div className="px-6 pb-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">

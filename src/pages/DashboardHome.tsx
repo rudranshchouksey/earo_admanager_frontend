@@ -151,7 +151,7 @@ export default function DashboardHome() {
   const podcasts = [];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
+    <div className="max-w-[1400px] mx-auto space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-foreground">
           {isNewWithAd ? greeting : 'Dashboard'}
