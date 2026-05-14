@@ -1127,7 +1127,20 @@ export default function CampaignWizard() {
         console.error(error);
         return;
       }
-      setCreditsDetails(data?.data);
+      console.log({
+        
+          availableCredit: data?.availableCredit || 0,
+          creditUsed: data?.creditUsed || 0,
+          totalCredits: data?.availableCredit || 0,
+          utilizationPercentage: data?.utilizationPercentage || "0%",
+        
+      })
+      setCreditsDetails({
+        availableCredit: data?.availableCredit || 0,
+        creditUsed: data?.creditUsed || 0,
+        totalCredits: data?.availableCredit || 0,
+        utilizationPercentage: data?.utilizationPercentage || "0%",
+      });
     }
 
     Promise.allSettled([
