@@ -3,7 +3,7 @@
  * Handles JWT storage, OTP verification, and authentication state listeners.
  */
 import Cookies from "js-cookie";
-import { request } from "./api";
+import { BASE_URL, request } from "./api";
 
 export interface Organizations {
   orgId: string;
@@ -143,6 +143,20 @@ export const auth = {
     notify('ORGANIZATION_CHANGED', session);
   },
 
+  setOrganizationType: (organizationType: string) => {
+    const session = getStoredSession();
+    if (!session) return;
+    if(organizationType === "AGENCY") {
+      session.user.app_metadata!.isAgency = true;
+      session.user.app_metadata!.isPro = true;
+    } else {
+      session.user.app_metadata!.isAgency = false;
+      session.user.app_metadata!.isPro = false;
+    }
+    setStoredSession(session);
+    notify('USER_UPDATED', session);
+  },
+
   setCurrentAdvertiserId: (advertiserId: string, isPro: boolean = false) => {
     console.log("setCurrentAdvertiserId here ", {advertiserId, isPro});
     const session = getStoredSession();
@@ -260,6 +274,14 @@ export const auth = {
     notify('SIGNED_IN', session);
     return { data: { session }, error: null, status, message };
 
+  },
+
+  verifyEmailWithToken: async (token: string) => {
+    const response = await fetch(`${BASE_URL}/api/v1/auth/verifyEmail?token=${token}`, {
+      method: 'GET',
+    });
+    const data = await response.json();
+    return { data, error: null, status: response.status, message: data.message };
   },
 
   resendOtp: (email: string) => 

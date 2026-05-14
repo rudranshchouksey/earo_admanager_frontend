@@ -37,7 +37,7 @@ import { countryCPM } from "@/lib/defaults";
 import { auth } from "@/services/auth";
 import { AdGroup, campaignApi } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
-import { walletApi } from "@/services/wallet";
+import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
 import { adsApi } from "@/services/ads";
 
 interface Cards {
@@ -124,7 +124,12 @@ export default function CampaignWizard() {
   const [paymentUrl, setPaymentUrl] = useState("");
 
   const [cards, setCards] = useState<Cards[]>([])
-
+  const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
+    availableCredit: 0,
+    creditUsed: 0,
+    totalCredits: 0,
+    utilizationPercentage: "0%",
+  });
   const [audienceExtension, setAudienceExtension] =
     useState<AudienceExtensionData>({
       enabled: false,
@@ -558,7 +563,7 @@ export default function CampaignWizard() {
         isSavedCard: false,
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
-        cardId: payment.cardId ? payment.cardId : null,
+        cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
       };
 
 
@@ -1112,6 +1117,18 @@ export default function CampaignWizard() {
       setCards(data?.data || []);
     }
 
+    const getCreditsDetails = async () => {
+      const { data: { session } } = await auth.getSession();
+      if(!session) return;
+      const { data, error, status } = await walletApi.getCreditsDetails(session.currentAdvertiserId || "");
+      console.log("getCreditsDetails here ", {data, error, status});
+
+      if (error || status !== 200) {
+        console.error(error);
+        return;
+      }
+      setCreditsDetails(data?.data);
+    }
 
     Promise.allSettled([
       fetchCountries(),
@@ -1121,6 +1138,7 @@ export default function CampaignWizard() {
       getTargetingSegments(),
       fetchDeviceTypes(),
       fetchCards(),
+      getCreditsDetails(),
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -1383,7 +1401,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
+              <CampaignPaymentStep totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
             </CardContent>
           </Card>
 

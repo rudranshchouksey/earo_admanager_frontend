@@ -1,5 +1,11 @@
 import { request } from "./api";
 
+export interface Organizations {
+  orgId: string;
+  orgType: "SME" | "AGENCY";
+  name: string;
+  role: string
+}
 
 export interface UserProfile {
   id: string;
@@ -17,6 +23,7 @@ export interface UserProfile {
   orgId: string;
   status: string;
   onboardingComplete: boolean;
+  organizations: Organizations[];
 }
 
 export interface UserProfileResponse {
