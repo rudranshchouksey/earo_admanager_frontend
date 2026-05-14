@@ -60,16 +60,7 @@ const statusColors: Record<string, string> = {
 };
 
 const mockCampaigns: Campaign[] = [
-  { id: 'da-1', name: 'Ramadan Flash Push', status: 'active', campaign_type: 'awareness', start_date: '2026-02-01', end_date: '2026-02-19', budget: 4000, actual_spend: 3200, actual_impressions: 180000, reach: 42000, ltr: 65, currency: 'USD' },
-  { id: 'da-2', name: 'Brand Awareness Q1', status: 'active', campaign_type: 'awareness', start_date: '2026-01-15', end_date: '2026-03-15', budget: 8000, actual_spend: 4100, actual_impressions: 320000, reach: 89000, ltr: 82, currency: 'USD' },
-  { id: 'da-3', name: 'Podcast Sponsorship', status: 'active', campaign_type: 'engagement', start_date: '2026-01-01', end_date: '2026-03-31', budget: 6000, actual_spend: 3100, actual_impressions: 210000, reach: 55000, ltr: 78, currency: 'USD' },
-  { id: 'da-4', name: 'App Install Drive', status: 'active', campaign_type: 'conversions', start_date: '2026-01-20', end_date: '2026-03-20', budget: 5000, actual_spend: 2800, actual_impressions: 65000, reach: 12000, ltr: 32, currency: 'USD' },
-  { id: 'da-5', name: 'Loyalty Re-engage', status: 'active', campaign_type: 'engagement', start_date: '2026-02-01', end_date: '2026-03-01', budget: 3000, actual_spend: 1900, actual_impressions: 40000, reach: 8000, ltr: 44, currency: 'USD' },
-  { id: 'da-6', name: 'Spring Collection Launch', status: 'active', campaign_type: 'awareness', start_date: '2026-02-25', end_date: '2026-03-25', budget: 7000, actual_spend: null, actual_impressions: null, reach: null, ltr: null, currency: 'USD' },
-  { id: 'da-7', name: 'Valentine Promo', status: 'completed', campaign_type: 'conversions', start_date: '2026-01-25', end_date: '2026-02-14', budget: 3500, actual_spend: 3480, actual_impressions: 195000, reach: 48000, ltr: 79, currency: 'USD' },
-  { id: 'da-8', name: 'Weekend Flash Sale', status: 'completed', campaign_type: 'engagement', start_date: '2026-02-07', end_date: '2026-02-09', budget: 1500, actual_spend: 1490, actual_impressions: 72000, reach: 19000, ltr: 71, currency: 'USD' },
-  { id: 'da-9', name: 'Eid Campaign Draft', status: 'draft', campaign_type: 'awareness', start_date: '2026-03-20', end_date: '2026-04-05', budget: 10000, actual_spend: null, actual_impressions: null, reach: null, ltr: null, currency: 'USD' },
-];
+ ];
 
 function ActionButtons({ group, campaign }: { group: string; campaign: Campaign }) {
   const navigate = useNavigate();

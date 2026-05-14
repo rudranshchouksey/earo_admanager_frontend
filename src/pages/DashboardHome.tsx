@@ -23,7 +23,7 @@ export default function DashboardHome() {
   const [userState, setuserState] = useState('existing')
 
   const { t } = useTranslation();
-  const mockStats = { impressions: 124500, spend: 2340, reach: 48200 };
+  const mockStats = { impressions: 0, spend: 0, reach: 0 };
 
   useEffect(() => {
     const getAdvertiserId = async () => {
@@ -69,7 +69,7 @@ export default function DashboardHome() {
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
 
-  const isNewWithAd = userState === 'new_with_ad';
+  const isNewWithAd = false;
 
   const greeting = userName ? `Welcome, ${userName}` : 'Welcome';
 
@@ -147,6 +147,8 @@ export default function DashboardHome() {
       </div>
     );
   }
+
+  const podcasts = [];
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">

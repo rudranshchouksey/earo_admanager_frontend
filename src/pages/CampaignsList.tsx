@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -277,12 +277,12 @@ export default function CampaignsList() {
           {
             params.data.status === 'DRAFT' ? (
               <Button
-                variant="default"
+                variant="ghost"
                 size="sm"
-                className="h-7 text-xs mr-2"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
                 onClick={() => navigate(`/dashboard/campaigns/${params.data.id}`)}
               >
-                Edit
+                        <Pencil className="h-3.5 w-3.5" />
               </Button>
             ): (
               <Button

@@ -6,7 +6,7 @@ import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, PauseCircle } from 'lucide-react';
+import { Plus, Pencil, PauseCircle, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [form, setForm] = useState<Omit<Record<string, string>, 'id'>>(defaultForm);
+  const [isSaving, setIsSaving] = useState(false);
 
   const openCreate = () => {
     setEditing(null);
@@ -86,8 +87,10 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
   };
 
   const handleSave = async () => {
+    setIsSaving(true);
     if (!form.name || !form.industry) {
       toast({ title: t('account.fill_all_required'), variant: 'destructive' });
+      setIsSaving(false);
       return;
     }
 
@@ -101,6 +104,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
       });
       if(status !== 200 || error){
         toast({ title: message, variant: 'destructive' });
+        setIsSaving(false);
         return;
       }
       toast({ title: message });
@@ -112,11 +116,13 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
       });
       if(status !== 200 || error){
         toast({ title: message, variant: 'destructive' });
+        setIsSaving(false);
         return;
       }
       toast({ title: message });
     }
     setDialogOpen(false);
+    setIsSaving(false);
   };
 
   const updateForm = (field: keyof Omit<Advertiser, 'id'>, value: string) =>
@@ -284,11 +290,13 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSave}>
-              {editing ? t('account.save_changes') : t('account.create_advertiser_btn')}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {
+                isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : (editing ? t('account.save_changes') : t('account.create_advertiser_btn'))
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

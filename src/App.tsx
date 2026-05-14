@@ -17,6 +17,7 @@ import Account from "./pages/Account";
 import ResetPassword from "./pages/ResetPassword";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
+import VerifyEmail from "./pages/VerifyEmail";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
              <Routes>
                <Route path="/" element={<Auth />} />
                <Route path="/login" element={<Auth />} />
+               <Route path="/verifyEmail" element={<VerifyEmail />} />
                <Route path="/dashboard" element={<Dashboard />}>
                  <Route index element={<DashboardHome />} />
                  <Route path="ads" element={<AdsLibrary />} />

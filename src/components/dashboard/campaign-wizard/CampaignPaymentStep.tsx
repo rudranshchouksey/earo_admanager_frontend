@@ -3,8 +3,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CreditCard, Wallet, Building2 } from "lucide-react";
+import { CreditCard, Wallet, Building2, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { CreditDetails } from "@/services/wallet";
 // import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentData {
@@ -26,7 +27,9 @@ interface Props {
   isApplyingCoupon: boolean;
   dailyBudget: number;
   durationDays: number;
+  creditsDetails: CreditDetails;
   cards: Cards[];
+  totalBudget: number;
 }
 
 interface Cards {
@@ -38,6 +41,7 @@ interface Cards {
 }
 
 export default function CampaignPaymentStep({
+  creditsDetails,
   cards,
   campaignName,
   data,
@@ -45,6 +49,7 @@ export default function CampaignPaymentStep({
   applyCoupon,
   isApplyingCoupon = false,
   dailyBudget,
+  totalBudget,
   durationDays,
 }: Props) {
   const [couponCode, setCouponCode] = useState("");
@@ -77,7 +82,6 @@ export default function CampaignPaymentStep({
     setCouponCode("");
   };
 
-  const totalAmount = dailyBudget * durationDays;
 
   useEffect(() => {
     const checkPreviousPayment = async () => {
@@ -119,8 +123,9 @@ export default function CampaignPaymentStep({
   return (
     <div className="space-y-6">
 
+
       {cards && cards.length > 0 ? (
-        <div className="space-y-3">
+        <div className={`space-y-3 mb-5 ${creditsDetails.availableCredit > totalBudget ? 'hidden opacity-50 cursor-not-allowed' : ''}`}>
           <Label>Pay using your saved card</Label>
           {cards?.map((card) => (
             <div key={card.id} className="flex items-center gap-2 w-full">
@@ -149,7 +154,7 @@ export default function CampaignPaymentStep({
       )}
 
 
-      <div className="space-y-2">
+      <div className="space-y-2 mt-0 pt-0" style={{ marginTop: 0, paddingTop: 0 }}>
         <Label>Discount Coupon (optional)</Label>
         <div className="flex items-center gap-2">
           <Input
@@ -172,6 +177,32 @@ export default function CampaignPaymentStep({
         </div>
       </div>
 
+      {
+        creditsDetails.totalCredits > 0 ? (
+          <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-80 cursor-not-allowed'}`}>
+            <Label className="text-sm font-medium">Pay using your credits</Label>
+            <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium">Available Credits</p>
+                  <h6 className="text-2xl font-bold"> ${creditsDetails.availableCredit.toLocaleString()}</h6>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">After this campaign</p>
+                  <h6 className="text-2xl font-bold text-primary"> ${(creditsDetails.availableCredit - (data?.couponCode
+                ? data.finalAmount
+                : totalBudget)).toLocaleString()}</h6>
+                </div>
+            </div>           
+            {
+                  creditsDetails.availableCredit < totalBudget ? (
+                    <h6 className="text-xs text-destructive flex items-center gap-2">
+                      <TriangleAlert size={16} className="text-destructive" /> This campaign exceeds your available credits
+                    </h6>
+                  ) : <></>
+                }
+          </div>
+        ) :<></>
+      }
 
       <div className="space-y-2 bg-muted p-3 rounded-md">
         <label className="text-sm font-bold text-foreground">
@@ -186,7 +217,7 @@ export default function CampaignPaymentStep({
           </div>
           <div>
             <label className="text-sm font-semibold text-foreground">
-              ${(dailyBudget * durationDays).toLocaleString()}
+              ${(totalBudget).toLocaleString()}
             </label>
           </div>
         </div>
@@ -217,7 +248,7 @@ export default function CampaignPaymentStep({
               $
               {data?.couponCode
                 ? data.finalAmount.toLocaleString()
-                : totalAmount.toLocaleString()}
+                : totalBudget.toLocaleString()}
             </label>
           </div>
         </div>
