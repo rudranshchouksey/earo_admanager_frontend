@@ -11,6 +11,7 @@ import { AdData, adsApi } from '@/services/ads';
 import { auth, AuthSession } from '@/services/auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { MyTooltip } from '@/components/ui/MyTooltip';
 
 interface CampaignSetupData {
   audioId: string;
@@ -22,6 +23,8 @@ interface CampaignSetupData {
 interface Props {
   data: CampaignSetupData;
   onChange: (data: CampaignSetupData) => void;
+  searchInputRef: React.RefObject<HTMLInputElement>;
+  campaignNameRef: React.RefObject<HTMLInputElement>;
 }
 
 let activeAudioEl: HTMLAudioElement | null = null;
@@ -128,7 +131,20 @@ const adColumns: SimpleColumn<AdData>[] = [
   },
 ];
 
-export default function CampaignSetupStep({ data, onChange }: Props) {
+
+
+const campaignTooltip = `
+
+  <div class="p-2">
+<b>Campaign name </b><br />
+Give this campaign a clear internal name. We recommend: [Advertiser] – [Offer] – [Market] – [Month/Year], e.g. "Energy Company – Free Quote – UK – September 2026".
+<br /><br />
+<b>External ID (optional)</b><br />
+Link this campaign to an ID used in an external platform (e.g. a Google Analytics campaign ID or CRM reference). This ID appears in all report exports so you can join data across tools.
+  </div>
+`;
+
+export default function CampaignSetupStep({ data, onChange, searchInputRef, campaignNameRef }: Props) {
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
   const [ads, setAds] = useState<AdData[]>([]);
@@ -141,7 +157,7 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerWrapperRef = useRef<HTMLDivElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  //const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -260,7 +276,7 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
     <div className="space-y-6">
       {/* Ad Selection */}
       <div className="space-y-3">
-      <Label>{t('wizard.setup.select_ad')}</Label>
+      <Label className='flex items-center gap-2'><span>Choose your audio ad <sup>*</sup></span></Label>
 
       <div ref={pickerWrapperRef} className="space-y-2">
         {/* Trigger bar */}
@@ -289,7 +305,7 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-9 h-10"
-                  placeholder="Search ads by name or goal..."
+                  placeholder="Search ads by name or goal..."                  
                 />
               </div>
             </div>
@@ -335,7 +351,7 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
                           colSpan={adColumns.length + 1}
                           className="px-3 py-8 text-center text-muted-foreground"
                         >
-                          No ads found. Create an audio ad first.
+                          No ads found. Create an audio ad first. <a href="/dashboard/ads/new" className='text-foreground underline'>Create now</a>
                         </td>
                       </tr>
                     ) : (
@@ -393,12 +409,13 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
 
       {/* Campaign Name */}
       <div className="space-y-2">
-      <Label>{t('wizard.setup.campaign_name')}</Label>
+      <Label className='flex items-center gap-2'><span>Campaign name <sup>*</sup></span> <MyTooltip html={campaignTooltip} /> </Label>
       <Input
           placeholder={t('wizard.setup.campaign_name_placeholder')}
           value={data.campaignName}
           onChange={(e) => onChange({ ...data, campaignName: e.target.value })}
           maxLength={200}
+          ref={campaignNameRef}
         />
         <div className='flex justify-end'>
           <span className='text-xs text-slate-900'>{data.campaignName.length}/200</span>
@@ -408,15 +425,14 @@ export default function CampaignSetupStep({ data, onChange }: Props) {
       {/* External Campaign ID — Pro only */}
       {isPro && (
         <div className="space-y-2" style={{marginTop: 0}}>
-          <Label>{t('wizard.setup.external_id')}</Label>
+          <Label className='flex items-center gap-2'>External ID (optional)</Label>
           <Input
             placeholder={t('wizard.setup.external_id_placeholder')}
             value={data.externalCampaignId || ''}
             onChange={(e) => onChange({ ...data, externalCampaignId: e.target.value })}
             maxLength={50}
           />
-          <div className='flex justify-between'>
-            <p className="text-xs text-muted-foreground">{t('wizard.setup.external_id_hint')}</p>
+          <div className='flex justify-end'>
             <span className='text-xs text-slate-900'>{(data.externalCampaignId || '').length}/50</span>
           </div>
           </div>

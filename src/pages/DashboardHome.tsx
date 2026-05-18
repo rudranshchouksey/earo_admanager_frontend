@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { podcasts } from '@/components/landing/podcastData';
-import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause } from 'lucide-react';
+import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause, Icon, Info } from 'lucide-react';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

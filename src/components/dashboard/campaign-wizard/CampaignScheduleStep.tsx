@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
+import { MyTooltip } from '@/components/ui/MyTooltip';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -57,10 +58,10 @@ export const DAYS_OF_WEEK_LABELS = {
 };
 
 export const TIME_SLOTS = [
-  { value: 'morning', valueInHours: [6,7,8,9,10,11,12], label: 'Morning', desc: '6am - 12pm' },
-  { value: 'afternoon', valueInHours: [12,13,14,15,16,17,18], label: 'Afternoon', desc: '12pm - 6pm' },
-  { value: 'evening', valueInHours: [18,19,20,21,22,23,0], label: 'Evening', desc: '6pm - 12am' },
-  { value: 'overnight', valueInHours: [0,1,2,3,4,5,6], label: 'Overnight', desc: '12am - 6am' },
+  { value: 'morning', valueInHours: [6,7,8,9,10,11,12], label: 'Morning', desc: '6am - 12pm', tooltip: 'Reaches commuters and early-day listeners. Typically a high-performance slot for business, news, and fitness advertisers.' },
+  { value: 'afternoon', valueInHours: [12,13,14,15,16,17,18], label: 'Afternoon', desc: '12pm - 6pm', tooltip: 'Captures lunchtime and afternoon listeners. Effective for lifestyle, food, and retail advertisers.' },
+  { value: 'evening', valueInHours: [18,19,20,21,22,23,0], label: 'Evening', desc: '6pm - 12am', tooltip: 'High engagement period as listeners wind down. Strong for entertainment, home, and finance advertisers.' },
+  { value: 'overnight', valueInHours: [0,1,2,3,4,5,6], label: 'Overnight', desc: '12am - 6am', tooltip: 'Lower volume but lower cost per impression. Consider deselecting if your audience is unlikely to be active at this time.' },
 ];
 
 interface ScheduleData {
@@ -142,7 +143,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
     <div className="space-y-6">
       <div className=" flex flex-col lg:flex-row gap-4">
         <div className="space-y-2 w-full">
-          <Label>Start campaign from ({timezone})</Label>
+          <Label className='flex items-center gap-2'><span>Start date and time ({timezone}) <sup>*</sup></span> </Label>
           <div className="flex gap-2">
             <Popover open={startOpen} onOpenChange={setStartOpen}>
               <PopoverTrigger asChild>
@@ -183,7 +184,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
           </div>
         </div>
         <div className="space-y-2 w-full">
-          <Label>End campaign at</Label>
+          <Label className='flex items-center gap-2'><span>End campaign at <sup>*</sup></span></Label>
           <div className="flex gap-2">
             <Popover open={endOpen} onOpenChange={setEndOpen}>
               <PopoverTrigger asChild>
@@ -232,7 +233,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
         return (
           <>
             <p className="text-sm text-muted-foreground">
-              Campaign duration: {Math.max(1, differenceInCalendarDays(new Date(data.endDate), new Date(data.startDate)) + 1)} days
+              Duration: {Math.max(1, differenceInCalendarDays(new Date(data.endDate), new Date(data.startDate)) + 1)} days
             </p>
             {invalid && (
               <p className="text-sm text-destructive">End date/time must be after start date/time</p>
@@ -251,6 +252,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
             return (
               <div
                 key={days}
+                title='Select a common campaign length and the end date is set automatically from your start date.'
                 onClick={() => {
                   const start = new Date(data.startDate);
                   const end = new Date(data.startDate);
@@ -279,7 +281,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
       {isPro && (
         <>
           <div className="space-y-3">
-            <Label>Days of Week</Label>
+            <Label className='flex items-center gap-2'>Active days  </Label>
             <div className="flex flex-wrap gap-2">
               {DAYS_OF_WEEK.map(day => {
                 const selected = selectedDays.includes(day);
@@ -312,9 +314,9 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
           </div>
 
           <div className="space-y-3">
-            <Label>Time of Day</Label>
+            <Label className='flex items-center gap-2'>Active time slots </Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {TIME_SLOTS.map(({ value, label, desc }) => {
+              {TIME_SLOTS.map(({ value, label, desc, tooltip }) => {
                 const selected = selectedSlots.includes(value);
                 return (
                   <div
@@ -333,7 +335,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-sm font-medium flex items-center gap-2">{label} </p>
                       <p className="text-xs text-muted-foreground">{desc}</p>
                     </div>
                   </div>

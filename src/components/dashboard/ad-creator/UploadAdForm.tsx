@@ -90,11 +90,6 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       toast({ title: t('Ad Name must be less than 100 characters'), variant: 'destructive' });
       return;
     }
-    const regex = /^[a-z0-9]+$/i;
-    if(!regex.test(adName)){
-      toast({ title: t('Ad Name must contain only letters and numbers'), variant: 'destructive' });
-      return;
-    }
   
 
 
@@ -150,7 +145,11 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
           value={adName}
           onChange={(e) => setAdName(e.target.value)}
           placeholder={t('ad_creator.upload.ad_name_placeholder')}
+          maxLength={100}
         />
+        <div className="w-full flex items-center justify-end">
+        <span className="text-xs text-muted-foreground">{adName.length}/100</span>
+        </div>
       </div>
 
       {/* Campaign Goal */}

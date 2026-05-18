@@ -405,6 +405,8 @@ export default function AdsLibrary() {
   }, []);
 
   const colDefs = useMemo<ColDef<AdData>[]>(() => [
+    { headerName: '', width: 50, cellRenderer: DeleteRenderer, sortable: false, suppressHeaderMenuButton: true },
+    { headerName: '', width: 50, cellRenderer: EditRenderer, sortable: false, suppressHeaderMenuButton: true },
     { headerName: '', width: 50, cellRenderer: PlayRenderer, sortable: false, suppressHeaderMenuButton: true },
     { field: 'adName', headerName: t('ad_creator.ad_name'), flex: 2, minWidth: 160, cellRenderer: NameRenderer, filter: true },
     { field: 'status', headerName: t('campaigns.status'), width: 110, cellRenderer: StatusRenderer },
@@ -438,8 +440,6 @@ export default function AdsLibrary() {
       width: 130,
       valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString() : '—',
     },
-    { headerName: '', width: 50, cellRenderer: EditRenderer, sortable: false, suppressHeaderMenuButton: true },
-    { headerName: '', width: 50, cellRenderer: DeleteRenderer, sortable: false, suppressHeaderMenuButton: true },
   ], [PlayRenderer, DeleteRenderer, StatusRenderer, NameRenderer, t]);
 
   return (

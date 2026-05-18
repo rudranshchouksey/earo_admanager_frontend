@@ -39,6 +39,7 @@ import { AdGroup, campaignApi } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
 import { adsApi } from "@/services/ads";
+import { MyTooltip } from "@/components/ui/MyTooltip";
 
 interface Cards {
   id: string;
@@ -53,6 +54,174 @@ const formatDate = (date: Date) => {
     date.getMonth() + 1
   ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+
+const scheduleTooltip = `
+<div class="p-2">
+Set when your campaign runs. Start and end dates, which days of the week, and which parts of the day your ad is served.
+<br /><br />
+<b>Start date and time</b><br />
+Your campaign begins serving impressions from this date and time. Set at least 24 hours in the future to allow for processing.
+<br /><br />
+
+<b>End date and time</b><br />
+Your campaign stops automatically at this point—or earlier if your total budget is reached. No overspend is possible.
+<br /><br />
+
+<b>Duration shortcuts</b><br />
+Select a common campaign length to automatically set the end date from your start date.
+<br /><br />
+
+<b>Active days</b><br />
+Your ad only runs on the days you select. Deselect days where your audience is less active to concentrate budget on higher-converting periods.
+<br /><br />
+
+<b>Active time slots</b><br />
+Restrict delivery to specific parts of the day. All four slots are active by default. After your campaign runs, check the time-of-day report to identify which slots drive the most conversions.
+<ul>
+<li>Morning (6am - 12pm): Reaches commuters and early-day listeners. Typically high-performance for business, news, and fitness advertisers.</li>
+<li>Afternoon (12pm - 6pm): Captures lunchtime and afternoon listeners. Effective for lifestyle, food, and retail advertisers.</li>
+<li>Evening (6pm - 12am): High engagement period as listeners wind down. Strong for entertainment, home, and finance advertisers.</li>
+<li>Overnight (12am - 6am): Lower volume but lower cost per impression. Consider deselecting if your audience is unlikely to be active at this time.</li>
+</ul>
+
+</div>
+`;
+
+
+const budgetTooltip = `
+<div class="p-2">
+Set your daily spend. The Campaign Forecast on the right updates in real time as you adjust—showing estimated impressions, reach, and frequency.
+<br /><br />
+Actual spend may be lower if full inventory is not available.
+<br /><br />
+
+<b>Daily rate</b><br />
+Set your desired daily spend.
+<br /><br />
+
+<b>Total budget</b> <br />
+This is the maximum you will be charged for this campaign (e.g., $750 over 30 days). 
+<br /><br />
+
+<b>Budget shortcuts</b><br />
+Use common daily budgets for quick selection.
+
+</div>
+`;
+
+
+const locationTooltip = `
+<div class="p-2">
+
+Choose where your ad is heard. Select one or more countries, then optionally narrow to specific cities.
+<br /><br />
+
+<b>Countries</b><br />
+Select all countries where you want your ad to run. You can select multiple countries in a single campaign.
+<br /><br />
+
+<b>Cities (optional)</b><br />
+Narrow your targeting to specific cities within the selected countries. Leave empty to reach the entire country. City-level targeting reduces available inventory but improves relevance.
+
+
+</div>
+`;
+
+
+const audienceTooltip = `
+<div class="p-2">
+Define who hears your ad. Choose between Podcast and Streaming inventory, then apply topic, audience, demographic, and device filters to reach the right listeners.
+<br /><br />
+
+<b>Podcast</b><br />
+Serve your ad within podcast episodes. This option is highly targetable by topic, audience segment, and ad position—ideal for reaching engaged, intentional listeners (60M+ listeners globally).
+<br /><br />
+
+<b>Podcast topics </b><br />
+Limit your ad to shows within specific content categories (e.g., Business, Technology, Health).
+<br /><br />
+
+<b>Podcast audiences</b><br />
+Target listeners based on their interests and behavior (e.g., Car Buyers, Home Owners). This can be combined with topic targeting.
+<br /><br />
+
+<b>Streaming</b><br />
+Serve your ad on music, radio, CTV, and gaming platforms. This offers a larger audience pool (100M+ listeners globally)—ideal for broad reach and awareness campaigns.
+<br /><br />
+
+<b>Streaming topics </b><br />
+Limit your ad to streaming audio within specific content categories (e.g., Jazz, Rock, Blues).
+<br /><br />
+
+<b>Streaming audiences</b><br />
+Target listeners based on their interests and behavior (e.g., Car Buyers, Home Owners). This can be combined with topic targeting.
+<br /><br />
+
+<b>Ad position</b><br />
+Choose where in the episode your ad plays. Mid-Roll typically delivers the highest engagement.
+<br /><br />
+
+<b>Gender</b><br />
+Filter by listener gender. Select "All" unless your product is gender-specific.
+<br /><br />
+
+<b>Age range</b><br />
+Select the age groups most relevant to your product. Narrowing the range reduces inventory but increases relevance.
+<br /><br />
+
+<b>Device type</b><br />
+Restrict delivery to specific device types. Leave all selected unless your product is meaningfully more relevant to a particular device context.
+
+</div>
+
+`;
+
+
+const audienceExtensionTooltip = `
+  <div class="p-2">
+  Optionally extend your campaign with display banner ads served to listeners across the web—reinforcing your audio message with a visual reminder.
+<br /><br />
+
+<b>Retarget listeners on the web </b><br />
+When enabled, listeners who hear your audio ad will also be shown your display banner as they browse premium websites.
+<br /><br />
+
+<b>Budget increase </b><br />
+Enabling this option adds 20% to your daily budget to cover the cost of display inventory (e.g., +$5/day → $30/day total).
+<br /><br />
+
+<b>Upload display banner </b><br />
+Upload the banner creative required for Audience Extension. Keep your visual consistent with your audio message (same headline and call to action).
+<br /><br />
+
+<b>Impression tracking pixel (optional) </b><br />
+Paste your third-party tracking URL here. It fires on every ad impression, allowing you to verify delivery and attribute results in your own analytics platform.
+  </div>
+`;
+
+
+const paymentTooltip = `
+
+<div class="p-2">
+
+Review your total campaign cost, apply a discount coupon if you have one, and confirm to launch.
+<br /><br />
+<b>Have a coupon code?</b><br />
+Enter or select your coupon code and click Apply. Only one valid coupon can be applied per campaign.
+<br /><br />
+<b>Charge summary</b><br />
+A breakdown of what you will be charged today. This shows the saving and net total if a coupon has been applied.
+<br /><br />
+<b>Save draft</b><br />
+Save your campaign settings without launching. You can return to complete and launch it at any time from the Drafts tab on your Dashboard.
+<br /><br />
+<b>Pay & launch</b><br />
+Confirm payment and activate your campaign. It will begin serving impressions on your chosen start date and stop automatically when the end date or budget limit is reached.
+
+
+</div>
+`;
 
 export default function CampaignWizard() {
   const navigate = useNavigate();
@@ -176,7 +345,6 @@ export default function CampaignWizard() {
     }
   }, [geoData, geoApplied]);
 
-  const canLaunch = setupDone && scheduleDone && inventoryDone && budgetDone;
 
   const durationDays = useCallback(() => {
     if (!schedule.startDate || !schedule.endDate) return 0;
@@ -202,7 +370,7 @@ export default function CampaignWizard() {
             month: "short",
             day: "numeric",
           });
-        return `${fmt(schedule.startDate)} – ${fmt(schedule.endDate)} (${durationDays} days)`;
+        return `${fmt(schedule.startDate)} - ${fmt(schedule.endDate)} (${durationDays} days)`;
       }
       case "inventory": {
         const parts: string[] = [];
@@ -308,7 +476,33 @@ export default function CampaignWizard() {
 
 
 
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const campaignNameRef = useRef<HTMLInputElement>(null);
+    const countryRef = useRef<HTMLDivElement>(null);
+
+
+
   const saveDraftCampaign = async () => {
+    if(!setup.audioId){
+      toast({
+        title: "Error",
+        description: "Please select an audio ad",
+        variant: "destructive",
+      });
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if(campaignNameRef.current?.value.trim() === "") {
+      toast({
+        title: "Error",
+        description: "Campaign name is required",
+        variant: "destructive",
+      });
+      campaignNameRef.current?.focus();
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
@@ -431,6 +625,54 @@ export default function CampaignWizard() {
   }
 
   const saveCampaign = async () => {
+
+    if(!setup.audioId){
+      toast({
+        title: "Error",
+        description: "Please select an audio ad",
+        variant: "destructive",
+      });
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if(!setup.campaignName.trim()) {
+      toast({
+        title: "Error",
+        description: "Campaign name is required",
+        variant: "destructive",
+      });
+      campaignNameRef.current?.focus();
+      return;
+    }
+
+    if(!schedule.startDate || !schedule.endDate){
+      toast({
+        title: "Error",
+        description: "Please select a start and end date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if(!budget.totalBudget || !budget.dailyBudget){
+      toast({
+        title: "Error",
+        description: "Please set a budget",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if(!inventory.selectedCountries || inventory.selectedCountries.length === 0){
+      toast({
+        title: "Error",
+        description: "Please select a country",
+        variant: "destructive",
+      });
+      countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      return;
+    }
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
@@ -637,6 +879,7 @@ export default function CampaignWizard() {
   let sectionCounter = 0;
   const renderSection = (
     title: string,
+    tooltip: string,
     done: boolean,
     children: React.ReactNode,
   ) => {
@@ -649,7 +892,7 @@ export default function CampaignWizard() {
             <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
               {num}
             </span>
-            <CardTitle className="text-lg">{title}</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">{title} <MyTooltip html={tooltip} /> </CardTitle>
           </div>
         </CardHeader>
         <CardContent className={done ? "pt-0" : undefined}>
@@ -744,6 +987,11 @@ export default function CampaignWizard() {
     }
   }
 
+  useEffect(() => {
+
+    const noOfDays = differenceInCalendarDays(new Date(schedule.endDate), new Date(schedule.startDate)) + 1;
+    setBudget((prev) => ({ ...prev, totalBudget: (Number(prev.dailyBudget) * noOfDays).toString(), dailyBudget: String(Number(prev.dailyBudget)) }));
+  }, [schedule]);
 
   useEffect(() => {
 
@@ -1259,7 +1507,9 @@ export default function CampaignWizard() {
 
               console.log({selectedCountriesFromCountry, selectedCountriesFromCities, selectedCities});
               onCountryChange([...new Set([...selectedCountriesFromCountry, ...selectedCountriesFromCities])]);
-              setInventory((prev) => ({ ...prev, selectedCities: selectedCities }));
+              setTimeout(() => {
+                setInventory((prev) => ({ ...prev, selectedCities: selectedCities }));
+              }, 2000)
 
             }
 
@@ -1314,10 +1564,10 @@ export default function CampaignWizard() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">
-          Create Campaign
+        Launch your campaign
         </h1>
         <p className="text-muted-foreground">
-          Fill in each section to configure your campaign
+        Complete the steps below — your forecast updates as you go.
         </p>
       </div>
 
@@ -1327,14 +1577,16 @@ export default function CampaignWizard() {
         <div className="space-y-4 lg:pr-[304px]">
           {/* Your Ad */}
           {renderSection(
-            "Your Ad",
+            "Your audio ad",
+            "Select a saved audio ad from your library. Only ads under the currently selected advertiser account are shown. You can create a new ad in the Audio Ads section before returning here.",
             setupDone,
-            <CampaignSetupStep data={setup} onChange={setSetup} />,
+            <CampaignSetupStep data={setup} onChange={setSetup} searchInputRef={searchInputRef} campaignNameRef={campaignNameRef} />,
           )}
 
           {/* Schedule */}
           {renderSection(
             "Schedule",
+            scheduleTooltip,
             scheduleDone,
             <CampaignScheduleStep data={schedule} onChange={setSchedule} />,
           )}
@@ -1342,6 +1594,7 @@ export default function CampaignWizard() {
           {/* Budget */}
           {renderSection(
             "Budget",
+            budgetTooltip,
             budgetDone,
             <CampaignBudgetStep
               data={budget}
@@ -1354,6 +1607,7 @@ export default function CampaignWizard() {
           {/* Location */}
           {renderSection(
             "Location",
+            locationTooltip,
             inventoryDone,
             <CampaignInventoryStep
               countries={countries}
@@ -1362,12 +1616,14 @@ export default function CampaignWizard() {
               onCountryChange={onCountryChange}
               onCityChange={onCityChange}
               isLoading={geoLoading && !geoApplied}
+              countryRef={countryRef}
             />,
           )}
 
           {/* Audience */}
           {renderSection(
             "Audience",
+            audienceTooltip,
             targetingDone,
             <CampaignTargetingStep
               targetingSegments={targetingSegments}
@@ -1383,13 +1639,15 @@ export default function CampaignWizard() {
 
           {/* Audience Extension — Pro only */}
           {isPro && (
-            <Card>
+            <Card className="hidden">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
                     6
                   </span>
-                  <CardTitle className="text-lg">Audience Extension</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">Audience Extension
+                    <MyTooltip html={audienceExtensionTooltip} />
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1408,9 +1666,12 @@ export default function CampaignWizard() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                  7
+                  6
                 </span>
-                <CardTitle className="text-lg">Payment</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">Payment
+
+                  <MyTooltip html={paymentTooltip} />
+                </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -1432,19 +1693,17 @@ export default function CampaignWizard() {
               <Button
                 variant="outline"
                 onClick={saveDraftCampaign}
-                disabled={saving || !setupDone}
+                disabled={saving}
               >
                 Save Draft
               </Button>
               <Button
                 onClick={saveCampaign}
-                disabled={saving || !canLaunch}
+                disabled={saving}
               >
                 {saving
                   ? "Launching..."
-                  : isPro
-                    ? "Pay & Launch"
-                    : "Pay & Launch"}
+                  : "Pay & Launch"}
               </Button>
             </div>
           </div>

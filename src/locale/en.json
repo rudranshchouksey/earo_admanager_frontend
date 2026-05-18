@@ -421,6 +421,7 @@
   "account.referral_code": "Referral Code",
   "account.referral_code_hint": "Share this code to earn credits when friends sign up.",
   "account.language": "Language",
+  "account.affiliateCode": "Affiliate Code",
   "account.newsletter": "Newsletter",
   "account.newsletter_hint": "Receive product updates and tips",
   "account.company_type_sme": "SME / Small Business",

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Check, Mic, Music, Radio, LayoutGrid, List, Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
@@ -320,16 +319,6 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Label>Podcast Topics</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-sm">Choose the content genre where your ads will be placed.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <SearchableList
                   selectionMode="multi"
@@ -352,16 +341,6 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Label>Podcast Audiences</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-sm">Reach your desired audience directly based that targets podcasts with the content that the audience has a high affinity for.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <SearchableList
                   items={podcastAudiences?.map(audience => ({ id: audience.code, name: audience.name })) || []}
@@ -426,16 +405,6 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Label>Streaming Topics</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-sm">Target listeners by the type of content they stream like music genres.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <SearchableList
                   items={streamingTopics?.map(topic => ({ id: topic, name: topic })) || []}
@@ -460,16 +429,6 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Label>Streaming Audiences</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-sm">Target listeners based on their habits and behaviors.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <SearchableList
                   items={streamingAudiences || []}

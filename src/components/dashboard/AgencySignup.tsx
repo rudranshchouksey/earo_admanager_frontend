@@ -18,6 +18,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { auth } from "@/services/auth";
+import { organizationApi } from "@/services/organization";
 
 export type OnboardingRole = "AGENCY" | "SME";
 
@@ -25,10 +27,8 @@ type AgencySignupProps = {
   open: boolean;
   /** Called when the dialog should close (X, overlay, Esc, or “Not now”). */
   onOpenChange?: (open: boolean) => void;
-  onSelectRole: (
-    role: OnboardingRole,
-  ) => Promise<void>;
   className?: string;
+  onRequested?: (hasRequested: boolean) => void;
 };
 
 const agencyFeatures: {
@@ -61,8 +61,8 @@ const agencyFeatures: {
 export const AgencySignup = ({
   open,
   onOpenChange,
-  onSelectRole,
   className,
+  onRequested
 }: AgencySignupProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -89,7 +89,33 @@ export const AgencySignup = ({
     }
   };
 
-  return (
+  const onRequestToUpgradeToAgency = async () => {
+    const {data: {session: sessionData}} = await auth.getSession();
+    if (!sessionData) {
+      console.error("Not authenticated");
+      return;
+    }
+    setLoading(true);
+
+    const { error, status, message } = await organizationApi.requestToUpgradeToAgency(sessionData?.user?.id, sessionData?.currentOrganizationId ?? '');
+    if (error || status !== 200) {
+      toast({
+        title: "Failed to request to upgrade to agency",
+        description: message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: message || "Requested to upgrade to agency successfully",
+        variant: "default",
+      });
+    }
+    setLoading(false);
+    onRequested?.(true);
+  }
+
+return (
     <Dialog open={open} onOpenChange={onOpenChange} modal>
       <DialogContent
         className={cn(
@@ -164,9 +190,9 @@ export const AgencySignup = ({
               className="w-full rounded-xl sm:order-2 sm:w-auto sm:min-w-[200px]"
               type="button"
               disabled={loading}
-              onClick={() => handleSelectRole("AGENCY")}
+              onClick={onRequestToUpgradeToAgency}
             >
-              {loading ? "Upgrading…" : "Upgrade to Agency"}
+              {loading ? "Upgrading…" : "Request to upgrade to Agency"}
             </Button>
           </div>
         </div>

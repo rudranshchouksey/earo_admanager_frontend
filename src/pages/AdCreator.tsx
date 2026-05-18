@@ -18,6 +18,7 @@ import { useSessionFlags } from "@/hooks/useSessionFlags";
 import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
+import { MyTooltip } from "@/components/ui/MyTooltip";
 
 const PAGE_SIZE = 5;
 
@@ -165,6 +166,7 @@ export default function AdCreator() {
       });
 
       const contentSettings: Record<string, any> = {};
+      console.log("isPro here ", isPro);
 
       if (isPro) {
         contentSettings["volume"] = proContent.volume;
@@ -174,6 +176,8 @@ export default function AdCreator() {
         contentSettings["playbackEnd"] = proContent.endMs;
         contentSettings["pixelUrl"] = trackingPixel;
       }
+
+      console.log("proContent here ", proContent);
 
       const { error, status, message, data } = await adsApi.createAd({
         type,
@@ -224,6 +228,7 @@ export default function AdCreator() {
     selectedVoice,
     t,
     tone,
+    proContent
   ]);
 
   const fetchMusicsPage = async (opts: {
@@ -307,15 +312,14 @@ export default function AdCreator() {
       page: opts.page,
       limit: isPro ? PAGE_SIZE : 3,
       gender:
-        opts.gender === "" || opts.gender === "neutral" ? null : opts.gender,
+        opts.gender === "" ? null : opts.gender,
       language:
         opts.language === "" || opts.language === "all" ? null : opts.language,
       characteristic:
         opts.tone === "" || opts.tone === "all" ? null : opts.tone,
       accent: opts.accent === "" || opts.accent === "all" ? null : opts.accent,
       age: opts.age === "" || opts.age === "all" ? null : opts.age,
-      useCase:
-        opts.useCase === "" || opts.useCase === "all" ? null : opts.useCase,
+      useCase: "Advertising",
       query: opts.query,
     });
 
@@ -584,11 +588,13 @@ export default function AdCreator() {
               )}
             />
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {t("ad_creator.ai_mode_title")}
+              <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
+                {t("ad_creator.ai_mode_title")} 
+                <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+
               </p>
-              <p className="text-xs text-muted-foreground">
-                Write a short description, we'll generate a complete ad.
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                Write a short description, we'll generate a complete ad.  <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
               </p>
             </div>
           </button>
@@ -608,11 +614,13 @@ export default function AdCreator() {
               )}
             />
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {t("ad_creator.upload_mode_title")}
+              <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                Upload a Finished Audio Ad
+                <MyTooltip infoText="Already have a produced MP3 or audio file? Upload it directly to your Ad Library and attach it to any campaign." />
               </p>
-              <p className="text-xs text-muted-foreground">
-                {t("ad_creator.upload_mode_desc")}
+              <p className="text-xs text-muted-foreground flex items-center gap-2" >
+              Upload an MP3 you've already produced.
+              <MyTooltip infoText="Supported formats: MP3, MP4 audio. Maximum recommended ad length: 60 seconds for podcast slots." />
               </p>
             </div>
           </button>

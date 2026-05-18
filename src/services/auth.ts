@@ -34,7 +34,7 @@ export interface AuthSession {
   refreshToken?: string;
 }
 
-const STORAGE_KEY = 'nextads_auth_session';
+export const STORAGE_KEY = 'nextads_auth_session';
 type AuthListener = (event: string, session: AuthSession | null) => void;
 const listeners = new Set<AuthListener>();
 
