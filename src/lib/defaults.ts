@@ -84,7 +84,7 @@ export const voiceDefaults = {
     "romanian",
     "russian",
   ],
-  gender: ["female", "male", "neutral"],
+  gender: ["female", "male"],
   use_case: [
     "Accessibility & Tools",
     "Advertising",
