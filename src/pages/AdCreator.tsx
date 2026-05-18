@@ -67,7 +67,7 @@ export default function AdCreator() {
   const [selectedMusic, setSelectedMusic] = useState("");
 
   const [language, setLanguage] = useState("en");
-  const [gender, setGender] = useState("neutral");
+  const [gender, setGender] = useState("male");
   const [age, setAge] = useState("all");
   const [useCase, setUseCase] = useState("all");
 
