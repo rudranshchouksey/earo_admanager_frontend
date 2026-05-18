@@ -153,7 +153,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if(data.data?.organizations && data.data.organizations.length > 0) {
         const organization = data.data.organizations[0];
         if(organization.orgType === "SME" && ! organization.requestedForAgency) setShowAgencySignupBtn(true);
-        setAccountType(organization.orgType);
+        setAccountType(organization.orgType === "SME" ? isPro ? "Pro" : "Express" : "Agency");
       }
 
       if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
@@ -243,7 +243,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }`}
         >
           <accountItem.icon className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>{accountItem.label}</span>} {!collapsed && <div className='inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground'>{accountType}</div>}
+          {!collapsed && <span>{accountItem.label}</span>} 
+          {!collapsed && <div className='inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground'>{accountType}</div>}
         </Link>
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>

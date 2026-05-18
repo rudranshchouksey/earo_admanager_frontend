@@ -7,6 +7,37 @@ export interface CampaignReportsResponse {
   data: CampaignReport;
 }
 
+export interface CampaignActionsResponse {
+    status: number;
+    message: string;
+    data: CampaignActionData[];
+    meta: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }
+
+export interface CampaignActionData {
+    id: string;
+    "campaignName": null,
+    status: string;
+    startDate: string;
+    endDate: string;
+    totalBudget: string;
+    externalRefId: string | null;
+    campaignDB: string;
+    start: string | null;
+    end: string | null;
+    campaignBudget: number | null;
+    demandAudioReachUniqueUsers: number | null;
+    campaignId: string | null;
+    impressions: number | null;
+    ltr: number | null;
+    objectiveCountableSum: number | null;
+}
+
 export interface PerformanceTotals {
     __time: {
         start: string;
@@ -36,8 +67,31 @@ export interface CampaignReport {
     "PerformanceTotals": PerformanceTotals[]
 }
 
+export interface DashboardCardsDataResponse {
+    status: number;
+    message: string;
+    data: {
+        "cardTotals": {
+            "attributionCPAInUSD": number,
+            "totalSpend": number,
+            "impressions": number,
+            "demandAudioReachUniqueUsers": number
+        }
+    };
+}
+
+export interface DashboardCardsData {
+    totalCampaigns: number;
+    totalSpend: number;
+    totalImpressions: number;
+    totalLtr: number;
+    totalObjectiveCountableSum: number;
+}
+
 export const reportsApi = {
     getCampaignReports: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<CampaignReportsResponse>('/api/v1/reports/getCampaignReports', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
     getCampaignPerformance: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<CampaignReportsResponse>('/api/v1/reports/getCampaignPerformance', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
+    getDashboardCampaignActions: ({advertiserId, page, limit, tab}) => request<CampaignActionsResponse>('/api/v1/reports/getDashboardCampaignActions', { method: 'POST', body: {advertiserId, page, limit, tab} }),
+    getDashboardCardsData: ({advertiserId}) => request<DashboardCardsDataResponse>('/api/v1/reports/getDashboardCardsData', { method: 'POST', body: {advertiserId} }),
 
 }

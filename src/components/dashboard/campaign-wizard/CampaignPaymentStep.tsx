@@ -120,6 +120,9 @@ export default function CampaignPaymentStep({
     );
   }
 
+  const finalAmountAfterCoupon = (creditsDetails.availableCredit - (data?.couponCode ? data.finalAmount : totalBudget));
+
+
   return (
     <div className="space-y-6">
 
@@ -179,7 +182,7 @@ export default function CampaignPaymentStep({
 
       {
         creditsDetails.totalCredits > 0 ? (
-          <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-80 cursor-not-allowed'}`}>
+          <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
             <Label className="text-sm font-medium">Pay using your credits</Label>
             <div className="flex items-center justify-between gap-2">
                 <div>
@@ -188,9 +191,11 @@ export default function CampaignPaymentStep({
                 </div>
                 <div>
                   <p className="text-sm font-medium">After this campaign</p>
-                  <h6 className="text-2xl font-bold text-primary"> ${(creditsDetails.availableCredit - (data?.couponCode
-                ? data.finalAmount
-                : totalBudget)).toLocaleString()}</h6>
+                  <h6 className="text-2xl font-bold text-right text-primary"> {
+                  
+                  (finalAmountAfterCoupon < 0 ? '-$' + (finalAmountAfterCoupon * -1) : '$'+finalAmountAfterCoupon).toLocaleString()
+                  
+                  }</h6>
                 </div>
             </div>           
             {

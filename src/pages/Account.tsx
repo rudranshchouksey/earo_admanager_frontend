@@ -67,6 +67,7 @@ import { CreditDetails, walletApi } from "@/services/wallet";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { paymentApi, PaymentHistory } from "@/services/payment";
 import { useSearchParams } from "react-router-dom";
+import { campaignApi } from "@/services/campaign";
 interface Cards {
   id: string;
   cardId: string;
@@ -122,6 +123,8 @@ export default function Account() {
   const [paymentHistoryPage, setPaymentHistoryPage] = useState(1);
   const [paymentHistoryLimit, setPaymentHistoryLimit] = useState(10);
   const [deletePaymentMethodAlertOpen, setDeletePaymentMethodAlertOpen] = useState(false);
+
+  const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
 
   const getAdvertisers = async (orgId: string) => {
     const {
@@ -212,11 +215,28 @@ export default function Account() {
         console.error("Not authenticated");
         return;
       }
+      setLoadingPaymentHistory(true);
       const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserId: sessionData.currentAdvertiserId});
       if (error || status !== 200) {
         console.error(error);
+        setLoadingPaymentHistory(false);
+        toast({
+          title: t("common.error"),
+          description: error?.message || "Failed to load payment history",
+          variant: "destructive",
+        });
         return;
       }
+
+
+      const ids = data?.data?.map((item: PaymentHistory) => item.campaignId);
+      const { data: campaigns, error: campaignsError, status: campaignsStatus } = await campaignApi.getCampaigns({ ids});
+
+
+
+
+
+      setLoadingPaymentHistory(false);
       setPaymentHistory(data.data || []);
     }
 
@@ -465,13 +485,29 @@ export default function Account() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
+  const message = searchParams.get("message");
   const [activeTab, setActiveTab] = useState("profile");
 
   useEffect(() => {
     if (page === "advertisers" && isAgency) {
       setActiveTab("advertisers");
     }
+
+    if(page === "billing") {
+      setActiveTab("billing");
+    }
   }, [page, isAgency]);
+
+  useEffect(() => {
+    if(message) {
+      toast({
+        title: t("common.success"),
+        description: message,
+        variant: "default",
+      });
+    }
+  }, [message]);
+  
 
   const addPaymentMethod = async () => {
     console.log("add payment method");
@@ -891,7 +927,7 @@ export default function Account() {
                     )
                   }
                   
-                  <Button className="hidden" variant="outline" size="sm" onClick={addPaymentMethod}>
+                  <Button variant="outline" size="sm" onClick={addPaymentMethod}>
                     {t("account.add_payment_method")}
                   </Button> 
                 </CardContent>

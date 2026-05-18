@@ -466,7 +466,7 @@ export default function Auth() {
           {(step === "login" || step === "signup") && (
             <>
               <div className="space-y-3">
-                <GoogleOAuthProvider clientId="182678201673-5tm3q5bqpq0e4mkg3eovuiqtorfuc5gb.apps.googleusercontent.com">
+                <GoogleOAuthProvider clientId="182678201673-thpu9eqlijp316q8tcaf5iltfsa0fhbj.apps.googleusercontent.com">
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.log("Login Failed")}

@@ -25,6 +25,7 @@ interface Props {
   onChange: (data: CampaignSetupData) => void;
   searchInputRef: React.RefObject<HTMLInputElement>;
   campaignNameRef: React.RefObject<HTMLInputElement>;
+  audioAdRef: React.RefObject<HTMLDivElement>;
 }
 
 let activeAudioEl: HTMLAudioElement | null = null;
@@ -144,7 +145,7 @@ Link this campaign to an ID used in an external platform (e.g. a Google Analytic
   </div>
 `;
 
-export default function CampaignSetupStep({ data, onChange, searchInputRef, campaignNameRef }: Props) {
+export default function CampaignSetupStep({ data, onChange, searchInputRef, campaignNameRef, audioAdRef }: Props) {
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
   const [ads, setAds] = useState<AdData[]>([]);
@@ -273,7 +274,7 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
   }, [isPickerOpen]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={audioAdRef}>
       {/* Ad Selection */}
       <div className="space-y-3">
       <Label className='flex items-center gap-2'><span>Choose your audio ad <sup>*</sup></span></Label>

@@ -14,17 +14,18 @@ import { toast } from '@/components/ui/use-toast';
 import { auth } from '@/services/auth';
 import { advertiserApi } from '@/services/advertiser';
 import { useTranslation } from '@/contexts/TranslationContext';
+import { reportsApi } from '@/services/reports';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
   const { isNewUser } = useSessionFlags();
-  const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0 });
+  const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0, cpa: 0 });
   const [userName, setUserName] = useState('');
   const [userState, setuserState] = useState('existing')
 
   const { t } = useTranslation();
-  const mockStats = { impressions: 0, spend: 0, reach: 0 };
 
+  
   useEffect(() => {
     const getAdvertiserId = async () => {
      const { data: { session } } = await auth.getSession();
@@ -47,25 +48,24 @@ export default function DashboardHome() {
   }, []);
 
   useEffect(() => {
-    if (userState === 'existing') {
-      setStats(mockStats);
-      return;
-    }
-    if (userState === 'new' || userState === 'new_with_ad') return;
     const fetchStats = async () => {
-      const { data } = await supabase
-        .from('campaigns')
-        .select('actual_impressions, actual_spend, reach');
-      if (data) {
-        setStats({
-          impressions: data.reduce((s, c) => s + (c.actual_impressions ?? 0), 0),
-          spend: data.reduce((s, c) => s + (c.actual_spend ?? 0), 0),
-          reach: data.reduce((s, c) => s + (c.reach ?? 0), 0),
-        });
+      const { data: { session } } = await auth.getSession();
+      if(!session) return;
+      const advertiserId = session.currentAdvertiserId;
+      if(!advertiserId) return;
+      const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
+      if(status !== 200 || error) {
+        toast({ title: t('common.error'), description: error?.message ?? 'Unable to load stats', variant: 'destructive' });
       }
-    };
+      setStats({
+        impressions: data.data.cardTotals.impressions,
+        spend: data.data.cardTotals.totalSpend,
+        reach: data.data.cardTotals.demandAudioReachUniqueUsers,
+        cpa: data.data.cardTotals.attributionCPAInUSD,
+      });
+    }
     fetchStats();
-  }, [userState]);
+  }, []);
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
 
