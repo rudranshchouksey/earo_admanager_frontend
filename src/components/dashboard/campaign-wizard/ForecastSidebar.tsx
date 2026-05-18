@@ -85,8 +85,8 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
 
           <div className="border-b border-border" />
 
-            <p className="text-xs text-muted-foreground">
-              With a budget of USD {totalBudget.toLocaleString()} we estimate you will achieve:
+            <p className="text-xs text-foreground">
+              With a budget of <span className='font-semibold'>${totalBudget.toLocaleString()}</span> we estimate you will achieve:
             </p>
 
             <div>

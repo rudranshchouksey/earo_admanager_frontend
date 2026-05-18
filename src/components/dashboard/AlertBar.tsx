@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, AlertCircle, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, systemApi } from '@/services/system';
+import { auth } from '@/services/api';
+import { userApi } from '@/services/user';
+import { toast } from '@/hooks/use-toast';
+import { organizationApi } from '@/services/organization';
+import { useNavigate } from 'react-router-dom';
 
 interface Alert {
   id: string;
@@ -27,18 +32,83 @@ const colorMap: Record<string, { bg: string; border: string; text: string }> = {
 export default function AlertBar() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => {
 
-  // useEffect(() => {
-  //   const fetchAlerts = async () => {
-  //     const { data } = await systemApi.getSystemAlerts();
-  //     if (data) setAlerts(data);
-  //   };
-  //   fetchAlerts();
-  // }, []);
+    const load = async () => {
+
+      const hasCancelledCompleteProfile = localStorage.getItem('hasCancelledCompleteProfile');
+      if (hasCancelledCompleteProfile) {
+        return;
+      }
+
+
+
+      const {
+        data: { session: initialSession },
+      } = await auth.getSession();
+      if (!initialSession) return;
+
+      const {
+        data: userProfile,
+        status,
+        message,
+      } = await userApi.getUserProfile();
+
+
+      if (status !== 200) {
+        toast({
+          title: "Error",
+          description: message || "Failed to load user profile",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log({ userProfile });
+      console.log({ session: initialSession });
+
+      const organizationId = initialSession?.currentOrganizationId;
+
+      const {
+        data: organizationDetails,
+        status: organizationDetailsStatus,
+        message: organizationDetailsMessage,
+      } = await organizationApi.getOrganizationDetails(organizationId);
+      console.log({ organizationDetails });
+
+      if (organizationDetailsStatus !== 200) {
+        toast({
+          title: "Error",
+          description: organizationDetailsMessage || "Failed to load organization details",
+          variant: "destructive",
+        });
+        return;
+      }
+
+
+
+      if(!userProfile.data.firstName || !organizationDetails.data.organization.orgName){
+        setAlerts([
+          {
+            id: "complete-profile",
+            title: "Complete Profile",
+            message: "Please complete your profile and company details",
+            alert_type: "info",
+            cta_label: "Complete Profile",
+            cta_url: "/dashboard/account",
+          }
+        ])
+      }
+
+    };
+    load();
+  }, []);
 
   const dismiss = async (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
-    await systemApi.dismissAlert(id);
+    //await systemApi.dismissAlert(id);
+    localStorage.setItem('hasCancelledCompleteProfile', 'true');
   };
 
   if (alerts.length === 0) return null;
@@ -66,7 +136,7 @@ export default function AlertBar() {
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs shrink-0"
-                onClick={() => window.open(alert.cta_url!, '_blank')}
+                onClick={() => navigate(alert.cta_url!)}
               >
                 {alert.cta_label}
               </Button>

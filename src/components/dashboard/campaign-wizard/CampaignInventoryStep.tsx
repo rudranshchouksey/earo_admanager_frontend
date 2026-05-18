@@ -7,6 +7,7 @@ import { SearchableList } from '@/components/ui/searchable-list';
 import type { Column, FilterDef } from '@/components/ui/searchable-list';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { City, Country, targetingApi } from '@/services/targeting';
+import { MyTooltip } from '@/components/ui/MyTooltip';
 
 // Mock countries
 const MOCK_COUNTRIES = [
@@ -133,9 +134,10 @@ interface Props {
   onCountryChange: (codes: string[]) => void;
   onCityChange: (ids: string[]) => void;
   isLoading?: boolean;
+  countryRef: React.RefObject<HTMLDivElement>;
 }
 
-export default function CampaignInventoryStep({ countries, cities, data, onCountryChange, onCityChange, isLoading }: Props) {
+export default function CampaignInventoryStep({ countries, cities, data, onCountryChange, onCityChange, isLoading, countryRef }: Props) {
   const [openListId, setOpenListId] = useState<string | null>(null);
 
   const handleOpenChange = (listId: string) => (open: boolean) => {
@@ -208,12 +210,12 @@ export default function CampaignInventoryStep({ countries, cities, data, onCount
   // };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={countryRef}>
       {/* Country Selection */}
       <div className="space-y-3">
         <Label className="flex items-center gap-2">
           <MapPin className="h-4 w-4" />
-          {isPro ? 'Target Countries' : 'Country'}
+          <span>{isPro ? 'Countries' : 'Country'}  <sup>*</sup></span> 
         </Label>
         <SearchableList
           items={countries}
@@ -245,7 +247,7 @@ export default function CampaignInventoryStep({ countries, cities, data, onCount
           <Label className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Cities
-            <span className="text-xs text-muted-foreground font-normal">(optional — leave empty for entire countries)</span>
+            <span className="text-xs text-muted-foreground font-normal">(optional)  </span>
           </Label>
           <SearchableList
             items={cities}

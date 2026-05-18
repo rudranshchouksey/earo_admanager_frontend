@@ -41,10 +41,20 @@ import {
   Download,
   Eye,
   EyeOff,
+  Trash,
 } from "lucide-react";
 import { auth, AuthSession } from "@/services/auth";
 import { userApi, UserProfile } from "@/services/user";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import UsersTab from "@/components/dashboard/account/UsersTab";
@@ -53,7 +63,17 @@ import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { appNotifications } from "@/services/appNotifications";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
-
+import { CreditDetails, walletApi } from "@/services/wallet";
+import PaymentModal from "@/components/dashboard/launch/PaymentModal";
+import { paymentApi, PaymentHistory } from "@/services/payment";
+import { useSearchParams } from "react-router-dom";
+interface Cards {
+  id: string;
+  cardId: string;
+  last_4: string;
+  cardHolderName: string;
+  type: string;
+}
 
 const industries = Object.values(OrganizationIndustry).map(i => i.toString());
 
@@ -88,8 +108,20 @@ export default function Account() {
   const [qrCode, setQrCode] = useState("");
   const [mfaToken, setMFAToken] = useState("");
   const [session, setSession] = useState<AuthSession | null>(null);
-
+  const [cards, setCards] = useState<Cards[]>([])
+  const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
+    availableCredit: 0,
+    creditUsed: 0,
+    totalCredits: 0,
+    utilizationPercentage: "0%",
+  });
   const [paymentMethods, setPaymentMethods] = useState<[]>([]);
+  const [paymentUrl, setPaymentUrl] = useState<string>("");
+  const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [paymentHistoryPage, setPaymentHistoryPage] = useState(1);
+  const [paymentHistoryLimit, setPaymentHistoryLimit] = useState(10);
+  const [deletePaymentMethodAlertOpen, setDeletePaymentMethodAlertOpen] = useState(false);
 
   const getAdvertisers = async (orgId: string) => {
     const {
@@ -163,7 +195,35 @@ export default function Account() {
       getAdvertisers(organizationId);
 
     };
+
+    const fetchCards = async () => {
+      const { data, error, status } = await walletApi.getCards();
+
+      if (error || status !== 200) {
+        console.error(error);
+        return;
+      }
+      setCards(data?.data || []);
+    }
+
+    const paymentHistory = async () => {
+      const {data: {session: sessionData}} = await auth.getSession();
+      if (!sessionData) {
+        console.error("Not authenticated");
+        return;
+      }
+      const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserId: sessionData.currentAdvertiserId});
+      if (error || status !== 200) {
+        console.error(error);
+        return;
+      }
+      setPaymentHistory(data.data || []);
+    }
+
+
+    paymentHistory();
     load();
+    fetchCards();
   }, []);
 
   const saveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -403,8 +463,42 @@ export default function Account() {
 
   const { isPro, isAgency } = useSessionFlags();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const page = searchParams.get("page");
+  const [activeTab, setActiveTab] = useState("profile");
 
-  console.log({ isPro, isAgency });
+  useEffect(() => {
+    if (page === "advertisers" && isAgency) {
+      setActiveTab("advertisers");
+    }
+  }, [page, isAgency]);
+
+  const addPaymentMethod = async () => {
+    console.log("add payment method");
+    setGeneratingPaymentLink(true);
+    const { data, error, status } = await paymentApi.addCard();
+    console.log({ data, error, status });
+    if (error || status !== 200) {
+      console.error(error);
+      return;
+    }
+
+    if(data?.data?.payment_url){
+      setPaymentUrl(data.data.payment_url);
+    } else {
+      toast({
+        title: t("common.error"),
+        description: "Failed to add payment method",
+        variant: "destructive",
+      });
+    }
+    setGeneratingPaymentLink(false);
+  }
+
+  const deletePaymentMethod = () => {
+    setDeletePaymentMethodAlertOpen(true);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -415,11 +509,12 @@ export default function Account() {
       </div>
 
       <Tabs
-        defaultValue={isPro ? "users" : "profile"}
+        value={activeTab}
+        onValueChange={setActiveTab}
         key={isPro ? "pro" : "express"}
       >
         <TabsList
-          className={`grid w-full ${isAgency ? "grid-cols-5" : isPro ? "grid-cols-4" : "grid-cols-4"}`}
+          className={`grid w-full ${isAgency ? "grid-cols-4" : isPro ? "grid-cols-3" : "grid-cols-3"}`}
         >
           {(
             <TabsTrigger value="profile">
@@ -435,9 +530,9 @@ export default function Account() {
             </TabsTrigger>
           )}
           <TabsTrigger value="company">{t("account.tab_company")}</TabsTrigger>
-          <TabsTrigger value="tracking">
+          {/* <TabsTrigger value="tracking">
             {t("account.tab_tracking")}
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="billing">{t("account.tab_billing")}</TabsTrigger>
         </TabsList>
 
@@ -452,7 +547,7 @@ export default function Account() {
                   <form onSubmit={saveProfile} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>{t("account.first_name")}</Label>
+                      <Label>{t("account.first_name")} <sup>*</sup></Label>
                       <Input
                         value={profile.firstName}
                         onChange={(e) => update("firstName", e.target.value)}
@@ -461,7 +556,7 @@ export default function Account() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>{t("account.last_name")}</Label>
+                      <Label>{t("account.last_name")} <sup>*</sup></Label>
                       <Input
                         value={profile.lastName}
                         onChange={(e) => update("lastName", e.target.value)}
@@ -471,7 +566,7 @@ export default function Account() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("account.email")}</Label>
+                    <Label>{t("account.email")} <sup>*</sup></Label>
                     <Input value={profile.email} disabled />
                     <p className="text-xs text-muted-foreground">
                       {t("account.contact_support_email")}
@@ -482,7 +577,6 @@ export default function Account() {
                     <Input
                       value={profile.phone}
                       type="tel"
-                      required
                       onChange={(e) => update("phone", e.target.value)}
                       placeholder="+971..."
                     />
@@ -564,11 +658,11 @@ export default function Account() {
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {isPro && (
+        {/* {isPro && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>
-        )}
+        )} */}
 
         {/* ADVERTISERS TAB (Pro Agency only) */}
         {isAgency && (
@@ -764,27 +858,46 @@ export default function Account() {
                   <CardTitle>{t("account.payment_methods")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          Visa •••• 4242
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Expires 08/27
-                        </p>
+                  {
+                    cards.length > 0 ? (
+                      cards.map((card) => (
+                        <div key={card.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                          <div className="flex items-center justify-between w-full gap-3">
+                            <div className="flex items-center gap-3">
+                            <CreditCard className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="text-sm font-medium text-foreground">
+                                {card.last_4}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {card.type}
+                              </p>
+                            </div>
+                            </div>
+                            <span>
+                              <Button variant="secondary" size="sm" onClick={deletePaymentMethod}>
+                                <Trash className="h-3 w-3" />
+                              </Button>
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center rounded-lg border border-border p-3">
+                        <button className="text-sm text-muted-foreground">
+                          No payment methods found
+                        </button>
                       </div>
-                    </div>
-                    <Badge variant="secondary">{t("account.default")}</Badge>
-                  </div>
-                  <Button variant="outline" size="sm">
+                    )
+                  }
+                  
+                  <Button className="hidden" variant="outline" size="sm" onClick={addPaymentMethod}>
                     {t("account.add_payment_method")}
-                  </Button>
+                  </Button> 
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="hidden">
                 <CardHeader>
                   <CardTitle>{t("account.coupons")}</CardTitle>
                 </CardHeader>
@@ -827,37 +940,12 @@ export default function Account() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {[
-                        {
-                          date: "Feb 12, 2026",
-                          desc: "Campaign top-up",
-                          amount: "$500.00",
-                          status: "Paid",
-                        },
-                        {
-                          date: "Feb 01, 2026",
-                          desc: "Campaign top-up",
-                          amount: "$2,000.00",
-                          status: "Paid",
-                        },
-                        {
-                          date: "Jan 15, 2026",
-                          desc: "Campaign top-up",
-                          amount: "$750.00",
-                          status: "Paid",
-                        },
-                        {
-                          date: "Jan 02, 2026",
-                          desc: "Coupon credit",
-                          amount: "-$200.00",
-                          status: "Applied",
-                        },
-                      ].map((row, i) => (
+                      {paymentHistory.map((row, i) => (
                         <TableRow key={i}>
-                          <TableCell className="text-sm">{row.date}</TableCell>
-                          <TableCell className="text-sm">{row.desc}</TableCell>
+                          <TableCell className="text-sm">{row.createdAt}</TableCell>
+                          <TableCell className="text-sm">{row.description}</TableCell>
                           <TableCell className="text-sm font-medium">
-                            {row.amount}
+                            ${row.amount.toLocaleString()}
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="text-xs">
@@ -1022,6 +1110,31 @@ export default function Account() {
         onVerify={verifyMFAComplete}
       />
 
+
+      {
+        paymentUrl && (
+          <PaymentModal
+            open={!!paymentUrl}
+            onOpenChange={() => setPaymentUrl("")}
+            paymentUrl={paymentUrl}
+            onCancel={() => setPaymentUrl("")}
+          />
+        )
+      }
+
+      <AlertDialog open={deletePaymentMethodAlertOpen} onOpenChange={setDeletePaymentMethodAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please contact at help@earo.ai to delete your payment method
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

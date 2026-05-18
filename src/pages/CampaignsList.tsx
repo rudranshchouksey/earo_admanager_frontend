@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -222,6 +222,36 @@ export default function CampaignsList() {
   // };
 
   const colDefs = useMemo<ColDef[]>(() => [
+    {
+      headerName: '', sortable: false, filter: false,
+      width: 80,
+      cellRenderer: (params: ICellRendererParams) => (
+        <>
+        
+          {
+            params.data.status === 'DRAFT' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
+                onClick={() => navigate(`/dashboard/campaigns/${params.data.id}`)}
+              >
+                        <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            ): (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => navigate(`/dashboard/reports?campaign=${params.data.id}`)}
+              >
+                <ChartAreaIcon className="h-3.5 w-3.5" />
+              </Button>
+            )
+          }
+        </>
+      ),
+    },
     { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 160, filter: false, sortable: true },
     { field: 'status', headerName: 'Status', width: 110, cellRenderer: StatusRenderer, sortable: true },
     {
@@ -275,35 +305,6 @@ export default function CampaignsList() {
       },
       valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
       sortable: false,
-    },
-    {
-      headerName: '', sortable: false, filter: false,
-      cellRenderer: (params: ICellRendererParams) => (
-        <>
-        
-          {
-            params.data.status === 'DRAFT' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
-                onClick={() => navigate(`/dashboard/campaigns/${params.data.id}`)}
-              >
-                        <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            ): (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => navigate(`/dashboard/reports?campaign=${params.data.id}`)}
-              >
-                See Details
-              </Button>
-            )
-          }
-        </>
-      ),
     },
   ], [navigate]);
 
@@ -435,7 +436,7 @@ export default function CampaignsList() {
                   columnDefs={colDefs}
                   defaultColDef={{ comparator: () => 0 }}
                   suppressMultiSort
-                  onRowClicked={onRowClicked}
+                  //onRowClicked={onRowClicked}
                   onSortChanged={onSortChanged}
                   suppressCellFocus
                   animateRows

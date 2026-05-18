@@ -1,0 +1,113 @@
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+
+export type StatusTone = 'green' | 'amber' | 'red' | 'blue' | 'muted';
+
+interface PaceRowProps {
+  label: string;
+  actual: string;
+  expected: string;
+  expectedSuffix?: string;
+  delta: string;
+  deltaTone: StatusTone;
+  progress: number;
+}
+
+function toneClasses(tone: StatusTone) {
+  switch (tone) {
+    case 'green':
+      return { dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' };
+    case 'amber':
+      return { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' };
+    case 'red':
+      return { dot: 'bg-destructive', text: 'text-destructive', bg: 'bg-destructive/10' };
+    case 'blue':
+      return { dot: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50' };
+    default:
+      return { dot: 'bg-muted-foreground', text: 'text-muted-foreground', bg: 'bg-muted' };
+  }
+}
+
+function PaceRow({ label, actual, expected, expectedSuffix, delta, deltaTone, progress }: PaceRowProps) {
+  const t = toneClasses(deltaTone);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-foreground w-20 shrink-0">{label}</span>
+        <span className="text-muted-foreground flex-1 truncate">
+          <span className="text-foreground font-medium">{actual}</span> / {expected}
+          {expectedSuffix && <span className="text-muted-foreground"> {expectedSuffix}</span>}
+        </span>
+        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full shrink-0', t.bg, t.text)}>
+          {delta}
+        </span>
+      </div>
+      <Progress value={Math.max(0, Math.min(100, progress))} className="h-1.5" />
+    </div>
+  );
+}
+
+interface CampaignStatusSummaryProps {
+  statusLabel: string;
+  statusTone: StatusTone;
+  delivery: { actual: number; expected: number };
+  spend: { actual: number; expected: number };
+}
+
+function formatNum(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return Math.round(n).toString();
+}
+
+function formatMoney(n: number): string {
+  return `$${n >= 1000 ? formatNum(n) : n.toFixed(0)}`;
+}
+
+function paceLabel(actual: number, expected: number): { label: string; tone: StatusTone; deltaPct: number } {
+  if (expected <= 0) return { label: 'on pace', tone: 'green', deltaPct: 0 };
+  const deltaPct = ((actual - expected) / expected) * 100;
+  if (deltaPct >= -10 && deltaPct <= 10) return { label: 'on pace', tone: 'green', deltaPct };
+  if (deltaPct > 10) return { label: `+${deltaPct.toFixed(0)}%`, tone: 'green', deltaPct };
+  if (deltaPct >= -25) return { label: `${deltaPct.toFixed(0)}%`, tone: 'amber', deltaPct };
+  return { label: `${deltaPct.toFixed(0)}%`, tone: 'red', deltaPct };
+}
+
+export default function CampaignStatusSummary({ statusLabel, statusTone, delivery, spend }: CampaignStatusSummaryProps) {
+  const t = toneClasses(statusTone);
+  const dPace = paceLabel(delivery.actual, delivery.expected);
+  const sPace = paceLabel(spend.actual, spend.expected);
+  const dProgress = delivery.expected > 0 ? (delivery.actual / delivery.expected) * 100 : 0;
+  const sProgress = spend.expected > 0 ? (spend.actual / spend.expected) * 100 : 0;
+
+  return (
+    <Card className="bg-card">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-2.5 w-2.5 rounded-full', t.dot)} aria-hidden />
+          <span className="text-sm font-semibold text-foreground">{statusLabel}</span>
+        </div>
+        <div className="space-y-3">
+          <PaceRow
+            label="Delivery"
+            actual={formatNum(delivery.actual)}
+            expected={formatNum(delivery.expected)}
+            expectedSuffix="expected"
+            delta={dPace.label}
+            deltaTone={dPace.tone}
+            progress={dProgress}
+          />
+          <PaceRow
+            label="Spend"
+            actual={formatMoney(spend.actual)}
+            expected={formatMoney(spend.expected)}
+            delta={sPace.label}
+            deltaTone={sPace.tone}
+            progress={sProgress}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

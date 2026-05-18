@@ -129,6 +129,57 @@ const LANGUAGES = [
   { id: "ar", label: "Arabic" },
 ];
 
+
+
+const campaignGoalTooltip = `<div class="p-2">
+Choose the primary outcome you want this ad to drive. The goal shapes the AI's script tone and the platform's default conversion tracking settings.
+<br />
+<br />
+<b>Sales</b><br />
+Drive listeners to make a purchase directly. The AI writes an urgent, offer-led script that names the deal clearly and pushes the listener to act right now.
+<br />
+<br />
+
+<b>Leads</b>
+<br />
+Encourage listeners to take a low-friction first step — request a quote, fill in a form, or book a call. The AI builds credibility and makes contacting you feel effortless and risk-free.
+<br />
+<br />
+
+<b>Website Traffic</b>
+<br />
+Drive listeners to visit a specific URL. The AI creates a curiosity-driven script that makes visiting your site feel like a natural next step — without a hard sell or pricing pressure.
+<br />
+<br />
+
+<b>Product & Brand Consideration</b>
+<br />
+Move listeners from awareness into active consideration. The AI builds preference through an informative, confident script — educating rather than selling, and ending with a soft invitation to find out more.
+<br />
+<br />
+
+<b>Brand Awareness & Reach</b>
+<br />
+Build recognition and emotional connection — no immediate action required. The AI writes a brand storytelling script that creates a feeling and a memory, not a sales pitch.
+<br />
+<br />
+
+<b>App Promotion</b>
+<br />
+Drive listeners to download or re-engage with your mobile app. The AI creates a scenario-driven script that puts the listener inside a real moment where the app solves a problem — then closes with a specific proof point and both app store names.
+<br />
+<br />
+
+<b>Local Store Visits & Promotions</b>
+<br />
+Drive foot traffic to a physical location. The AI creates an urgency-and-location script that makes the listener feel they will miss out if they do not visit — and tells them exactly where to go and when.
+<br />
+</div>
+
+
+`;
+
+
 /* ── Language search popover ── */
 function LanguageSearchSelect({
   value,
@@ -472,8 +523,8 @@ function ExpressMusicPreview({
       >
         {tracks &&
           tracks.length > 0 &&
-          tracks.map((track) => (
-              <div key={track.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
+          tracks.map((track, index) => (
+              <div key={index} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 bg-muted/30 mt-1.5">
                 <Checkbox
                   id="music-preview"
                   checked={selectedMusic === track.externalId}
@@ -512,19 +563,112 @@ function ExpressMusicPreview({
 
 const goalPlaceholders: Record<string, string> = {
   sales:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://luigispizza.com -- Family pizza restaurant in Dubai Marina. 20% off first online order. Promote our new seafood menu.",
-  leads:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://acmerealestate.com/listings -- Premium villas in Palm Jumeirah. Free property valuation for new enquiries. Target investors.",
-  traffic:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://myblog.com/latest -- Tech review blog covering latest gadgets. Drive readers to our new AI tools comparison article.",
-  consideration:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://brandx.com/product-page -- Launching a new organic skincare line. Highlight dermatologist-approved ingredients and 5-star reviews.",
-  awareness:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://newbrand.ae -- We're a new sustainable fashion label in the UAE. Build recognition among 25-40 year old professionals.",
-  app: "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://apps.apple.com/myapp -- Fitness tracking app with AI coaching. Free 30-day trial. Available on iOS and Android.",
-  local:
-    "Share what makes your brand unique, who it's for, and the call-to-action you'd like listeners to take after hearing the ad.\n\nFor example, https://maps.google.com/myshop -- Boutique coffee shop in JLT. Grand opening weekend, free pastry with every coffee. Walk-ins welcome.",
+    "Drive listeners to make a purchase directly. The AI writes a direct-response script with a strong offer and a clear call to action pointing to a website or online store.\n\nPrompt guidance: Include your product or offer name, the key benefit or discount, and a specific URL. Example: 'https://www.mybrand.com — Family pizza restaurant in The Mall. 20% off your first online order. Promote our new seafood menu — order tonight and use code SEAFOOD20.'",
+  leads: "Encourage listeners to register interest, request a quote, fill in a form, or call. Best for service businesses where the sale happens offline. The AI writes a script that builds credibility and guides the listener to take a low-friction first step. \n\nPrompt guidance: Describe the service, the problem it solves, and the lead action (e.g. 'get a free quote', 'book a call'). Example: 'https://www.mybrand.com — Flexible renewable-energy contracts for households. No lock-in. 24/7 support. Visit yellowdoorenergy.com to get your free quote in under two minutes.'",
+  traffic: "Drive listeners to visit a specific URL. The script focuses on curiosity and a single, memorable destination rather than a hard sell. Best when the website itself is the conversion point (e.g. a blog, landing page, or e-commerce homepage).\n\nPrompt guidance: Highlight what listeners will find when they visit and why it's worth their time. Example: 'https://www.mybrand.com/summer — Our summer collection is live. Discover 200+ new styles, all with free delivery this week. Visit mybrand.com/summer.'",
+  consideration: "Move listeners from awareness into active consideration of your product or service. The script is designed to educate and build preference rather than demand immediate action — ideal for considered purchases (cars, insurance, B2B software, real estate).\n\n Prompt guidance: Focus on key differentiators and what sets your product apart from alternatives. Example: 'https://www.mybrand.com — Flexible car leasing for consumers. No down payment, fully insured, swap your car every 12 months. Find out why 10,000 drivers have already switched at mybrand.com.'",
+  awareness: "Build recognition and top-of-mind recall without requiring any immediate listener action. The AI writes a brand storytelling script focused on who you are and what you stand for — ideal for new market entry, product launches, or brand repositioning.\n\nPrompt guidance: Describe your brand identity, mission, and target audience feeling rather than a specific offer or call to action. Example: 'My Brand — sustainability-first skincare, made in the world, inspired by the sun. We believe beauty should never cost the earth. My Brand — available at leading world pharmacies.'",
+  app: "Drive listeners to download or re-engage with your mobile app. The script leads with the app's value proposition and ends with a clear 'download now' call to action, naming the app stores where it is available.\n\nPrompt guidance: Include the app name, its core benefit, and where to download it. Example: 'The My Brand app — shop 20 million products with same-day delivery across the world. Exclusive app-only deals every day. Download My Brand now on the App Store and Google Play.'",
+  local: "Drive foot traffic to a physical location. The script creates urgency around a time-limited offer and gives clear location information so the listener knows exactly where to go.\n\nPrompt guidance: Include the store location, the specific promotion, and the time window. Example: 'My Brand, Main Street, London. This weekend only — buy any cake and get a free box of our signature pastries. Open Saturday and Sunday from 8am. Come in and treat yourself.'"
 };
+const voiceTooltip = `<div class="p-2">
+
+Select the voice that will read your ad script. Use the filters to narrow the library by gender, language, accent, tone, age, and use case. Click the play button on any voice to hear a sample.
+<br /><br />
+<b>Search</b><br />
+Type a voice name to find it directly — for example, type 'Charlotte' or 'Arabic' to filter the list instantly.
+Filter by Male or Female voices. Leave unset to browse all genders.
+<br /><br />
+<b>Native Language</b><br />
+Select the language the voice reads in. Arabic, English, and other regional languages are available.
+<br /><br />
+
+<b>Accent</b><br />
+Refine by regional accent — for example, Standard American, Standard British, or Saudi Arabic. Only accents available for your selected language are shown.
+<br /><br />
+
+<b>Tone</b><br />
+Filter voices by delivery style — Friendly, Confident, Conversational, Authoritative, or Calm. Choose a tone that matches your brand personality.
+<br /><br />
+
+<b>Age</b><br />
+Filter by the perceived age of the speaker — for example, Young Adult, Middle-Aged, or Senior. Matching the speaker's perceived age to your target audience can improve listener relatability.
+<br /><br />
+
+
+</div>`;
+
+const musicTooltip = `
+  <div class="p-2">
+
+  Choose a royalty-free music track to play behind your voiceover. All tracks in the library are pre-licensed for advertising use — no additional fees apply. Click the play button to preview any track.
+<br /><br />
+<b>Search</b><br />
+Type a track name or keyword to find music directly — for example, type 'jazz' or 'Euphoric Vibes'.
+<br /><br />
+
+<b>Mood</b><br />
+Filter tracks by emotional tone — for example, Happy, Energetic, Calm, or Dramatic. Choose a mood that matches the feeling you want to create in your ad.
+<br /><br />
+
+<b>Gerne</b><br />
+Filter by musical style — for example, Electronic, Pop, Jazz, or Classical. Genre can reinforce your brand's personality (e.g. a tech brand might choose Electronic; a lifestyle brand might choose Acoustic).
+<br /><br />
+
+<b>Instruments</b><br />
+Narrow to tracks featuring specific instruments — for example, Piano, Guitar, or Synth — if a particular sound fits your brief.
+<br /><br />
+
+<b>Tempo</b><br />
+Filter by pace: Slow, Medium, or Fast. Match the music's tempo to your ad's energy — a fast-paced offer benefits from an upbeat track; a calming product suits a slower tempo.
+
+  </div>
+
+`;
+
+
+
+const musicMixTooltip = `
+  <div class="p-2">
+Fine-tune the technical settings of your ad's music output. These controls affect the final audio file generated — adjust them after choosing your voice and music.
+<br /><br />
+<b>Fade In</b><br />
+When enabled, the music volume gradually increases from silence at the start rather than starting abruptly. Recommended for a polished, broadcast-quality feel.
+Fade In is on by default. Turn it off only if your ad is designed to open with an immediate, high-impact sound.
+<br /><br />
+
+<b>Fade Out</b><br />
+When enabled, the music  volume gradually decreases to silence at the end, creating a smooth finish.
+Fade Out is on by default. Keep it on unless your creative specifically ends on a sharp cut for dramatic effect.
+<br /><br />
+
+<b>Start</b><br />
+Sets the point in the music track (in milliseconds) where playback begins. Use this to skip a slow intro and start from a more energetic section. 1000 ms = 1 second. Default: 0 ms.
+<br /><br />
+
+<b>End</b><br />
+Sets the point in the music track where playback stops. Use this to trim a long track to exactly the length of your ad. Default: 30,000 ms (30 seconds).
+<br /><br />
+<b>Volume</b><br />
+Sets the overall output volume of the generated music as a percentage. 80% is the recommended default — it leaves headroom for broadcast normalisation. Increase only if the preview sounds too quiet after adjusting Fade settings.
+
+  </div>
+`;
+
+
+
+const trackingPixelTooltip = `
+  <div class="p-2">
+
+If you're using Podscribe or a similar podcast attribution tool, add the pixel here so EARO impression data flows into your external reporting dashboard automatically.
+<br /><br />
+<b>Tracking pixel URL</b> <br />
+Enter the URL of a third-party impression pixel to track how many times this ad is heard across all campaigns it's attached to. Supported providers include Podscribe and standard image/JavaScript pixel platforms.
+
+
+  </div>
+`;
+
 /* ── Express customization block (language + accent + tone + music with previews) ── */
 function ExpressCustomization({
   age,
@@ -647,17 +791,18 @@ function ExpressCustomization({
 
   return (
     <div className="space-y-4 mt-0 pt-0">
-      <Label className="text-base font-semibold flex flex-row gap-2 ">Choose your voice
-        <MyTooltip infoText="These are pre-cleared voices ready to use, no licensing required. The preview plays a sample so you can hear tone and pacing before committing." />
+      <Label className="text-base font-semibold flex flex-row items-center gap-2 ">
+        Choose your voice
+        <MyTooltip html={voiceTooltip} />
       </Label>
       <div className="space-y-2">
         {isPro && (
           <div
-            className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"}`}
+            className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"} relative`}
           >
             <Input
               type="text"
-              placeholder="Search for a voice"
+              placeholder="Search voices by name…" 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -665,10 +810,10 @@ function ExpressCustomization({
         )}
       </div>
       <div
-        className={`flex flex-row max-h-[80px] overflow-x-auto md:overflow-x-hidden md:grid grid-cols-1 ${isPro ? "md:grid-cols-6" : "md:grid-cols-4"} gap-4 p-1`}
+        className={`flex flex-row  max-h-[80px] overflow-x-auto md:overflow-x-hidden md:grid grid-cols-1 ${isPro ? "md:grid-cols-5" : "md:grid-cols-4"} gap-4 p-1`}
       >
         <div className="space-y-2">
-          <Label className="text-sm">Gender</Label>
+          <Label className="text-sm flex items-center gap-2">Gender </Label>
           <Select value={gender} onValueChange={onGenderChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select a gender" />
@@ -683,7 +828,7 @@ function ExpressCustomization({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm">Language</Label>
+          <Label className="text-sm flex items-center gap-2">Language  </Label>
           <Select value={language} onValueChange={onLanguageChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select a language" />
@@ -701,7 +846,7 @@ function ExpressCustomization({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm">Accent</Label>
+          <Label className="text-sm flex items-center gap-2">Accent </Label>
           <Select value={accent} onValueChange={onAccentChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select an accent" />
@@ -719,7 +864,7 @@ function ExpressCustomization({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm">Tone</Label>
+          <Label className="text-sm flex items-center gap-2">Tone </Label>
           <Select value={tone} onValueChange={onToneChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select a tone" />
@@ -739,7 +884,7 @@ function ExpressCustomization({
 
         {isPro && (
           <div className="space-y-2">
-            <Label className="text-sm">Age</Label>
+            <Label className="text-sm">Speaker Age  </Label>
             <Select value={age} onValueChange={onAgeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a tone" />
@@ -759,8 +904,8 @@ function ExpressCustomization({
         )}
 
         {isPro && (
-          <div className="space-y-2">
-            <Label className="text-sm">Use Case</Label>
+          <div className="space-y-2 hidden">
+            <Label className="text-sm">Best For  </Label>
             <Select value={useCase} onValueChange={onUseCaseChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a use case" />
@@ -802,17 +947,17 @@ function ExpressCustomization({
 
       {/* Music */}
       <div className="space-y-2 mt-15">
-        <Label className="text-base font-semibold flex flex-row gap-2">Choose your music
-          <MyTooltip infoText="Background music is optional but increases listener retention. It plays beneath your voiceover, use the Advanced Settings after selecting a track to control how the two blend together." />
+        <Label className="text-base font-semibold flex flex-row gap-2">Choose Your Background Music
+          <MyTooltip html={musicTooltip}/>
         </Label>
         <div className="space-y-2">
           {isPro && (
             <div
-              className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"}`}
+              className={`space-y-2 col-span-1 ${isPro ? "md:col-span-6" : "md:col-span-4"} relative`}
             >
               <Input
                 type="text"
-                placeholder="Search for a music"
+                placeholder="Search tracks by name…"
                 value={musicQuery}
                 onChange={(e) => setMusicQuery(e.target.value)}
               />
@@ -823,7 +968,7 @@ function ExpressCustomization({
           className={`flex flex-row max-h-[80px] md:max-h-[100px] overflow-x-auto md:overflow-x-hidden p-1 gap-4`}
         >
           <div className="space-y-2">
-            <Label className="text-sm">Moods</Label>
+            <Label className="text-sm flex items-center gap-2">Mood </Label>
             <Select value={musicMood} onValueChange={onMusicMoodChange}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
@@ -841,7 +986,7 @@ function ExpressCustomization({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">Genres</Label>
+            <Label className="text-sm flex items-center gap-2 ">Genre </Label>
             <Select value={musicGenre} onValueChange={onMusicGenreChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a genre" />
@@ -859,7 +1004,7 @@ function ExpressCustomization({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">Instruments</Label>
+            <Label className="text-sm flex items-center gap-2">Instruments </Label>
             <Select
               value={musicInstrument}
               onValueChange={onMusicInstrumentChange}
@@ -880,7 +1025,7 @@ function ExpressCustomization({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">Rhythms</Label>
+            <Label className="text-sm flex items-center gap-2">Tempo </Label>
             <Select value={musicRhythm} onValueChange={onMusicRhythmChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a rhythm" />
@@ -898,7 +1043,7 @@ function ExpressCustomization({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">Use Cases</Label>
+            <Label className="text-sm flex items-center gap-2">Best For  </Label>
             <Select value={musicUseCase} onValueChange={onMusicUseCaseChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a use case" />
@@ -951,26 +1096,26 @@ function ProCustomization({
   trackingPixel: string;
   onTrackingPixelChange: (v: string) => void;
 }) {
-  const updateContent = (key: keyof ProContentSettings, value: boolean | number) =>
+  const updateContent = (key: keyof ProContentSettings, value: boolean | number | string) =>
     onContentSettingsChange({ ...contentSettings, [key]: value });
   return (
     <div className="space-y-4">
-      <Label className="text-base font-semibold">Content Settings</Label>
+      <Label className="text-base font-semibold">Music Mix Settings <MyTooltip html={musicMixTooltip} /> </Label>
 
       {/* Content Settings */}
       <section title="Content Settings">
         <div className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <Label className="text-sm">Fade In</Label>
-              <p className="text-xs text-muted-foreground">Gradually increase volume at start</p>
+              <Label className="text-sm flex items-center gap-2">Fade In </Label>
+              <p className="text-xs text-muted-foreground flex items-center gap-2">Start quietly and ramp up — prevents a jarring opening. </p>
             </div>
             <Switch checked={contentSettings.fadeIn} onCheckedChange={(v) => updateContent('fadeIn', v)} />
           </div>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <Label className="text-sm">Fade Out</Label>
-              <p className="text-xs text-muted-foreground">Gradually decrease volume at end</p>
+              <Label className="text-sm flex items-center gap-2">Fade Out  </Label>
+              <p className="text-xs text-muted-foreground flex items-center gap-2">End smoothly — volume fades out rather than cutting off.  </p>
             </div>
             <Switch checked={contentSettings.fadeOut} onCheckedChange={(v) => updateContent('fadeOut', v)} />
           </div>
@@ -979,22 +1124,20 @@ function ProCustomization({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm">Start (ms)</Label>
+              <Label className="text-sm flex items-center gap-2">Music Start Point (ms) </Label>
               <Input
-                type="number"
-                min={0}
+                type="text"
                 value={contentSettings.startMs}
-                onChange={(e) => updateContent('startMs', parseInt(e.target.value) || 0)}
+                onChange={(e) => updateContent('startMs', parseInt(e.target.value) || '')}
                 placeholder="0"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm">End (ms)</Label>
+              <Label className="text-sm flex items-center gap-2">Music End Point (ms) </Label>
               <Input
-                type="number"
-                min={0}
+                type="text"
                 value={contentSettings.endMs}
-                onChange={(e) => updateContent('endMs', parseInt(e.target.value) || 0)}
+                onChange={(e) => updateContent('endMs', parseInt(e.target.value) || '')}
                 placeholder="30000"
               />
             </div>
@@ -1002,7 +1145,7 @@ function ProCustomization({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">Volume</Label>
+              <Label className="text-sm flex items-center gap-2">Output Volume </Label>
               <span className="text-xs text-muted-foreground">{Math.round(contentSettings.volume * 100)}%</span>
             </div>
             <Slider
@@ -1018,14 +1161,18 @@ function ProCustomization({
 
       {/* Tracking Pixel — after Content Settings */}
       <div className="space-y-2">
-        <Label className="text-sm">Tracking Pixel URL</Label>
+        <Label className="text-base font-semibold">Tracking Pixel URL (Optional) <MyTooltip html={trackingPixelTooltip} /> </Label>
+        <div className="relative">
         <Input
           value={trackingPixel}
           onChange={(e) => onTrackingPixelChange(e.target.value)}
-          placeholder="https://tracking.example.com/pixel?id=..."
+          placeholder="https://tracking.example.com/pixel?id=YOUR_ID"
           type="url"
         />
-        <p className="text-xs text-muted-foreground">Add a third-party tracking pixel to measure ad impressions.</p>
+        <span className="absolute right-2 top-2">
+          <MyTooltip infoText="Paste the full pixel URL provided by your tracking platform. The pixel fires once per ad impression — it does not require a listener to take any action." />
+        </span>
+        </div>
       </div>
     </div>
   );
@@ -1206,11 +1353,11 @@ export default function AdCreatorForm({
       {/* ── Generate Section (hidden after ad is created) ── */}
       {!hasAd && !isEditing && (
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-foreground">
-            Start with your brand
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          What Are You Advertising? <MyTooltip infoText="This section provides the AI with the information it needs to write your ad script. The more specific you are, the better the output." />
           </h3>
-          <p className="text-sm text-muted-foreground">
-            we'll create a script for you.
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+          Describe your brand, offer, and call to action — and we'll write the script. <MyTooltip infoText="Include your website URL, what makes your offer unique, and what you want listeners to do after hearing the ad." />
           </p>
         </div>
       )}
@@ -1220,7 +1367,7 @@ export default function AdCreatorForm({
           {type === "PROMPT" && (
             <div className="space-y-2">
               <Label className="flex flex-row gap-2 justify-start items-center w-full">{t("ad_creator.campaign_goal")}
-                <MyTooltip infoText=" This tells the AI what outcome you're optimising for, a sales-focused script sounds different from an awareness one. Pick the goal that matches how you'll measure success." />
+                <MyTooltip html={campaignGoalTooltip} />
               </Label>
               <Select value={goal} onValueChange={onGoalChange}>
                 <SelectTrigger>
@@ -1256,10 +1403,11 @@ export default function AdCreatorForm({
           <div className="space-y-2">
             <Label className="flex flex-row gap-2 justify-start items-center w-full">
               {type === "PROMPT"
-                ? t("ad_creator.tell_business")
+                ? "Describe Your Brand & Offer"
                 : t("ad_creator.ad_script")}
-                <MyTooltip infoText="The more specific you are, the better your script. Include your URL, what makes you different, and exactly what you want listeners to do, the AI will do the rest." />
+                <MyTooltip infoText="In up to 500 characters, tell us: (1) what makes your brand unique, (2) who it's for, and (3) what you want listeners to do. Adding your website URL lets the AI pull extra context to enrich the script." />
             </Label>
+            <div className="relative">
             <Textarea
               placeholder={
                 type === "PROMPT"
@@ -1271,11 +1419,13 @@ export default function AdCreatorForm({
               rows={5}
               maxLength={500}
             />
+            
+            </div>
             <div className="w-full flex items-center justify-end">
               <span
-                className={`text-xs ${description.length >= 500 ? "text-destructive" : " text-muted-foreground "}`}
+                className={`text-xs ${description.length >= 500 ? "text-destructive" : " text-muted-foreground "} flex items-center gap-2`}
               >
-                {description.length || 0}/{500} characters
+                {description.length || 0} / {500} characters
               </span>
             </div>
           </div>
@@ -1344,16 +1494,13 @@ export default function AdCreatorForm({
             onClick={onGenerate}
             disabled={!canSubmit || !selectedVoice || !selectedMusic || isGenerating}
           >
-            {t("ad_creator.generate_ad")}
-            <MyTooltip infoText="Your ad will be generated in seconds. You can preview it, adjust the script, swap the voice or music, and regenerate as many times as you need before saving." />
+            {
+              !canSubmit || !selectedVoice || !selectedMusic || isGenerating ? "Complete the details above to generate your ad" : "Generate My Ad"
+            }
+            Generate My Ad
+
+            <MyTooltip iconClassName="text-white-50 hover:text-white" infoText="Click to generate your ad using the voice, music, and settings selected above. Generation takes under a minute. You'll be able to preview and regenerate before saving." />
           </Button>
-          {
-            (!canSubmit || !selectedVoice || !selectedMusic || isGenerating) ? (
-              <p className="text-center text-sm text-muted-foreground mt-2">
-                Complete the details above to generate your ad
-              </p>
-            ): null
-          }
         </>
       )}
 

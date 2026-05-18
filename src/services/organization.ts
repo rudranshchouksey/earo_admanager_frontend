@@ -45,4 +45,6 @@ export interface OrganizationDetailsResponse {
     getOrganizationDetails: (organizationId: string)  => request<OrganizationDetailsResponse>('/api/v1/users/getOrganizationDetails' , {method:"POST", body: { orgId: organizationId }}),
     updateOrganizationDetails: (organizationId: string, organizationDetails: OrganizationDetails)  => request<OrganizationDetailsResponse>('/api/v1/users/updateOrganizationDetails' , {method:"POST", body: { orgId: organizationId, ...organizationDetails }}),
     updateOrganizationType: (userId: string, orgType: "SME" | "AGENCY") => request<OrganizationDetailsResponse>('/api/v1/auth/updateOrgType' , {method:"POST", body: { userId, orgType }}),
+    requestToUpgradeToAgency: (userId: string, organizationId: string) => request<OrganizationDetailsResponse>('/api/v1/auth/requestForAgency' , {method:"POST", body: { userId, orgId: organizationId }}),
+
 }

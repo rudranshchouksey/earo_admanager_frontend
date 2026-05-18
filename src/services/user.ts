@@ -4,7 +4,8 @@ export interface Organizations {
   orgId: string;
   orgType: "SME" | "AGENCY";
   name: string;
-  role: string
+  role: string;
+  requestedForAgency: boolean;
 }
 
 export interface UserProfile {

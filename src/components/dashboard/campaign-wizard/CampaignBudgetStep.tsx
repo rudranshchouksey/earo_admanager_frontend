@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
 import { useState } from 'react';
+import { MyTooltip } from '@/components/ui/MyTooltip';
+import { toast } from '@/hooks/use-toast';
 
 interface BudgetData {
   dailyBudget: string;
@@ -50,6 +52,10 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
     const daily = Number(data.dailyBudget);
     if(daily < MIN_BUDGET) {
       onChange({ ...data, dailyBudget: String(MIN_BUDGET), totalBudget: String(MIN_BUDGET * durationDays) });
+      toast({
+        title:"Minimum daily budget",
+        description: "Minimum daily budget is $25 per day"
+      })
     }
   };
 
@@ -67,7 +73,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
           <div className="flex items-baseline gap-1.5">
             <span className='text-4xl font-semibold text-foreground'>$</span>
             <Input type="text" value={dailyValue} onBlur={handleBlur} onChange={(e) => handleSliderChange(Number(e.target.value))} min={MIN_BUDGET} step={STEP} className="flex bg-background py-2 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto w-40 border-0 border-b border-border rounded-none px-0 text-4xl font-semibold focus-visible:ring-0 focus-visible:border-primary md:text-4xl" />
-            <span className="text-lg text-muted-foreground">/day</span>
+            <span className="text-lg text-muted-foreground"> per day</span>
           </div>
         )
       }
@@ -99,11 +105,11 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
 
       {/* Total + duration summary */}
       
-      <p className="text-sm text-muted-foreground space-y-1">
-        Total budget: <span className="font-semibold text-foreground">${totalBudget.toLocaleString()}</span> over {durationDays} day{durationDays !== 1 ? 's' : ''}, <span className="font-semibold text-foreground">${dailyValue.toLocaleString()}/day</span>
-        <h6>Minimum daily budget: ${MIN_BUDGET.toLocaleString()}</h6>
+      <p className="text-sm text-muted-foreground flex items-center ">
+        Total spend: <span className="font-semibold text-foreground">${totalBudget.toLocaleString()}</span> over {durationDays} day{durationDays !== 1 ? 's' : ''}, <span className="font-semibold text-foreground flex items-center gap-2">${dailyValue.toLocaleString()} per day  </span>
       </p>
-
+      {/* <h6 className='text-sm text-muted-foreground'>Minimum daily budget: ${MIN_BUDGET.toLocaleString()}</h6> */}
+      
       {/* Budget presets */}
       {
         tab === 'daily' && (
@@ -126,7 +132,7 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
                     <Check className="h-2.5 w-2.5 text-foreground" />
                   </div>
                 )}
-                <span className="text-sm font-medium">${amount.toLocaleString()}/day</span>
+                <span className="text-sm font-medium flex items-center gap-2">${amount.toLocaleString()}/day </span>
               </div>
             );
           })}

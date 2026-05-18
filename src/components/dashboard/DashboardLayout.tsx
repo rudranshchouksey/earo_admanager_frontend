@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 
 import logoFull from '@/assets/logo-full.png';
 import logo from '@/assets/logo.png';
+import { userApi } from '@/services/user';
 
 const BREADCRUMB_KEYS: Record<string, string> = {
   dashboard: 'layout.nav_dashboard',
@@ -70,7 +71,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
-  const { isPro, isNewUser, isAgency } = useSessionFlags();
+  const { isPro, isAgency } = useSessionFlags();
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
@@ -78,6 +79,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showAgencySignupBtn, setShowAgencySignupBtn] = useState(false)
   const [session, setSession] = useState<AuthSession | null>(null);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
+  const [accountType, setAccountType] = useState<string>('');
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -97,6 +100,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       });
     }
   };
+
+  const isNewUser = false;
 
   const navItems = [
     { path: '/dashboard', label: t('layout.nav_dashboard'), icon: LayoutDashboard },
@@ -138,14 +143,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }
     }
   }, [selectedAdvertiser])
-  
 
+
+
+  useEffect(() => {
+    const getProfile = async () => {
+      const { data, error, status } = await userApi.getUserProfile();
+      if(error || status !== 200) return;
+      if(data.data?.organizations && data.data.organizations.length > 0) {
+        const organization = data.data.organizations[0];
+        if(organization.orgType === "SME" && ! organization.requestedForAgency) setShowAgencySignupBtn(true);
+        setAccountType(organization.orgType);
+      }
+
+      if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
+    }
+    getProfile();
+  }, [])
+  
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
       setSession(session);
-      if(!session.user.app_metadata.isAgency) setShowAgencySignupBtn(true);
-      else {
+      if(session.user.app_metadata.isAgency) {
         // Prefer the stored advertiserId (from last selection) on reload.
         getAdvertisers(session?.currentOrganizationId ?? '', session?.currentAdvertiserId ?? '');
       }
@@ -174,6 +194,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const changeLocale = (locale: string) => {
     setLanguage(locale);
   };
+
+  const onRequested = async (hasRequested: boolean) => {
+    setShowAgencySignupBtn(false);
+    setShowAgencySignup(false);
+  }
 
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -218,14 +243,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }`}
         >
           <accountItem.icon className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>{accountItem.label}</span>}
+          {!collapsed && <span>{accountItem.label}</span>} {!collapsed && <div className='inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground'>{accountType}</div>}
         </Link>
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
-        {/* {showAgencySignupBtn && (
+         {showAgencySignupBtn && (
           <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
-        )} */}
+        )} 
 
         <button
           onClick={handleSignOut}
@@ -302,7 +327,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Advertiser selector — Pro mode, always visible */}
           {isAgency && (
-            <Select value={selectedAdvertiser} onValueChange={setSelectedAdvertiser}>
+            <Select value={selectedAdvertiser} onValueChange={(value) => {
+              if(value === "add-advertiser") {
+                navigate('/dashboard/account?page=advertisers');
+              } else {
+                setSelectedAdvertiser(value);
+              }
+            }}>
               <SelectTrigger className="h-9 w-[180px] text-xs border-border">
                 <SelectValue placeholder={t('layout.choose_advertiser')} />
               </SelectTrigger>
@@ -312,6 +343,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {adv.advertiserName}
                   </SelectItem>
                 ))}
+                <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account?page=advertisers')}>
+                  Add Advertiser                 
+                </SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -360,7 +394,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           onOpenChange={(open) => {
             if (!open) setShowAgencySignup(false);
           }}
-          onSelectRole={onSelectRole}
+          onRequested={onRequested}
         />
       )}
     </div>
