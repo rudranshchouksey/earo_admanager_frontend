@@ -850,9 +850,7 @@ export default function Account() {
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("account.affiliateCode_hint")}
-                </p>
+                
               </div>
 
               <div className="space-y-2">
