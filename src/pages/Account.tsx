@@ -783,11 +783,11 @@ export default function Account() {
                   value={industry}
                   onValueChange={(v) => {
                     setIndustry(v);
-                    setSubIndustry(INDUSTRY_CATEGORIES[v as keyof typeof INDUSTRY_CATEGORIES].industries[0]);
+                    setSubIndustry(INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "" );
                     setOrganizationDetails({
                       ...organizationDetails!,
                       industry: v,
-                      subIndustry: INDUSTRY_CATEGORIES[v as keyof typeof INDUSTRY_CATEGORIES].industries[0],
+                      subIndustry: INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "",
                     })
                   }}
                 >
@@ -823,11 +823,11 @@ export default function Account() {
                     <SelectValue placeholder="Select sub-industry" />
                   </SelectTrigger>
                   <SelectContent>
-                    {INDUSTRY_CATEGORIES[industry as keyof typeof INDUSTRY_CATEGORIES].industries.map((sub:string) => (
+                    { INDUSTRY_CATEGORIES[industry] ?   INDUSTRY_CATEGORIES[industry].industries?.map((sub:string) => (
                       <SelectItem key={sub} value={sub}>
                         {sub}
                       </SelectItem>
-                    ))}
+                    )) : null}
                   </SelectContent>
                 </Select>
               </div>
