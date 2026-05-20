@@ -26,6 +26,7 @@ export interface OrganizationDetails {
     industry: string;
     subIndustry: string;
     country: string;
+    url: string;
 }
 
 export interface OrganizationDetailsResponse {

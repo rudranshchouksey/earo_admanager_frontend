@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { podcasts } from '@/components/landing/podcastData';
 import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause, Icon, Info, Loader2 } from 'lucide-react';
@@ -17,6 +17,7 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { reportsApi } from '@/services/reports';
 import { campaignApi } from '@/services/campaign';
 import { adsApi } from '@/services/ads';
+import { appNotifications } from '@/services/appNotifications';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -30,93 +31,87 @@ export default function DashboardHome() {
 
   const { t } = useTranslation();
 
-  
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-     const { data: { session } } = await auth.getSession();
-     if(!session) {
+  const fetchStats = useCallback(async () => {
+    const { data: { session } } = await auth.getSession();
+    if (!session) return;
+    const advertiserId = session.currentAdvertiserId;
+    if (!advertiserId) return;
+    const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
+    if (status !== 200 || error) return;
+    setStats({
+      impressions: data.data.cardTotals.impressions,
+      spend: data.data.cardTotals.totalSpend,
+      reach: data.data.cardTotals.demandAudioReachUniqueUsers,
+      cpa: data.data.cardTotals.attributionCPAInUSD,
+    });
+  }, []);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    const { data: { session } } = await auth.getSession();
+    if (!session) {
       setIsLoading(false);
       return;
-     }
-     let advertiserId = session.currentAdvertiserId;
-     console.log("advertiserId here ", {advertiserId});
-     if(!advertiserId) {
-      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      if(advertisersStatus !== 200 || advertisersError) {
+    }
+
+    let advertiserId = session.currentAdvertiserId;
+    if (!advertiserId) {
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
+        await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if (advertisersStatus !== 200 || advertisersError) {
         toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
         setIsLoading(false);
         return;
       }
       const advertisers = advertisersRes.data;
-      if(advertisers.length > 0) {
-        console.log("advertisers here ", advertisers[0]);
+      if (advertisers.length > 0) {
         auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
         advertiserId = advertisers[0].id;
-        setIsLoading(false);     
+      } else {
+        setIsLoading(false);
+        return;
       }
-     }
+    }
 
-     let hasCampaigns = false;
-     let hasAudioAds = false;
-
-     const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
-     if(campaings.status !== 200 || campaings.error) {
-      console.log("no campaigns found");
-     }
-
-     if(campaings.data.data.length > 0) {
-      hasCampaigns = true;
+    const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+    if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
       setIsNewUser(false);
       setIsNewWithAd(false);
       setIsLoading(false);
-      fetchStats();
+      await fetchStats();
       return;
-     }
-
-
-     const audioAds = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
-     if(audioAds.status !== 200 || audioAds.error) {
-      console.log("no audio ads found");
-     }
-     if(audioAds.data.data.length > 0) {
-      hasAudioAds = true;
-      setAudioAds(audioAds.data.data);
-     }
-
-     if(!hasCampaigns) {
-      setIsNewUser(true);
-     }
-
-     if(hasAudioAds && !hasCampaigns) {
-      setIsNewWithAd(true);
-     }
-
-     setIsLoading(false);
-    };
-
-    const fetchStats = async () => {
-      const { data: { session } } = await auth.getSession();
-      if(!session) return;
-      const advertiserId = session.currentAdvertiserId;
-      if(!advertiserId) return;
-      const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
-      if(status !== 200 || error) {
-       // toast({ title: t('common.error'), description: error?.message ?? 'Unable to load stats', variant: 'destructive' });
-       return;
-      }
-      setStats({
-        impressions: data.data.cardTotals.impressions,
-        spend: data.data.cardTotals.totalSpend,
-        reach: data.data.cardTotals.demandAudioReachUniqueUsers,
-        cpa: data.data.cardTotals.attributionCPAInUSD,
-      });
     }
 
+    const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
+    const hasAudioAds =
+      audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
+    if (hasAudioAds) {
+      setAudioAds(audioAdsRes.data.data);
+    }
 
+    setIsNewUser(true);
+    setIsNewWithAd(hasAudioAds);
+    setIsLoading(false);
+  }, [fetchStats, t]);
+
+  useEffect(() => {
     load();
+  }, [load]);
 
-  }, []);
+  // List created/updated/deleted in Account → Advertisers tab
+  useEffect(() => {
+    return appNotifications.subscribe('advertisers:changed', () => {
+      void load();
+    });
+  }, [load]);
+
+  // Header advertiser dropdown changed in DashboardLayout
+  useEffect(() => {
+    return appNotifications.subscribe('advertiser:selected', () => {
+      void load();
+    });
+  }, [load]);
+ 
 
 
   if(isLoading) {

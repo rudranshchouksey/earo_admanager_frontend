@@ -1080,7 +1080,16 @@ export default function Account() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paymentHistory.map((row, i) => (
+                      {
+                        paymentHistory.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center">
+                              <p className="text-xs text-muted-foreground">
+                                No payment history found
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ) : ( paymentHistory.map((row, i) => (
                         <TableRow key={i}>
                           <TableCell className="text-sm">{row.createdAt}</TableCell>
                           <TableCell className="text-sm">{row.description}</TableCell>
@@ -1093,7 +1102,9 @@ export default function Account() {
                             </Badge>
                           </TableCell>
                         </TableRow>
-                      ))}
+                          )
+                        ))
+                      }
                     </TableBody>
                   </Table>
                 </CardContent>

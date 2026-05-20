@@ -175,8 +175,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [getAdvertisers]);
 
   useEffect(() => {
-    return appNotifications.subscribe('advertisers:changed', (payload) => {
-      const orgId = payload?.organizationId ?? session?.currentOrganizationId;
+    return appNotifications.subscribe('advertisers:changed', (payload) => {      const orgId = payload?.organizationId ?? session?.currentOrganizationId;
       if (!orgId || !session?.user?.app_metadata?.isAgency) return;
       void getAdvertisers(orgId);
     });
