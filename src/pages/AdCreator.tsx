@@ -42,8 +42,8 @@ const DEFAULT_PRO_MUSIC: ProMusicSettings = {
 const DEFAULT_PRO_CONTENT: ProContentSettings = {
   fadeIn: true,
   fadeOut: true,
-  startMs: 0,
-  endMs: 30000,
+  startMs: 2000,
+  endMs: 25000,
   volume: 0.8,
 };
 
@@ -63,11 +63,11 @@ export default function AdCreator() {
   const [query, setQuery] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [accent, setAccent] = useState("all");
-  const [tone, setTone] = useState("all");
+  const [tone, setTone] = useState("upbeat");
   const [selectedMusic, setSelectedMusic] = useState("");
 
   const [language, setLanguage] = useState("en");
-  const [gender, setGender] = useState("male");
+  const [gender, setGender] = useState("female");
   const [age, setAge] = useState("all");
   const [useCase, setUseCase] = useState("all");
 
@@ -168,7 +168,7 @@ export default function AdCreator() {
       const contentSettings: Record<string, any> = {};
       console.log("isPro here ", isPro);
 
-      if (isPro) {
+      if (isPro && selectedMusic) {
         contentSettings["volume"] = proContent.volume;
         contentSettings["audioFadeIn"] = proContent.fadeIn;
         contentSettings["audioFadeOut"] = proContent.fadeOut;
@@ -191,7 +191,7 @@ export default function AdCreator() {
               : editedScript,
         tone: tone,
         voiceId: selectedVoice,
-        musicId: selectedMusic || musics[0].externalId,
+        musicId: selectedMusic,
         ...contentSettings,
       });
       console.log("createAd here ", { error, status, message, data });
@@ -254,7 +254,7 @@ export default function AdCreator() {
 
     const { status, error, message, data } = await adsApi.getMusics({
       page: opts.page,
-      limit: isPro ? PAGE_SIZE : 3,
+      limit: isPro ? PAGE_SIZE : 10,
       mood: opts.mood === "" || opts.mood === "all" ? null : opts.mood,
       genre: opts.genre === "" || opts.genre === "all" ? null : opts.genre,
       instrument:
@@ -310,7 +310,7 @@ export default function AdCreator() {
 
     const { status, error, message, data } = await adsApi.getVoices({
       page: opts.page,
-      limit: isPro ? PAGE_SIZE : 3,
+      limit: isPro ? PAGE_SIZE : 10,
       gender:
         opts.gender === "" ? null : opts.gender,
       language:
@@ -319,7 +319,7 @@ export default function AdCreator() {
         opts.tone === "" || opts.tone === "all" ? null : opts.tone,
       accent: opts.accent === "" || opts.accent === "all" ? null : opts.accent,
       age: opts.age === "" || opts.age === "all" ? null : opts.age,
-      useCase: "Advertising",
+      useCase: "",
       query: opts.query,
     });
 

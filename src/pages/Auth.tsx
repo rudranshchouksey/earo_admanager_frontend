@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { Eye, EyeOff, Loader2, Store, Users, Check } from "lucide-react";
 import { z } from "zod";
@@ -12,10 +12,6 @@ import { auth, createSessionAndNotify } from "@/services/auth";
 import { request } from "@/services/api";
 import type { AuthSession } from "@/services/auth";
 import { Headphones } from "lucide-react";
-import spotifyLogo from "@/assets/logos/spotify.svg";
-import anghamiLogo from "@/assets/logos/anghami.svg";
-import mbcLogo from "@/assets/logos/mbc.svg";
-import arnLogo from "@/assets/logos/arn.png";
 import { cn } from "@/lib/utils";
 import {
   GoogleOAuthProvider,
@@ -25,8 +21,13 @@ import {
 import { OtpModal } from "@/components/auth/otp-modal";
 import { MfaSelector } from "@/components/auth/mfa-selector";
 import { userApi } from "@/services/user";
+import { AuthPageBackground } from "@/components/dashboard/MockDashboardPreview";
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
+  const register = searchParams.get("register");
+
+
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState("login");
@@ -50,6 +51,12 @@ export default function Auth() {
     otp?: string;
   }>({});
 
+  useEffect(() => {
+    if (register === "true") {
+      setStep("signup");
+    }
+  }, [register]);
+  
   // Check if user is already logged in
   useEffect(() => {
     let isMounted = true;
@@ -96,9 +103,12 @@ export default function Auth() {
   // Show loading state during initial auth check
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <AuthPageBackground>
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+        </div>
+      </AuthPageBackground>
     );
   }
 
@@ -106,10 +116,10 @@ export default function Auth() {
   // Instead, show an explicit "Continue" / "Sign out" choice.
   if (session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm space-y-4">
+      <AuthPageBackground>
+        <div className="space-y-4">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 id="auth-dialog-title" className="text-xl font-semibold text-foreground">
               {t("auth.already_signed_in")}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -136,7 +146,7 @@ export default function Auth() {
             </Button>
           </div>
         </div>
-      </div>
+      </AuthPageBackground>
     );
   }
 
@@ -377,76 +387,15 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full bg-white/5 -translate-x-1/2 -translate-y-1/4" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-white/5 translate-x-1/4 translate-y-1/4" />
-
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Logo */}
-          <div>
-            <Link to="/" className="flex items-center gap-2">
-              <Headphones className="h-6 w-6 text-white" />
-              <span className="text-xl font-bold text-white">
-                {t("auth.brand_name")}
-              </span>
-            </Link>
-          </div>
-
-          {/* Headline */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-4xl font-bold text-white leading-tight">
-                {t("auth.audio_advertising")}
-              </h1>
-              <p className="text-2xl font-semibold text-white/80">
-                {t("auth.made_simple")}
-              </p>
-            </div>
-            <p className="text-lg text-white/70 max-w-md">
-              {t("auth.tagline_1")}
-              <br />
-              {t("auth.tagline_2")}
-            </p>
-
-            {/* Partner logos */}
-            <div className="flex items-center gap-6 pt-4">
-              <img src={spotifyLogo} alt="Spotify" className="h-6 opacity-80" />
-              <img
-                src={anghamiLogo}
-                alt="Anghami"
-                className="h-5 opacity-80 invert"
-              />
-              <img src={mbcLogo} alt="MBC" className="h-6 opacity-80 invert" />
-              <img src={arnLogo} alt="ARN" className="h-6 opacity-80 invert" />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-white/50 text-sm">
-            {t("auth.footer_copyright")}
-          </div>
-        </div>
-      </div>
-
-      {/* Right Panel - Form */}
-      <div className="flex-1 flex flex-col justify-center px-8 sm:px-16 lg:px-24 bg-background">
-        <div className="w-full max-w-md mx-auto space-y-8">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <Link to="/" className="flex items-center gap-2">
-              <Headphones className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold text-foreground">
-                {t("auth.brand_name")}
-              </span>
-            </Link>
-          </div>
+    <AuthPageBackground>
+        <div className="w-full space-y-6">
+          <Link to="/" className="flex items-center justify-center gap-2">
+            <img src="/og-image.png" alt="logo" className="h-10 w-auto" />
+          </Link>
 
           {/* Header */}
           <div className="text-center space-y-2">
-            <h2 className="text-3xl font-bold text-foreground">
+            <h2 id="auth-dialog-title" className="text-2xl font-bold text-foreground">
               {step === "login"
                 ? t("auth.welcome_back")
                 : step === "signup"
@@ -466,7 +415,7 @@ export default function Auth() {
           {(step === "login" || step === "signup") && (
             <>
               <div className="space-y-3">
-                <GoogleOAuthProvider clientId="182678201673-thpu9eqlijp316q8tcaf5iltfsa0fhbj.apps.googleusercontent.com">
+                <GoogleOAuthProvider clientId="1085309377183-aclhjrmig48tsqgpecmv84tj4fgbv0jc.apps.googleusercontent.com">
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.log("Login Failed")}
@@ -724,13 +673,12 @@ export default function Auth() {
           {/* Privacy policy */}
           <p className="text-center text-xs text-muted-foreground pt-4">
             {t("auth.privacy_intro")}{" "}
-            <a href="#" className="text-primary hover:underline">
+            <a href="https://earo.ai/privacy" className="text-primary hover:underline">
               {t("auth.privacy_policy")}
             </a>
             .
           </p>
         </div>
-      </div>
 
       <MfaSelector
         open={showMfaSelector}
@@ -741,6 +689,6 @@ export default function Auth() {
         onVerifyAuthenticator={handleMfaComplete}
         authDefaultScreen="verify"
       />
-    </div>
+    </AuthPageBackground>
   );
 }

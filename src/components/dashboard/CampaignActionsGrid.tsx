@@ -69,35 +69,35 @@ function appendCampaigns(existing: CampaignActionData[], incoming: CampaignActio
 }
 
 function ActionButtons({ group, campaign }: { group: string; campaign: CampaignActionData }) {
-  const navigate = useNavigate();
-  const name = campaignDisplayName(campaign);
+  // const navigate = useNavigate();
+  // const name = campaignDisplayName(campaign);
 
-  if (group === 'Almost Ending') {
-    return (
-      <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); toast({ title: 'Extend Campaign', description: `Campaign "${name}" extension requested.` }); }}>
-        Extend Campaign
-      </Button>
-    );
-  }
-  if (group === 'Doing Well') {
-    return (
-      <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); toast({ title: 'Increase Budget', description: `Budget increase for "${name}" requested.` }); }}>
-        Increase Budget
-      </Button>
-    );
-  }
-  if (group === 'Underperforming') {
-    return (
-      <div className="flex gap-1.5">
-        <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); navigate('/dashboard/ads/new'); }}>
-          Change Ad
-        </Button>
-        <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/campaigns/${campaign.id}`); }}>
-          Review Targeting
-        </Button>
-      </div>
-    );
-  }
+  // if (group === 'Almost Ending') {
+  //   return (
+  //     <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); toast({ title: 'Extend Campaign', description: `Campaign "${name}" extension requested.` }); }}>
+  //       Extend Campaign
+  //     </Button>
+  //   );
+  // }
+  // if (group === 'Doing Well') {
+  //   return (
+  //     <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); toast({ title: 'Increase Budget', description: `Budget increase for "${name}" requested.` }); }}>
+  //       Increase Budget
+  //     </Button>
+  //   );
+  // }
+  // if (group === 'Underperforming') {
+  //   return (
+  //     <div className="flex gap-1.5">
+  //       <Button size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); navigate('/dashboard/ads/new'); }}>
+  //         Change Ad
+  //       </Button>
+  //       <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/campaigns/${campaign.id}`); }}>
+  //         Review Targeting
+  //       </Button>
+  //     </div>
+  //   );
+  // }
   return <span className="text-xs text-muted-foreground">—</span>;
 }
 
@@ -168,6 +168,7 @@ export default function CampaignActionsGrid() {
 
       const advertiserId = session.currentAdvertiserId || '';
 
+      if(advertiserId)
       await Promise.allSettled(
         TAB_KEYS.map((tabKey) => fetchTabPage(tabKey, 1, false, advertiserId)),
       );

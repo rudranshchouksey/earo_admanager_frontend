@@ -68,6 +68,14 @@ import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { paymentApi, PaymentHistory } from "@/services/payment";
 import { useSearchParams } from "react-router-dom";
 import { campaignApi } from "@/services/campaign";
+import { Country, targetingApi } from "@/services/targeting";
+import { useGeoLocation } from "@/hooks/useGeoLocation";
+import {
+  INDUSTRY_CATEGORIES,
+  IndustryCategoryKey,
+  DEFAULT_INDUSTRY_CATEGORY,
+  DEFAULT_SUB_INDUSTRY,
+} from "@/constants/industryCategories";
 interface Cards {
   id: string;
   cardId: string;
@@ -75,8 +83,6 @@ interface Cards {
   cardHolderName: string;
   type: string;
 }
-
-const industries = Object.values(OrganizationIndustry).map(i => i.toString());
 
 export default function Account() {
   const [profile, setProfile] = useState<UserProfile>({
@@ -94,6 +100,8 @@ export default function Account() {
     role: "USER",
     orgId: "",
     status: "ACTIVE",
+    onboardingComplete: false,
+    organizations: [],
   });
   const [organizationDetails, setOrganizationDetails] = useState<OrganizationDetails | null>(null);
   const [saving, setSaving] = useState(false);
@@ -125,6 +133,17 @@ export default function Account() {
   const [deletePaymentMethodAlertOpen, setDeletePaymentMethodAlertOpen] = useState(false);
 
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
+  const [industry, setIndustry] = useState<string>("RETAIL");
+  const [subIndustry, setSubIndustry] = useState<string>("Fashion & Apparel");
+  const [country, setCountry] = useState("");
+  const [countries, setCountries] = useState<Country[]>([]);
+  const { geoData, isLoading: geoLoading } = useGeoLocation();
+
+  useEffect(() => {
+    if(organizationDetails?.country) setCountry(organizationDetails.country);
+    if (organizationDetails?.industry) setIndustry(organizationDetails.industry);
+    if (organizationDetails?.subIndustry) setSubIndustry(organizationDetails.subIndustry);
+  }, [organizationDetails]);
 
   const getAdvertisers = async (orgId: string) => {
     const {
@@ -197,6 +216,21 @@ export default function Account() {
       setOrganizationDetails(organizationDetails.data.organization);
       getAdvertisers(organizationId);
 
+
+
+
+
+      const fetchCountries = async () => {
+        const { data, error } = await targetingApi.getCountries();
+        if (error) {
+          console.error(error);
+          return;
+        }
+        setCountries(data?.data || []);
+      };
+
+      fetchCountries();
+
     };
 
     const fetchCards = async () => {
@@ -245,6 +279,15 @@ export default function Account() {
     load();
     fetchCards();
   }, []);
+
+
+  // // Auto-fill country from geo-detect
+  useEffect(() => {
+    if (geoData && geoData.country && !country) {
+      setCountry(geoData.country);
+    }
+  }, [geoData]);
+
 
   const saveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -354,6 +397,7 @@ export default function Account() {
 
     console.log("save company details");
 
+
     const { error, status, message } = await organizationApi.updateOrganizationDetails(organizationDetails?.id ?? "", organizationDetails);
     if (error || status !== 200) {
       toast({
@@ -429,6 +473,7 @@ export default function Account() {
       advertiserId: advertiserObj.advertiserId,
       advertiserName: advertiserObj.advertiserName,
       industry: advertiserObj.industry,
+      subIndustry: advertiserObj.subIndustry,
       status: advertiserObj.status,
       extId: advertiserObj.extId,
     });
@@ -507,7 +552,7 @@ export default function Account() {
       });
     }
   }, [message]);
-  
+
 
   const addPaymentMethod = async () => {
     console.log("add payment method");
@@ -735,16 +780,52 @@ export default function Account() {
               <div className="space-y-2">
                 <Label>{t("account.industry")}</Label>
                 <Select
-                  value={organizationDetails?.industry ?? ""}
-                  onValueChange={(v) => setOrganizationDetails({...organizationDetails, industry: v as "RETAIL" | "FOOD_AND_BEVERAGE" | "TECHNOLOGY" | "HEALTHCARE" | "EDUCATION" | "REAL_ESTATE" | "AUTOMOTIVE" | "FASHION" | "FINANCE" | "TRAVEL" | "ENTERTAINMENT" | "OTHER"})}
+                  value={industry}
+                  onValueChange={(v) => {
+                    setIndustry(v);
+                    setSubIndustry(INDUSTRY_CATEGORIES[v as keyof typeof INDUSTRY_CATEGORIES].industries[0]);
+                    setOrganizationDetails({
+                      ...organizationDetails!,
+                      industry: v,
+                      subIndustry: INDUSTRY_CATEGORIES[v as keyof typeof INDUSTRY_CATEGORIES].industries[0],
+                    })
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t("account.select_industry")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {industries.map((i) => (
-                      <SelectItem key={i} value={i}>
-                        {i}
+                    {(Object.entries(INDUSTRY_CATEGORIES) as [IndustryCategoryKey, (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey]][]).map(
+                      ([key, cat]) => (
+                        <SelectItem key={key} value={key}>
+                          {cat.name}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sub-industry</Label>
+                <Select
+                  value={
+                    subIndustry
+                  }
+                  onValueChange={(v) => {
+                    setSubIndustry(v);
+                    setOrganizationDetails({
+                      ...organizationDetails!,
+                      subIndustry: v,
+                    })
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sub-industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRY_CATEGORIES[industry as keyof typeof INDUSTRY_CATEGORIES].industries.map((sub:string) => (
+                      <SelectItem key={sub} value={sub}>
+                        {sub}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -790,6 +871,31 @@ export default function Account() {
                     <SelectItem value="ar">
                       {t("layout.language_ar")}
                     </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Select
+                  value={country}
+                  onValueChange={(v) => {
+                    setCountry(v)
+                    setOrganizationDetails({
+                      ...organizationDetails!,
+                      country: v,
+                    })
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countries.map((country) => (
+                      <SelectItem key={country.id} value={country.name}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

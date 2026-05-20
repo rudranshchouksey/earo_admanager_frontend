@@ -528,7 +528,7 @@ export default function AdsLibrary() {
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-40">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue />
@@ -547,7 +547,7 @@ export default function AdsLibrary() {
                 <SelectItem value="completed">{t('ads.status_completed')}</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
           <CardContent>
             {isMobile ? (

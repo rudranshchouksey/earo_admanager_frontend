@@ -15,6 +15,8 @@ interface Alert {
   alert_type: string;
   cta_label: string | null;
   cta_url: string | null;
+  cta_action?: () => Promise<void>;
+  userId: string;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -36,14 +38,6 @@ export default function AlertBar() {
   useEffect(() => {
 
     const load = async () => {
-
-      const hasCancelledCompleteProfile = localStorage.getItem('hasCancelledCompleteProfile');
-      if (hasCancelledCompleteProfile) {
-        return;
-      }
-
-
-
       const {
         data: { session: initialSession },
       } = await auth.getSession();
@@ -67,6 +61,56 @@ export default function AlertBar() {
 
       console.log({ userProfile });
       console.log({ session: initialSession });
+      const allAlerts = [];
+
+
+      if(!userProfile.data.isVerified){
+        const hasCancelledVerifyEmail = localStorage.getItem('verify-email-'+userProfile.data.id);
+        if(!hasCancelledVerifyEmail){
+          allAlerts.push(
+            {
+              id: "verify-email",
+              title: "Verify Email",
+              message: "Please verify your email to continue",
+              alert_type: "error",
+              cta_label: "Verify Email",
+              cta_url: "/dashboard/verify-email",
+              cta_action: async () => {
+                const {data, error, status, message} = await auth.resendOtp(userProfile.data.email);
+                if(error || status !== 200){
+                  toast({
+                    title: "Error",
+                    description: message || "Failed to send email verification",
+                    variant: "destructive",
+                  });
+                }
+                else {
+                  toast({
+                    title: "Email Verification Sent",
+                    description: "Please check your email for the verification code",
+                    variant: "default",
+                  });
+                }
+                localStorage.setItem('hasCancelledVerifyEmail'+userProfile.data.id, 'true');
+                setAlerts((prev) => prev.filter((a) => a.id !== "verify-email"));
+              },
+              userId: userProfile.data.id,
+            });
+        }
+      }
+
+
+
+      const hasCancelledCompleteProfile = localStorage.getItem('complete-profile-'+userProfile.data.id);
+
+      console.log({ hasCancelledCompleteProfile });
+
+      if (hasCancelledCompleteProfile) {
+        setAlerts(allAlerts);
+        return;
+      }
+
+
 
       const organizationId = initialSession?.currentOrganizationId;
 
@@ -87,29 +131,34 @@ export default function AlertBar() {
       }
 
 
+      console.log({firstName: userProfile.data.firstName, orgName: organizationDetails.data.organization.orgName});
 
       if(!userProfile.data.firstName || !organizationDetails.data.organization.orgName){
-        setAlerts([
+        allAlerts.push(
           {
             id: "complete-profile",
             title: "Complete Profile",
             message: "Please complete your profile and company details",
-            alert_type: "info",
+            alert_type: "error",
             cta_label: "Complete Profile",
             cta_url: "/dashboard/account",
+            userId: userProfile.data.id,
           }
-        ])
+        );
       }
+      setAlerts(allAlerts);
 
     };
     load();
   }, []);
 
-  const dismiss = async (id: string) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  const dismiss = async (alert: Alert) => {
+    setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
     //await systemApi.dismissAlert(id);
-    localStorage.setItem('hasCancelledCompleteProfile', 'true');
+    localStorage.setItem(alert.id + '-' + alert.userId, 'true');
   };
+
+  console.log({ alerts });
 
   if (alerts.length === 0) return null;
 
@@ -136,12 +185,12 @@ export default function AlertBar() {
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs shrink-0"
-                onClick={() => navigate(alert.cta_url!)}
+                onClick={() => alert.cta_action ? alert.cta_action() : navigate(alert.cta_url!)}
               >
                 {alert.cta_label}
               </Button>
             )}
-            <button onClick={() => dismiss(alert.id)} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => dismiss(alert)} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

@@ -609,12 +609,12 @@ export default function Reports() {
 
 
 
-  return (
-    <div className='flex flex-col items-center justify-center h-full'>
-      <h3 className='text-2xl font-bold'>Coming Soon</h3>
-      <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
-    </div>
-  )
+  // return (
+  //   <div className='flex flex-col items-center justify-center h-full'>
+  //     <h3 className='text-2xl font-bold'>Coming Soon</h3>
+  //     <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
+  //   </div>
+  // )
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
@@ -684,52 +684,155 @@ export default function Reports() {
 
 
   useEffect(() => {
-    const getCampaignReports = async () => {
-      console.log({allCampaigns});
-
+    
+    
+    const loadAllReports = async () => {
       const {data: {session: sessionData}} = await auth.getSession();
       if (!sessionData) {
         console.error("Not authenticated");
         return;
       }
-      const {data, status, error} = await reportsApi.getCampaignReports({
-        advertiserId: sessionData.currentAdvertiserId || "",
-        campaignIds: [5109],
-        dateRange: "CUSTOM",
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-      });
-      if (status !== 200 || error) {
-        console.error(error);
-        return;
+  
+      const getCampaignReports = async () => {
+        console.log({allCampaigns});
+
+
+        const {data, status, error} = await reportsApi.getCampaignReports({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+        setCampaignsReport(data.data as CampaignReport);
       }
-      setCampaignsReport(data.data as CampaignReport);
+      const getCampaignPerformance = async () => {
+        const {data, status, error} = await reportsApi.getCampaignPerformance({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5109],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+        //setCampaignsReport(data.data as CampaignReport);
+      }
+      const getImpressionsByFiltered = async () => {
+        const {data, status, error} = await reportsApi.getImpressionsByFiltered({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+        //setCampaignsReport(data.data as CampaignReport);
+      }
+      const getListeningHeatMap = async () => {
+
+        const {data, status, error} = await reportsApi.getListeningHeatMap({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+      const ImpressionsShareByCampaigns = async () => {
+        const {data, status, error} = await reportsApi.ImpressionsShareByCampaigns({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+      const GetCountryCityReport = async () => {
+        const {data, status, error} = await reportsApi.GetCountryCityReport({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+      const GetContentInventory = async () => {
+        const {data, status, error} = await reportsApi.GetContentInventory({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+      const GetAdDelivery = async () => {
+        const {data, status, error} = await reportsApi.GetAdDelivery({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+      const GetDemographics = async () => {
+        const {data, status, error} = await reportsApi.GetDemographics({
+          advertiserId: sessionData.currentAdvertiserId || "",
+          campaignIds: [5140],
+          dateRange: "CUSTOM",
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          return;
+        }
+      }
+
+      await Promise.all([
+        getCampaignReports(),
+        getCampaignPerformance(),
+        getImpressionsByFiltered(),
+        getListeningHeatMap(),
+        ImpressionsShareByCampaigns(),
+        GetCountryCityReport(),
+        GetContentInventory(),
+        GetAdDelivery(),
+        GetDemographics(),
+      ]);
     }
 
-    const getCampaignPerformance = async () => {
-      console.log({allCampaigns});
 
-      const {data: {session: sessionData}} = await auth.getSession();
-      if (!sessionData) {
-        console.error("Not authenticated");
-        return;
-      }
-      const {data, status, error} = await reportsApi.getCampaignPerformance({
-        advertiserId: sessionData.currentAdvertiserId || "",
-        campaignIds: [5109],
-        dateRange: "CUSTOM",
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-      });
-      if (status !== 200 || error) {
-        console.error(error);
-        return;
-      }
-      //setCampaignsReport(data.data as CampaignReport);
-    }
-
-    getCampaignReports();
-    getCampaignPerformance();
+    loadAllReports();
   }, [allCampaigns])
   
 
@@ -813,7 +916,7 @@ export default function Reports() {
     if(!campaignsReport) return { totalImpressions: 0, totalReach: 0, totalSpent: 0, avgLtr: 0, totalConversions: 0, budgetUtil: 0, cpa: 0, totalBudget: 0, impressionsGoal: 0, avgCpm: 0 };
     //const rand = seededRandom(campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0));
     const totalImpressions =  campaignsReport.cardTotals.impressions; //  campaigns.reduce((a, c) => a + (c.actual_impressions || Math.round(c.budget * (30 + rand() * 20))), 0);
-    const totalReach =  0;  //campaigns.reduce((a, c) => a + (c.reach || Math.round((c.actual_impressions || c.budget * 35) * 0.25)), 0);
+    const totalReach =  campaignsReport.cardTotals.demandAudioReachUniqueUsers;  //campaigns.reduce((a, c) => a + (c.reach || Math.round((c.actual_impressions || c.budget * 35) * 0.25)), 0);
     const totalSpent =  0; //campaigns.reduce((a, c) => a + (c.actual_spend || Math.round(c.budget * 0.55 * 100) / 100), 0);
     const totalBudget =  0; //campaigns.reduce((a, c) => a + c.budget, 0);
     const avgLtr = campaignsReport.cardTotals.ltr; // campaigns.length > 0

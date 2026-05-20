@@ -408,7 +408,7 @@ function ExpressVoicePreview({
       <Label className="text-xs text-muted-foreground">Available voices</Label>
       <div
         ref={scrollRef}
-        className={`space-y-1 ${isPro ? "max-h-[250px] overflow-y-auto" : ""}`}
+        className={`space-y-1 max-h-[250px] overflow-y-auto`}
       >
         {voices &&
           voices.length > 0 &&
@@ -714,6 +714,9 @@ function ExpressCustomization({
   onMusicRhythmChange,
   musicUseCase,
   onMusicUseCaseChange,
+
+  showMusicOptions,
+  setShowMusicOptions,
 }: {
   age: string;
   onAgeChange: (v: string) => void;
@@ -756,6 +759,8 @@ function ExpressCustomization({
   onMusicRhythmChange: (v: string) => void;
   musicUseCase: string;
   onMusicUseCaseChange: (v: string) => void;
+  showMusicOptions: boolean;
+  setShowMusicOptions: (v: boolean) => void;
 }) {
   const availableAccents = voiceDefaults.accents;
   const availableTones = voiceDefaults.characteristics;
@@ -772,6 +777,8 @@ function ExpressCustomization({
 
   const [query, setQuery] = useState("");
   const [musicQuery, setMusicQuery] = useState("");
+
+
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -828,7 +835,7 @@ function ExpressCustomization({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm flex items-center gap-2">Language  </Label>
+          <Label className="text-sm flex items-center gap-2">Native Language  </Label>
           <Select value={language} onValueChange={onLanguageChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select a language" />
@@ -864,7 +871,7 @@ function ExpressCustomization({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm flex items-center gap-2">Tone </Label>
+          <Label className="text-sm flex items-center gap-2">Characteristics </Label>
           <Select value={tone} onValueChange={onToneChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select a tone" />
@@ -949,7 +956,10 @@ function ExpressCustomization({
       <div className="space-y-2 mt-15">
         <Label className="text-base font-semibold flex flex-row gap-2">Choose Your Background Music
           <MyTooltip html={musicTooltip}/>
+          <Switch  checked={showMusicOptions} onCheckedChange={() => setShowMusicOptions(!showMusicOptions)} />
         </Label>
+        {showMusicOptions && (
+          <>
         <div className="space-y-2">
           {isPro && (
             <div
@@ -1061,6 +1071,8 @@ function ExpressCustomization({
             </Select>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {
@@ -1071,16 +1083,22 @@ function ExpressCustomization({
         )
       }
 
-      <ExpressMusicPreview
-        tracks={musics}
-        selectedMusic={selectedMusic}
-        onSelectedMusicChange={onSelectedMusicChange}
-        musicsLoading={musicsLoading}
-        musicsLoadingMore={musicsLoadingMore}
-        musicsHasMore={musicsHasMore}
-        onLoadMoreMusics={onLoadMoreMusics}
-        currentMusic={currentMusic}
-      />
+      {
+        showMusicOptions && (
+          <ExpressMusicPreview
+          tracks={musics}
+          selectedMusic={selectedMusic}
+          onSelectedMusicChange={onSelectedMusicChange}
+          musicsLoading={musicsLoading}
+          musicsLoadingMore={musicsLoadingMore}
+          musicsHasMore={musicsHasMore}
+          onLoadMoreMusics={onLoadMoreMusics}
+          currentMusic={currentMusic}
+        />
+  
+        )
+      }
+
     </div>
   );
 }
@@ -1259,6 +1277,13 @@ export default function AdCreatorForm({
   const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
+  const [showMusicOptions, setShowMusicOptions] = useState(false);
+
+
+
+  useEffect(() => {
+    onSelectedMusicChange("");
+  }, [showMusicOptions]);
 
   // Reset dirty flag when a new ad is generated
   useEffect(() => {
@@ -1402,9 +1427,12 @@ export default function AdCreatorForm({
 
           <div className="space-y-2">
             <Label className="flex flex-row gap-2 justify-start items-center w-full">
-              {type === "PROMPT"
+              <span>{type === "PROMPT"
                 ? "Describe Your Brand & Offer"
                 : t("ad_creator.ad_script")}
+                <sup>*</sup>
+                </span>
+
                 <MyTooltip infoText="In up to 500 characters, tell us: (1) what makes your brand unique, (2) who it's for, and (3) what you want listeners to do. Adding your website URL lets the AI pull extra context to enrich the script." />
             </Label>
             <div className="relative">
@@ -1476,10 +1504,12 @@ export default function AdCreatorForm({
             musicsLoadingMore={musicsLoadingMore}
             musicsHasMore={musicsHasMore}
             onLoadMoreMusics={onLoadMoreMusics}
+            showMusicOptions={showMusicOptions}
+            setShowMusicOptions={setShowMusicOptions}
           />
 
           {
-            isPro && (
+            isPro && showMusicOptions && (
               <ProCustomization
                 contentSettings={proContentSettings}
                 onContentSettingsChange={onProContentSettingsChange}
@@ -1492,15 +1522,32 @@ export default function AdCreatorForm({
           <Button
             className="w-full h-12"
             onClick={onGenerate}
-            disabled={!canSubmit || !selectedVoice || !selectedMusic || isGenerating}
+            disabled={!canSubmit || !selectedVoice || (showMusicOptions && !selectedMusic) || isGenerating}
           >
             {
-              !canSubmit || !selectedVoice || !selectedMusic || isGenerating ? "Complete the details above to generate your ad" : "Generate My Ad"
+              !canSubmit || !selectedVoice || (showMusicOptions && !selectedMusic) || isGenerating ? "Complete the details above to generate your ad" : "Generate My Ad"
             }
             Generate My Ad
 
             <MyTooltip iconClassName="text-white-50 hover:text-white" infoText="Click to generate your ad using the voice, music, and settings selected above. Generation takes under a minute. You'll be able to preview and regenerate before saving." />
           </Button>
+          <div>
+            
+            <p className="text-sm text-muted-foreground text-center">
+              {
+                description.length === 0 ? "*Please enter a description" : ""
+              }
+
+            </p>
+          <p className="text-sm text-muted-foreground text-center">
+            {showMusicOptions && !selectedMusic ? "*Please select a music track" : ""}
+          </p>
+          <p className="text-sm text-muted-foreground text-center">
+            {
+              !selectedVoice ? "*Please select a voice" : ""
+            }
+          </p>
+          </div>
         </>
       )}
 
@@ -1541,6 +1588,8 @@ export default function AdCreatorForm({
                 useCase={useCase}
                 onUseCaseChange={onUseCaseChange}
                 onQueryChange={onQueryChange}
+                showMusicOptions={showMusicOptions}
+                setShowMusicOptions={setShowMusicOptions}
                 isPro={isPro || false}
                 selectedMusic={selectedMusic}
                 onSelectedMusicChange={onSelectedMusicChange}
@@ -1574,7 +1623,7 @@ export default function AdCreatorForm({
               />
 
               {
-                isPro && (
+                isPro && showMusicOptions && (
                   <ProCustomization contentSettings={proContentSettings} onContentSettingsChange={onProContentSettingsChange} trackingPixel={trackingPixel} onTrackingPixelChange={onTrackingPixelChange} />
                 )
               }

@@ -5,6 +5,9 @@ import { auth } from '@/services/auth';
 import { useEffect } from 'react';
 import { userApi } from '@/services/user';
 
+/** Re-export for auth page background preview */
+export { default as MockDashboardPreview, AuthPageBackground } from '@/components/dashboard/MockDashboardPreview';
+
 export default function Dashboard() {
 
 

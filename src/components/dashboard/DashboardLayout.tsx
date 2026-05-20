@@ -156,6 +156,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         setAccountType(organization.orgType === "SME" ? isPro ? "Pro" : "Express" : "Agency");
       }
 
+      setUserEmail(data.data.email ?? null);
       if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
     }
     getProfile();
@@ -249,7 +250,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
-         {showAgencySignupBtn && (
+         {showAgencySignupBtn && !collapsed && (
           <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
         )} 
 
