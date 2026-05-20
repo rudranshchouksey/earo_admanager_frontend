@@ -609,12 +609,12 @@ export default function Reports() {
 
 
 
-  // return (
-  //   <div className='flex flex-col items-center justify-center h-full'>
-  //     <h3 className='text-2xl font-bold'>Coming Soon</h3>
-  //     <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
-  //   </div>
-  // )
+  return (
+    <div className='flex flex-col items-center justify-center h-full'>
+      <h3 className='text-2xl font-bold'>Coming Soon</h3>
+      <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
+    </div>
+  )
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
