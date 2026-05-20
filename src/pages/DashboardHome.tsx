@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { podcasts } from '@/components/landing/podcastData';
-import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause, Icon, Info } from 'lucide-react';
+import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause, Icon, Info, Loader2 } from 'lucide-react';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,76 +14,115 @@ import { toast } from '@/components/ui/use-toast';
 import { auth } from '@/services/auth';
 import { advertiserApi } from '@/services/advertiser';
 import { useTranslation } from '@/contexts/TranslationContext';
+import { reportsApi } from '@/services/reports';
+import { campaignApi } from '@/services/campaign';
+import { adsApi } from '@/services/ads';
+import { appNotifications } from '@/services/appNotifications';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
-  const { isNewUser } = useSessionFlags();
-  const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0 });
+  const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0, cpa: 0 });
   const [userName, setUserName] = useState('');
-  const [userState, setuserState] = useState('existing')
+
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [isNewWithAd, setIsNewWithAd] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [audioAds, setAudioAds] = useState([]);
 
   const { t } = useTranslation();
-  const mockStats = { impressions: 0, spend: 0, reach: 0 };
 
-  useEffect(() => {
-    const getAdvertiserId = async () => {
-     const { data: { session } } = await auth.getSession();
-     if(!session) return;
-     const advertiserId = session.currentAdvertiserId;
-     console.log("advertiserId here ", {advertiserId});
-     if(!advertiserId) {
-      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      if(advertisersStatus !== 200 || advertisersError) {
-        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
-      }
-      const advertisers = advertisersRes.data;
-      if(advertisers.length > 0) {
-        console.log("advertisers here ", advertisers[0]);
-        auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
-      }
-     }
-    };
-    getAdvertiserId();
+  const fetchStats = useCallback(async () => {
+    const { data: { session } } = await auth.getSession();
+    if (!session) return;
+    const advertiserId = session.currentAdvertiserId;
+    if (!advertiserId) return;
+    const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
+    if (status !== 200 || error) return;
+    setStats({
+      impressions: data.data.cardTotals.impressions,
+      spend: data.data.cardTotals.totalSpend,
+      reach: data.data.cardTotals.demandAudioReachUniqueUsers,
+      cpa: data.data.cardTotals.attributionCPAInUSD,
+    });
   }, []);
 
-  useEffect(() => {
-    if (userState === 'existing') {
-      setStats(mockStats);
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    const { data: { session } } = await auth.getSession();
+    if (!session) {
+      setIsLoading(false);
       return;
     }
-    if (userState === 'new' || userState === 'new_with_ad') return;
-    const fetchStats = async () => {
-      const { data } = await supabase
-        .from('campaigns')
-        .select('actual_impressions, actual_spend, reach');
-      if (data) {
-        setStats({
-          impressions: data.reduce((s, c) => s + (c.actual_impressions ?? 0), 0),
-          spend: data.reduce((s, c) => s + (c.actual_spend ?? 0), 0),
-          reach: data.reduce((s, c) => s + (c.reach ?? 0), 0),
-        });
+
+    let advertiserId = session.currentAdvertiserId;
+    if (!advertiserId) {
+      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
+        await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if (advertisersStatus !== 200 || advertisersError) {
+        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+        setIsLoading(false);
+        return;
       }
-    };
-    fetchStats();
-  }, [userState]);
+      const advertisers = advertisersRes.data;
+      if (advertisers.length > 0) {
+        auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
+        advertiserId = advertisers[0].id;
+      } else {
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+    if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
+      setIsNewUser(false);
+      setIsNewWithAd(false);
+      setIsLoading(false);
+      await fetchStats();
+      return;
+    }
+
+    const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
+    const hasAudioAds =
+      audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
+    if (hasAudioAds) {
+      setAudioAds(audioAdsRes.data.data);
+    }
+
+    setIsNewUser(true);
+    setIsNewWithAd(hasAudioAds);
+    setIsLoading(false);
+  }, [fetchStats, t]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // List created/updated/deleted in Account → Advertisers tab
+  useEffect(() => {
+    return appNotifications.subscribe('advertisers:changed', () => {
+      void load();
+    });
+  }, [load]);
+
+  // Header advertiser dropdown changed in DashboardLayout
+  useEffect(() => {
+    return appNotifications.subscribe('advertiser:selected', () => {
+      void load();
+    });
+  }, [load]);
+ 
+
+
+  if(isLoading) {
+    return <div className="flex justify-center items-center h-screen">
+      <Loader2 className="w-4 h-4 animate-spin" />
+    </div>
+  }
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
 
-  const isNewWithAd = false;
-
   const greeting = userName ? `Welcome, ${userName}` : 'Welcome';
-
-  // Mock ad for the player in new_with_ad state
-  const mockGeneratedAd = {
-    brandName: 'Your Brand',
-    audioUrl: '',
-    duration: 30,
-    script: 'Your professional audio ad is ready to go.',
-    category: 'general',
-    tone: 'professional',
-    voiceId: 'default',
-    musicId: 'default',
-  };
 
   const steps = [
     { num: 1, title: 'Create your studio-quality ad (free)', desc: 'Describe your brand to instantly generate a perfect AI script, lifelike voice, and music mix. Refine for free until it\'s broadcast-ready.' },
@@ -93,14 +132,18 @@ export default function DashboardHome() {
   ];
 
   // Inline waveform player component
-  function DashboardAdPlayer({ audioUrl, duration }: { audioUrl: string; duration: number }) {
+  function DashboardAdPlayer({ audioUrl }: { audioUrl: string }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const [duration, setDuration] = useState(0);
 
     useEffect(() => {
       const audio = audioRef.current;
       if (!audio) return;
+      console.log("audio duration here ", audio.duration, audio);
+      if(audio.duration)
+        setDuration(Math.round(audio.duration));
       const onTime = () => setProgress((audio.currentTime / audio.duration) * 100);
       const onEnd = () => { setIsPlaying(false); setProgress(0); };
       audio.addEventListener('timeupdate', onTime);
@@ -113,6 +156,8 @@ export default function DashboardHome() {
       if (!audio) return;
       if (isPlaying) audio.pause(); else audio.play();
       setIsPlaying(!isPlaying);
+      if(audio.duration)
+        setDuration(Math.round(audio.duration));
     };
 
     const bars = Array.from({ length: 40 }, (_, i) => ({
@@ -143,7 +188,7 @@ export default function DashboardHome() {
             );
           })}
         </div>
-        <span className="text-sm text-primary font-medium shrink-0">{formatTime(duration)}</span>
+      <span className="text-sm text-primary font-medium shrink-0">{formatTime(duration || 0)}</span>
       </div>
     );
   }
@@ -167,25 +212,22 @@ export default function DashboardHome() {
       {isNewWithAd && (
         <>
            <div className="bg-muted/50 rounded-[32px] p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="">
               {/* Left: Audio Player Card */}
               <Card className="border-0 shadow-none rounded-[24px] bg-card">
                 <CardContent className="p-5 space-y-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">{mockGeneratedAd.brandName}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Your Brand</h3>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       Share it or edit the ad to change the script or the voice talent.
                     </p>
                   </div>
 
                   {/* Waveform player */}
-                  <DashboardAdPlayer audioUrl={mockGeneratedAd.audioUrl} duration={mockGeneratedAd.duration} />
+                  <DashboardAdPlayer audioUrl={audioAds?.[0]?.sourceUrl ?? ''} />
 
                    {/* Edit / Create Campaign buttons */}
-                   <div className="grid grid-cols-2 gap-3">
-                     <Button variant="outline" className="h-10" onClick={() => navigate('/dashboard/ads/new')}>
-                       Edit
-                     </Button>
+                   <div className="flex flex-row gap-3">
                      <Button className="h-10" onClick={() => navigate('/dashboard/campaigns/new')}>
                        Create Campaign
                      </Button>
@@ -194,7 +236,7 @@ export default function DashboardHome() {
               </Card>
 
               {/* Right: Podcast Shelf */}
-              <div className="flex flex-col justify-start pt-2 px-1">
+              <div className="flex  hidden flex-col justify-start pt-2 px-1">
                 <h3 className="text-base font-semibold text-foreground mb-3 leading-snug">
                   Your ad will sound in podcasts<br />like these:
                 </h3>
@@ -222,7 +264,7 @@ export default function DashboardHome() {
                 {/* Left: Image */}
                 <div className="md:col-span-2 relative min-h-[200px] flex items-end justify-start">
                   <img
-                    // src={headphoneWoman}
+                    src={'/headphone-woman.png'}
                     alt="Woman enjoying audio with headphones"
                     className="w-full h-full object-cover object-center"
                   />
@@ -295,7 +337,7 @@ export default function DashboardHome() {
             </div>
           </CardContent>
         </Card>
-      ) : userState === 'existing' ? (
+      ) :(
         <>
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>
@@ -309,7 +351,7 @@ export default function DashboardHome() {
 
           <CampaignActionsGrid />
         </>
-      ) : null}
+      )}
     </div>
   );
 }

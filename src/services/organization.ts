@@ -23,7 +23,10 @@ export interface OrganizationDetails {
     id: string;
     orgName: string;
     orgType: "SME" | "AGENCY";
-    industry: OrganizationIndustry;
+    industry: string;
+    subIndustry: string;
+    country: string;
+    url: string;
 }
 
 export interface OrganizationDetailsResponse {

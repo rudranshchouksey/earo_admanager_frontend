@@ -17,6 +17,7 @@ export interface PaymentHistoryResponse {
 
 export interface PaymentHistory {
     id: string;
+    campaignId: string;
     type: string;
     amount: number;
     couponCode: string;

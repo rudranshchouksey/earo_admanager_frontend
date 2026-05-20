@@ -14,15 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards } from '@/components/ui/mobile-data-card';
-import { OrganizationIndustry } from '@/services/organization';
 import { Advertiser } from '@/services/advertiser';
+import {
+  INDUSTRY_CATEGORIES,
+  IndustryCategoryKey,
+  findCategoryForIndustry,
+  DEFAULT_INDUSTRY_CATEGORY,
+  DEFAULT_SUB_INDUSTRY,
+} from '@/constants/industryCategories';
+
 ModuleRegistry.registerModules([AllCommunityModule]);
-
-
-const INDUSTRIES = [
-  'Retail', 'Food & Beverage', 'Technology', 'Healthcare', 'Education',
-  'Real Estate', 'Automotive', 'Fashion', 'Finance', 'Travel', 'Entertainment', 'Telecom', 'Other',
-];
 
 const statusColors: Record<string, string> = {
   active: 'default',
@@ -30,25 +31,59 @@ const statusColors: Record<string, string> = {
   ended: 'destructive',
 };
 
+type AdvertiserForm = {
+  id: string;
+  extId: string;
+  name: string;
+  external_id: string;
+  industry: string;
+  subIndustry: string;
+  status: string;
+};
 
-const defaultForm: Record<string, string> = {
+const defaultForm: AdvertiserForm = {
   id: '',
   extId: '',
   name: '',
   external_id: '',
-  industry: 'HOSPITALITY',
+  industry: DEFAULT_INDUSTRY_CATEGORY,
+  subIndustry: DEFAULT_SUB_INDUSTRY,
   status: 'ACTIVE',
 };
+
+function resolveIndustryFields(adv: Advertiser): Pick<AdvertiserForm, 'industry' | 'subIndustry'> {
+  if (adv.industry && adv.subIndustry) {
+    return { industry: adv.industry, subIndustry: adv.subIndustry };
+  }
+  const category = findCategoryForIndustry(adv.subIndustry ?? adv.industry ?? '');
+  if (category) {
+    const sub =
+      adv.subIndustry ??
+      ((INDUSTRY_CATEGORIES[category].industries as readonly string[]).includes(adv.industry)
+        ? adv.industry
+        : INDUSTRY_CATEGORIES[category].industries[0]);
+    return { industry: category, subIndustry: sub };
+  }
+  return { industry: DEFAULT_INDUSTRY_CATEGORY, subIndustry: DEFAULT_SUB_INDUSTRY };
+}
+
+function industryLabel(categoryKey: string, subIndustry?: string) {
+  const cat = INDUSTRY_CATEGORIES[categoryKey as IndustryCategoryKey];
+  if (!cat) return subIndustry ?? categoryKey;
+  return subIndustry ? `${cat.name} — ${subIndustry}` : cat.name;
+}
 
 export interface AdvertiserCreateObj {
   advertiserName: string;
   industry: string;
+  subIndustry: string;
 }
 
 export interface AdvertiserUpdateObj {
   advertiserId: string;
   advertiserName: string;
   industry: string;
+  subIndustry: string;
   status: string;
   extId: string;
 }
@@ -64,7 +99,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
   const isMobile = useIsMobile();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
-  const [form, setForm] = useState<Omit<Record<string, string>, 'id'>>(defaultForm);
+  const [form, setForm] = useState<AdvertiserForm>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
 
   const openCreate = () => {
@@ -75,46 +110,53 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
 
   const openEdit = (adv: Advertiser) => {
     setEditing(adv);
-    setForm({ name: adv.advertiserName, id: adv.id, industry: adv.industry, status: adv.status, extId: adv.extId });
+    const { industry, subIndustry } = resolveIndustryFields(adv);
+    setForm({
+      name: adv.advertiserName,
+      id: adv.id,
+      industry,
+      subIndustry,
+      status: adv.status,
+      extId: adv.extId ?? '',
+      external_id: adv.external_id ?? '',
+    });
     setDialogOpen(true);
   };
 
   const handleSuspend = (advId: string) => {
-    // setAdvertisers((prev) =>
-    //   prev.map((a) => (a.id === advId ? { ...a, status: 'paused' as const } : a))
-    // );
     toast({ title: t('account.advertiser_suspended') });
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    if (!form.name || !form.industry) {
+    if (!form.name || !form.industry || !form.subIndustry) {
       toast({ title: t('account.fill_all_required'), variant: 'destructive' });
       setIsSaving(false);
       return;
     }
 
     if (editing) {
-      const { status, error,  message} = await updateAdvertiser({
+      const { status, error, message } = await updateAdvertiser({
         advertiserId: form.id,
         advertiserName: form.name,
         industry: form.industry,
+        subIndustry: form.subIndustry,
         status: form.status,
-        extId: form.extId
+        extId: form.extId,
       });
-      if(status !== 200 || error){
+      if (status !== 200 || error) {
         toast({ title: message, variant: 'destructive' });
         setIsSaving(false);
         return;
       }
       toast({ title: message });
-
     } else {
-      const { status, error,  message} = await createAdvertiser({
+      const { status, error, message } = await createAdvertiser({
         advertiserName: form.name,
-        industry: form.industry
+        industry: form.industry,
+        subIndustry: form.subIndustry,
       });
-      if(status !== 200 || error){
+      if (status !== 200 || error) {
         toast({ title: message, variant: 'destructive' });
         setIsSaving(false);
         return;
@@ -125,16 +167,24 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
     setIsSaving(false);
   };
 
-  const updateForm = (field: keyof Omit<Advertiser, 'id'>, value: string) =>
+  const updateForm = <K extends keyof AdvertiserForm>(field: K, value: AdvertiserForm[K]) =>
     setForm((f) => ({ ...f, [field]: value }));
+
+  const categoryKey = form.industry as IndustryCategoryKey;
+  const subIndustries = INDUSTRY_CATEGORIES[categoryKey]?.industries ?? INDUSTRY_CATEGORIES[DEFAULT_INDUSTRY_CATEGORY].industries;
 
   const StatusRenderer = useCallback((params: ICellRendererParams) => {
     const status = params.value as string;
     return (
-      <Badge variant={statusColors[status] as any} className="capitalize text-xs">
+      <Badge variant={statusColors[status] as 'default' | 'outline' | 'destructive'} className="capitalize text-xs">
         {status}
       </Badge>
     );
+  }, []);
+
+  const IndustryRenderer = useCallback((params: ICellRendererParams) => {
+    const adv = params.data as Advertiser;
+    return industryLabel(adv.industry, adv.subIndustry);
   }, []);
 
   const ActionsRenderer = useCallback(
@@ -145,7 +195,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(adv)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          {adv.status === 'active' && (
+          {adv.status === 'ACTIVE' && (
             <Button
               variant="ghost"
               size="icon"
@@ -159,14 +209,14 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
         </div>
       );
     },
-    []
+    [t],
   );
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: 'advertiserName', headerName: t('account.advertiser_name').replace(' *', ''), flex: 1.2 },
       { field: 'id', headerName: t('account.external_id').replace(' *', ''), flex: 1 },
-      { field: 'industry', headerName: t('account.industry'), flex: 1 },
+      { field: 'industry', headerName: t('account.industry'), flex: 1.2, cellRenderer: IndustryRenderer },
       { field: 'status', headerName: 'Status', flex: 0.7, cellRenderer: StatusRenderer },
       {
         headerName: '',
@@ -177,7 +227,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
         filter: false,
       },
     ],
-    [t, StatusRenderer, ActionsRenderer]
+    [t, StatusRenderer, ActionsRenderer, IndustryRenderer],
   );
 
   return (
@@ -202,10 +252,12 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
                 <div key={adv.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-foreground">{adv.name}</p>
-                      <p className="text-xs text-muted-foreground">{adv.industry}</p>
+                      <p className="font-medium text-foreground">{adv.advertiserName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {industryLabel(adv.industry, adv.subIndustry)}
+                      </p>
                     </div>
-                    <Badge variant={statusColors[adv.status] as any} className="capitalize text-xs">
+                    <Badge variant={statusColors[adv.status] as 'default' | 'outline' | 'destructive'} className="capitalize text-xs">
                       {adv.status}
                     </Badge>
                   </div>
@@ -215,7 +267,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(adv)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      {adv.status === 'active' && (
+                      {adv.status === 'ACTIVE' && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-warning" onClick={() => handleSuspend(adv.id)}>
                           <PauseCircle className="h-3.5 w-3.5" />
                         </Button>
@@ -259,14 +311,44 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
             </div>
 
             <div className="space-y-2">
-              <Label>{t('account.industry_required')}</Label>
-              <Select value={form.industry} onValueChange={(v) => updateForm('industry', v)}>
+              <Label>{t('account.industry')}</Label>
+              <Select
+                value={form.industry}
+                onValueChange={(v) => {
+                  const key = v as IndustryCategoryKey;
+                  updateForm('industry', key);
+                  updateForm('subIndustry', INDUSTRY_CATEGORIES[key].industries[0]);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={t('account.select_industry')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(OrganizationIndustry).map((i) => (
-                    <SelectItem key={i} value={i}>{i}</SelectItem>
+                  {(Object.entries(INDUSTRY_CATEGORIES) as [IndustryCategoryKey, (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey]][]).map(
+                    ([key, cat]) => (
+                      <SelectItem key={key} value={key}>
+                        {cat.name}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sub-industry</Label>
+              <Select
+                value={form.subIndustry}
+                onValueChange={(v) => updateForm('subIndustry', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sub-industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subIndustries.map((sub) => (
+                    <SelectItem key={sub} value={sub}>
+                      {sub}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -275,7 +357,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
             {editing && (
               <div className="space-y-2">
                 <Label>{t('account.status')}</Label>
-                <Select value={form.status} onValueChange={(v) => updateForm('status', v as Advertiser['status'])}>
+                <Select value={form.status} onValueChange={(v) => updateForm('status', v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -294,9 +376,13 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
               {t('common.cancel')}
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {
-                isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : (editing ? t('account.save_changes') : t('account.create_advertiser_btn'))
-              }
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : editing ? (
+                t('account.save_changes')
+              ) : (
+                t('account.create_advertiser_btn')
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

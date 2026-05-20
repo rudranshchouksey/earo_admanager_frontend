@@ -476,9 +476,10 @@ export default function CampaignWizard() {
 
 
 
-    const searchInputRef = useRef<HTMLInputElement>(null);
-    const campaignNameRef = useRef<HTMLInputElement>(null);
-    const countryRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const campaignNameRef = useRef<HTMLInputElement>(null);
+  const countryRef = useRef<HTMLDivElement>(null);
+  const audioAdRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -489,7 +490,7 @@ export default function CampaignWizard() {
         description: "Please select an audio ad",
         variant: "destructive",
       });
-      searchInputRef.current?.focus();
+      audioAdRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       return;
     }
 
@@ -632,7 +633,7 @@ export default function CampaignWizard() {
         description: "Please select an audio ad",
         variant: "destructive",
       });
-      searchInputRef.current?.focus();
+      audioAdRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       return;
     }
 
@@ -956,6 +957,8 @@ export default function CampaignWizard() {
     try {
       const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode);
 
+
+      console.log({data, error, status});
       if(status !== 200) {
         toast({
           title: "Error",
@@ -965,8 +968,15 @@ export default function CampaignWizard() {
       }
 
       // if(status === 200 && d)
-      if(status === 200 && data?.discountApplied){
-        setPayment((prev) => ({ ...prev, couponCode, discountValue: data.discountValue, discountType: data.discountType, originalAmount: data.originalAmount, discountApplied: data.discountApplied, finalAmount: data.finalAmount }));
+      if(status === 200 && data?.data && data?.data?.discountApplied){
+        setPayment((prev) => ({ ...prev, 
+          couponCode, 
+          discountValue: data?.data?.discountValue, 
+          discountType: data?.data?.discountType, 
+          originalAmount: data?.data?.originalAmount, 
+          discountApplied: data?.data?.discountApplied, 
+          finalAmount: data?.data?.finalAmount 
+        }));
         if(isManual)
         toast({
           title: "Success",
@@ -1580,7 +1590,9 @@ export default function CampaignWizard() {
             "Your audio ad",
             "Select a saved audio ad from your library. Only ads under the currently selected advertiser account are shown. You can create a new ad in the Audio Ads section before returning here.",
             setupDone,
-            <CampaignSetupStep data={setup} onChange={setSetup} searchInputRef={searchInputRef} campaignNameRef={campaignNameRef} />,
+            <CampaignSetupStep data={setup} onChange={setSetup} searchInputRef={searchInputRef} campaignNameRef={campaignNameRef}
+            audioAdRef={audioAdRef}
+            />,
           )}
 
           {/* Schedule */}

@@ -10,7 +10,7 @@ interface StatCardProps {
 
 export default function StatCard({ label, value, icon: Icon, trend }: StatCardProps) {
   return (
-    <Card className="bg-card rounded-[32px]">
+    <Card className="bg-card rounded-lg">
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-sm text-muted-foreground">{label}</span>
