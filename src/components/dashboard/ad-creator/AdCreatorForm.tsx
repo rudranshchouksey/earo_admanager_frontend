@@ -1146,7 +1146,7 @@ function ProCustomization({
               <Input
                 type="text"
                 value={contentSettings.startMs}
-                onChange={(e) => updateContent('startMs', parseInt(e.target.value) || '')}
+                onChange={(e) => updateContent('startMs', parseInt(e.target.value) || '0')}
                 placeholder="0"
               />
             </div>
@@ -1155,7 +1155,7 @@ function ProCustomization({
               <Input
                 type="text"
                 value={contentSettings.endMs}
-                onChange={(e) => updateContent('endMs', parseInt(e.target.value) || '')}
+                onChange={(e) => updateContent('endMs', parseInt(e.target.value) || '0')}
                 placeholder="30000"
               />
             </div>

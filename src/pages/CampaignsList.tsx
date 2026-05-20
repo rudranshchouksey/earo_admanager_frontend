@@ -17,6 +17,7 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { auth } from '@/services/auth';
 import { advertiserApi } from '@/services/advertiser';
 import { appNotifications } from '@/services/appNotifications';
+import { CardTotals, reportsApi } from '@/services/reports';
 
 
 const statusColors: Record<string, string> = {
@@ -63,6 +64,12 @@ export default function CampaignsList() {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const { t } = useTranslation();
+  const [dashboardCardData, setDashboardCardData] = useState<CardTotals>({
+    attributionCPAInUSD: 0,
+    totalSpend: 0,
+    impressions: 0,
+    demandAudioReachUniqueUsers: 0,
+  })
   const [meta, setMeta] = useState<{ total: number; page: number; limit: number; totalPages: number }>({
     total: 0,
     page: 1,
@@ -221,6 +228,26 @@ export default function CampaignsList() {
   //   URL.revokeObjectURL(url);
   // };
 
+
+  useEffect(() => {
+  
+    const fetchDashboardCardData = async () => {
+      const session = await auth.getSession();
+      if(!session) return;
+      const advertiserId = session.data.session.currentAdvertiserId;
+      if(!advertiserId) return;
+      const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
+      if(status !== 200 || error) {
+        toast({ title: t('common.error'), description: error?.message ?? 'Unable to load dashboard card data', variant: 'destructive' });
+        return;
+      }
+      setDashboardCardData(data.data.cardTotals);
+    }
+    fetchDashboardCardData();
+  
+  }, [])
+  
+
   const colDefs = useMemo<ColDef[]>(() => [
     {
       headerName: '', sortable: false, filter: false,
@@ -281,7 +308,7 @@ export default function CampaignsList() {
       sortable: false,
     },
     {
-      field: 'actual_impressions', headerName: 'Impressions', width: 120, type: 'numericColumn',
+      field: 'impressions', headerName: 'Impressions', width: 120, type: 'numericColumn',
       valueFormatter: (p) => (p.value ?? 0).toLocaleString(),
       sortable: false,
     },
@@ -298,10 +325,14 @@ export default function CampaignsList() {
     {
       headerName: 'eCPM', width: 90, type: 'numericColumn',
       valueGetter: (p) => {
-        const c = p.data as Campaign;
-        const impr = c.impressions ?? 0;
-        const spend = c.spend ?? 0;
-        return impr > 0 ? (spend / impr) * 1000 : null;
+        try{
+          const c = p.data as Campaign;
+          const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');
+          const impressions = Number(cleanString);
+          return impressions > 0 ? ((c.totalBudget/impressions) * 1000) : null;
+        }catch(err){
+          return null;
+        }
       },
       valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
       sortable: false,
@@ -347,25 +378,25 @@ export default function CampaignsList() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Budget</p>
-            <p className="text-2xl font-semibold text-foreground"></p>
+            <p className="text-2xl font-semibold text-foreground">{ '-'}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Spend</p>
-            <p className="text-2xl font-semibold text-foreground"></p>
+            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.totalSpend ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Impressions</p>
-            <p className="text-2xl font-semibold text-foreground"></p>
+            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.impressions ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Reach</p>
-            <p className="text-2xl font-semibold text-foreground"></p>
+            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.demandAudioReachUniqueUsers ?? '-'}</p>
           </CardContent>
         </Card>
       </div>
