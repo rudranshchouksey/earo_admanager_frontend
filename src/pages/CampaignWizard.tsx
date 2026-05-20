@@ -957,6 +957,8 @@ export default function CampaignWizard() {
     try {
       const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode);
 
+
+      console.log({data, error, status});
       if(status !== 200) {
         toast({
           title: "Error",
@@ -966,8 +968,15 @@ export default function CampaignWizard() {
       }
 
       // if(status === 200 && d)
-      if(status === 200 && data?.discountApplied){
-        setPayment((prev) => ({ ...prev, couponCode, discountValue: data.discountValue, discountType: data.discountType, originalAmount: data.originalAmount, discountApplied: data.discountApplied, finalAmount: data.finalAmount }));
+      if(status === 200 && data?.data && data?.data?.discountApplied){
+        setPayment((prev) => ({ ...prev, 
+          couponCode, 
+          discountValue: data?.data?.discountValue, 
+          discountType: data?.data?.discountType, 
+          originalAmount: data?.data?.originalAmount, 
+          discountApplied: data?.data?.discountApplied, 
+          finalAmount: data?.data?.finalAmount 
+        }));
         if(isManual)
         toast({
           title: "Success",
