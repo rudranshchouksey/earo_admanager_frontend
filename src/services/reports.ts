@@ -67,16 +67,20 @@ export interface CampaignReport {
     "PerformanceTotals": PerformanceTotals[]
 }
 
+export interface CardTotals {
+
+    "attributionCPAInUSD": number,
+    "totalSpend": number,
+    "impressions": number,
+    "demandAudioReachUniqueUsers": number
+
+}
+
 export interface DashboardCardsDataResponse {
     status: number;
     message: string;
     data: {
-        "cardTotals": {
-            "attributionCPAInUSD": number,
-            "totalSpend": number,
-            "impressions": number,
-            "demandAudioReachUniqueUsers": number
-        }
+        "cardTotals": CardTotals
     };
 }
 
