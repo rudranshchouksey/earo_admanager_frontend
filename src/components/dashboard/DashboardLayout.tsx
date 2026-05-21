@@ -135,12 +135,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     if (selectedAdvertiser) {
       console.log("selectedAdvertiser", selectedAdvertiser);
-      appNotifications.notify('advertiser:selected', { advertiserId: selectedAdvertiser });
       auth.setCurrentAdvertiserId(selectedAdvertiser, advertisers.find((a) => a.id === selectedAdvertiser)?.isPro ?? false);
       const orgId = advertisers.find((a) => a.id === selectedAdvertiser)?.orgId;
       if (orgId) {
         auth.setCurrentOrganizationId(orgId);
       }
+
+      setTimeout(() => {
+        appNotifications.notify('advertiser:selected', { advertiserId: selectedAdvertiser });
+      }, 100);
     }
   }, [selectedAdvertiser])
 
