@@ -650,7 +650,7 @@ Sets the point in the music track (in milliseconds) where playback begins. Use t
 Sets the point in the music track where playback stops. Use this to trim a long track to exactly the length of your ad. Default: 30,000 ms (30 seconds).
 <br /><br />
 <b>Volume</b><br />
-Sets the overall output volume of the generated music as a percentage. 80% is the recommended default — it leaves headroom for broadcast normalisation. Increase only if the preview sounds too quiet after adjusting Fade settings.
+Sets the overall music volume of the generated music as a percentage. 80% is the recommended default — it leaves headroom for broadcast normalisation. Increase only if the preview sounds too quiet after adjusting Fade settings.
 
   </div>
 `;
@@ -1163,7 +1163,7 @@ function ProCustomization({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm flex items-center gap-2">Output Volume </Label>
+              <Label className="text-sm flex items-center gap-2">Music Volume </Label>
               <span className="text-xs text-muted-foreground">{Math.round(contentSettings.volume * 100)}%</span>
             </div>
             <Slider
