@@ -200,7 +200,7 @@ export const auth = {
 
     console.log("signInWithGoogle", { data, error, status, message });
 
-    if (error || status !== 200 || !data?.tokens) return { data: null, error, status, message };
+    if (error || status !== 200 || !data?.tokens) return { data: data?.data, error, status, message };
 
     createSessionAndNotify(data);
     return { data, error: null, status: 200, message };

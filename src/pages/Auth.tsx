@@ -154,9 +154,17 @@ export default function Auth() {
     setIsLoading(true);
     try {
       const { credential } = credentialResponse;
-      const { error, status, message } = await auth.signInWithGoogle(credential);
-      console.log("handleGoogleLogin", { error, status, message });
+      const { error, status, message, data } = await auth.signInWithGoogle(credential);
+      console.log("handleGoogleLogin", { error, status, message, data });
       if (error || status !== 200) {
+
+        if (status === 400 && data?.mfaEnabled) {
+          setuserId(data?.id);
+          setMfaToken(data?.mfaToken);
+          setShowMfaSelector(true);
+          return;
+        }
+
         toast({
           title: t("common.error"),
           description: error.message || "Something went wrong",
