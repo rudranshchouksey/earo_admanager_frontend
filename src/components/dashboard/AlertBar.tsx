@@ -284,10 +284,13 @@ export default function AlertBar() {
   const handleBusinessSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStep(2);
-    const { error, status, message } = await userApi.updatePersonalInfo(userId,{
-      firstName,
-      lastName,
-    });
+    const { error, status, message } = await userApi.updatePersonalInfo(
+      userId,
+      {
+        firstName,
+        lastName,
+      },
+    );
 
     const { data, error: updateError, status: updateStatus, message: updateMessage } = await organizationApi.updateOrganizationDetails(orgnaizationDetails?.id, {
       ...orgnaizationDetails,
@@ -316,10 +319,10 @@ export default function AlertBar() {
         return (
           <div
             key={alert.id}
-            className={`flex items-center gap-3 px-4 lg:px-6 py-2.5 border-b last:border-b-0 ${colors.border} ${colors.bg}`}
+            className={`flex  items-start md:items-center gap-3 px-4 lg:px-6 py-2.5 border-b last:border-b-0 ${colors.border} ${colors.bg}`}
           >
             <Icon className={`h-4 w-4 shrink-0 ${colors.text}`} />
-            <div className="flex-1 min-w-0 flex items-center gap-2">
+            <div className="flex-1 flex-col md:flex-row min-w-0 flex items-start md:items-center gap-2">
               <span className={`text-sm font-medium ${colors.text}`}>
                 {alert.title}
               </span>
@@ -371,7 +374,7 @@ export default function AlertBar() {
             hideCloseButton
             onEscapeKeyDown={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
-            className="p-0"
+            className="p-0 md:min-w-[700px] overflow-y-auto max-h-[90vh]"
           >
             <DialogDescription className="p-0">
               {step == 1 ? (
@@ -405,7 +408,7 @@ export default function AlertBar() {
                           placeholder="Jane"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
-                          className="h-11"
+                          className="h-11 text-black"
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -417,44 +420,45 @@ export default function AlertBar() {
                           placeholder="Doe"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
-                          className="h-11"
+                          className="h-11 text-black"
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="companyName" className="text-xs">
-                        Company name <sup>*</sup>
-                      </Label>
-                      <Input
-                        id="companyName"
-                        placeholder="Sunwave Coffee Co."
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        className="h-11"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="companyWebsite" className="text-xs">
-                        Company website
-                      </Label>
-                      <div className="relative">
-                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="companyName" className="text-xs">
+                          Company name <sup>*</sup>
+                        </Label>
                         <Input
-                          id="companyWebsite"
-                          placeholder="sunwave.coffee"
-                          value={companyWebsite}
-                          onChange={(e) => setCompanyWebsite(e.target.value)}
-                          className="h-11 pl-10"
+                          id="companyName"
+                          placeholder="Sunwave Coffee Co."
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          className="h-11 text-black"
                         />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="companyWebsite" className="text-xs">
+                          Company website
+                        </Label>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="companyWebsite"
+                            placeholder="sunwave.coffee"
+                            value={companyWebsite}
+                            onChange={(e) => setCompanyWebsite(e.target.value)}
+                            className="h-11 pl-10 text-black"
+                          />
+                        </div>
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label className="text-xs">Country</Label>
                       <Select value={country} onValueChange={setCountry}>
-                        <SelectTrigger className="h-11">
+                        <SelectTrigger className="h-11 text-black">
                           <SelectValue placeholder="Select country..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -466,7 +470,7 @@ export default function AlertBar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 :grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs">Industry</Label>
                         <Select
@@ -474,17 +478,21 @@ export default function AlertBar() {
                           onValueChange={(v) => {
                             const key = v as IndustryCategoryKey;
                             setIndustry(key);
-                            setSubIndustry(INDUSTRY_CATEGORIES[key].industries[0]);
+                            setSubIndustry(
+                              INDUSTRY_CATEGORIES[key].industries[0],
+                            );
                           }}
                         >
-                          <SelectTrigger className="h-11">
+                          <SelectTrigger className="h-11 text-black">
                             <SelectValue placeholder="Select industry..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {(Object.entries(INDUSTRY_CATEGORIES) as [
-                              IndustryCategoryKey,
-                              (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey],
-                            ][]).map(([key, cat]) => (
+                            {(
+                              Object.entries(INDUSTRY_CATEGORIES) as [
+                                IndustryCategoryKey,
+                                (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey],
+                              ][]
+                            ).map(([key, cat]) => (
                               <SelectItem key={key} value={key}>
                                 {cat.name}
                               </SelectItem>
@@ -494,8 +502,11 @@ export default function AlertBar() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Sub-industry</Label>
-                        <Select value={subIndustry} onValueChange={setSubIndustry}>
-                          <SelectTrigger className="h-11">
+                        <Select
+                          value={subIndustry}
+                          onValueChange={setSubIndustry}
+                        >
+                          <SelectTrigger className="h-11 text-black">
                             <SelectValue placeholder="Select sub-industry..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -525,92 +536,124 @@ export default function AlertBar() {
                       ) : null}
                       Continue
                     </Button>
-
-                    <p className="text-xs text-muted-foreground text-center">
-                      We never share your details. You can edit them later in
-                      account settings.
-                    </p>
                   </form>
                 </div>
               ) : (
                 <div className="animate-in fade-in duration-200">
-                <div className="bg-[#00DA88] p-7">
-                  <span className="inline-block bg-black text-white text-[11px] font-semibold tracking-wider px-3 py-1.5 rounded-full uppercase">
-                    Step 2 of 2 · {hasPendingAd ? 'Launch your campaign' : 'Welcome to EARO'}
-                  </span>
-                  <h2 className="mt-4 text-3xl font-bold leading-tight text-black">
-                    {hasPendingAd
-                      ? "You're one step away from going live"
-                      : 'Get your first audio ad live in minutes'}
-                  </h2>
-                  <p className="mt-3 text-sm text-black/70 leading-relaxed">
-                    {hasPendingAd
-                      ? 'Your ad is ready. Set up your campaign — schedule, audience, and budget — and launch.'
-                      : 'Studio-quality. Zero studio fees. AI writes, voices, and mixes — you launch.'}
-                  </p>
-                </div>
-    
-                <div className="p-6 space-y-5">
-                  <ul className="space-y-4">
-                    {(hasPendingAd
-                      ? [
-                          { n: 1, title: 'Confirm your ad', desc: "We'll pre-select the ad you just created." },
-                          { n: 2, title: 'Set schedule & budget', desc: 'Choose when your campaign runs and how much to spend.' },
-                          { n: 3, title: 'Target & launch', desc: 'Pick your locations and audience, then go live.' },
-                        ]
-                      : [
-                          { n: 1, title: 'Drop your URL', desc: 'We analyse your site to write a script in your brand voice.' },
-                          { n: 2, title: 'Pick a voice & music', desc: 'Choose from 12 voices and a curated music library.' },
-                          { n: 3, title: 'Launch a campaign', desc: 'Reach 100M+ listeners across 50K+ podcasts and music streams.' },
-                        ]
-                    ).map((item) => (
-                      <li key={item.n} className="flex gap-3">
-                        <div className="flex-shrink-0 w-7 h-7 rounded-md bg-[#0A1A3C] text-white text-xs font-semibold flex items-center justify-center">
-                          {item.n}
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-    
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-12 font-medium"
-                      onClick={() => {
-                        if (hasPendingAd) {
-                          const pendingAdId = localStorage.getItem('pendingAdId');
-                          localStorage.removeItem('pendingAdId');
-                          localStorage.removeItem('pendingBudget');
-                          localStorage.removeItem('pendingCity');
+                  <div className="bg-[#00DA88] p-7">
+                    <span className="inline-block bg-black text-white text-[11px] font-semibold tracking-wider px-3 py-1.5 rounded-full uppercase">
+                      Step 2 of 2 ·{" "}
+                      {hasPendingAd
+                        ? "Launch your campaign"
+                        : "Welcome to EARO"}
+                    </span>
+                    <h2 className="mt-4 text-3xl font-bold leading-tight text-black">
+                      {hasPendingAd
+                        ? "You're one step away from going live"
+                        : "Get your first audio ad live in minutes"}
+                    </h2>
+                    <p className="mt-3 text-sm text-black/70 leading-relaxed">
+                      {hasPendingAd
+                        ? "Your ad is ready. Set up your campaign — schedule, audience, and budget — and launch."
+                        : "Studio-quality. Zero studio fees. AI writes, voices, and mixes — you launch."}
+                    </p>
+                  </div>
+
+                  <div className="p-6 space-y-5">
+                    <ul className="space-y-4">
+                      {(hasPendingAd
+                        ? [
+                            {
+                              n: 1,
+                              title: "Confirm your ad",
+                              desc: "We'll pre-select the ad you just created.",
+                            },
+                            {
+                              n: 2,
+                              title: "Set schedule & budget",
+                              desc: "Choose when your campaign runs and how much to spend.",
+                            },
+                            {
+                              n: 3,
+                              title: "Target & launch",
+                              desc: "Pick your locations and audience, then go live.",
+                            },
+                          ]
+                        : [
+                            {
+                              n: 1,
+                              title: "Drop your URL",
+                              desc: "We analyse your site to write a script in your brand voice.",
+                            },
+                            {
+                              n: 2,
+                              title: "Pick a voice & music",
+                              desc: "Choose from 12 voices and a curated music library.",
+                            },
+                            {
+                              n: 3,
+                              title: "Launch a campaign",
+                              desc: "Reach 100M+ listeners across 50K+ podcasts and music streams.",
+                            },
+                          ]
+                      ).map((item) => (
+                        <li key={item.n} className="flex gap-3">
+                          <div className="flex-shrink-0 w-7 h-7 rounded-md bg-[#0A1A3C] text-white text-xs font-semibold flex items-center justify-center">
+                            {item.n}
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-foreground">
+                              {item.title}
+                            </p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12 font-medium"
+                        onClick={() => {
+                          if (hasPendingAd) {
+                            const pendingAdId =
+                              localStorage.getItem("pendingAdId");
+                            localStorage.removeItem("pendingAdId");
+                            localStorage.removeItem("pendingBudget");
+                            localStorage.removeItem("pendingCity");
+                            onClose();
+                            setStep(1);
+                            navigate(`/dashboard/ads/${pendingAdId}`);
+                          } else {
+                            onClose();
+                            setStep(1);
+                          }
+                        }}
+                      >
+                        {hasPendingAd ? "Edit audio ad" : "I'll explore first"}
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-12 font-medium"
+                        onClick={() => {
                           onClose();
-                          setStep(1);
-                          navigate(`/dashboard/ads/${pendingAdId}`);
-                        } else {
-                          onClose();
-                          setStep(1);
-                        }
-                      }}
-                    >
-                      {hasPendingAd ? 'Edit audio ad' : "I'll explore first"}
-                    </Button>
-                    <Button type="button" className="h-12 font-medium" onClick={() => {
-                       onClose();
-                      if (hasPendingAd) {
-                        navigate('/dashboard/campaigns/new');
-                      }
-                      navigate('/dashboard/ads/new');
-                    }}>
-                      {hasPendingAd ? 'Create campaign' : 'Create my audio ad'}
-                    </Button>
+                          if (hasPendingAd) {
+                            navigate("/dashboard/campaigns/new");
+                          }
+                          navigate("/dashboard/ads/new");
+                        }}
+                      >
+                        {hasPendingAd
+                          ? "Create campaign"
+                          : "Create my audio ad"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-    
               )}
             </DialogDescription>
           </DialogContent>

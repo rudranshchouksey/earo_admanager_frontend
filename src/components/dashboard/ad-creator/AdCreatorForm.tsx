@@ -1164,14 +1164,14 @@ function ProCustomization({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm flex items-center gap-2">Music Volume </Label>
-              <span className="text-xs text-muted-foreground">{Math.round(contentSettings.volume * 100)}%</span>
+              <span className="text-xs text-muted-foreground">{Math.round(contentSettings.volume)}%</span>
             </div>
             <Slider
               value={[contentSettings.volume]}
               onValueChange={([v]) => updateContent('volume', v)}
               min={0}
-              max={1}
-              step={0.05}
+              max={100}
+              step={5}
             />
           </div>
         </div>

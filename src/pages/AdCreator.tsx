@@ -44,7 +44,7 @@ const DEFAULT_PRO_CONTENT: ProContentSettings = {
   fadeOut: true,
   startMs: 2000,
   endMs: 25000,
-  volume: 0.8,
+  volume: 50,
 };
 
 export default function AdCreator() {
