@@ -1723,7 +1723,7 @@ export default function CampaignWizard() {
 
         {/* Forecast + Summary sidebar (fixed on lg so always visible) */}
         <div
-          className="hidden lg:block fixed right-6 top-40 w-[280px] space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
+          className="hidden lg:block fixed right-6 top-40 bottom-[100px] w-[280px] space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
           style={{ zIndex: 10 }}
         >
           <CampaignSummary items={summaryItems} />

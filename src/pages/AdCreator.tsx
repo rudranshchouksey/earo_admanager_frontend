@@ -490,27 +490,29 @@ export default function AdCreator() {
             setSelectedVoice(voiceData.data.externalId);
           }
 
-          const {
-            status: musicStatus,
-            error: musicError,
-            message: musicMessage,
-            data: musicData,
-          } = await adsApi.getMusic(data.data.musicId);
-          console.log("getMusicData here ", {
-            musicStatus,
-            musicError,
-            musicMessage,
-            musicData,
-          });
-          if (musicStatus != 200) {
-            toast({
-              title: "Error loading current music",
-              description: musicMessage,
-              variant: "destructive",
+          if(data.data.musicId){
+            const {
+              status: musicStatus,
+              error: musicError,
+              message: musicMessage,
+              data: musicData,
+            } = await adsApi.getMusic(data.data.musicId);
+            console.log("getMusicData here ", {
+              musicStatus,
+              musicError,
+              musicMessage,
+              musicData,
             });
-          } else {
-            setCurrentMusic(musicData.data);
-            setSelectedMusic(musicData.data.externalId);
+            if (musicStatus != 200) {
+              toast({
+                title: "Error loading current music",
+                description: musicMessage,
+                variant: "destructive",
+              });
+            } else {
+              setCurrentMusic(musicData.data);
+              setSelectedMusic(musicData.data.externalId);
+            }
           }
         }
         setLoadedExistingCampaign(true);

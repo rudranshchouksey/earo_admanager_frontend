@@ -9,73 +9,6 @@ import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { City, Country, targetingApi } from '@/services/targeting';
 import { MyTooltip } from '@/components/ui/MyTooltip';
 
-// Mock countries
-const MOCK_COUNTRIES = [
-  { id: 'AE', name: 'United Arab Emirates', code: 'AE', region: 'Middle East', audience: '6.5M' },
-  { id: 'SA', name: 'Saudi Arabia', code: 'SA', region: 'Middle East', audience: '12.4M' },
-  { id: 'KW', name: 'Kuwait', code: 'KW', region: 'Middle East', audience: '2.1M' },
-  { id: 'QA', name: 'Qatar', code: 'QA', region: 'Middle East', audience: '1.8M' },
-  { id: 'BH', name: 'Bahrain', code: 'BH', region: 'Middle East', audience: '900K' },
-  { id: 'OM', name: 'Oman', code: 'OM', region: 'Middle East', audience: '2.3M' },
-  { id: 'EG', name: 'Egypt', code: 'EG', region: 'Middle East', audience: '8.2M' },
-  { id: 'JO', name: 'Jordan', code: 'JO', region: 'Middle East', audience: '1.5M' },
-  { id: 'LB', name: 'Lebanon', code: 'LB', region: 'Middle East', audience: '1.1M' },
-  { id: 'US', name: 'United States', code: 'US', region: 'North America', audience: '45M' },
-  { id: 'GB', name: 'United Kingdom', code: 'GB', region: 'Europe', audience: '18M' },
-  { id: 'DE', name: 'Germany', code: 'DE', region: 'Europe', audience: '12M' },
-  { id: 'FR', name: 'France', code: 'FR', region: 'Europe', audience: '10M' },
-  { id: 'IN', name: 'India', code: 'IN', region: 'Asia', audience: '22M' },
-  { id: 'AU', name: 'Australia', code: 'AU', region: 'Oceania', audience: '8M' },
-  { id: 'CA', name: 'Canada', code: 'CA', region: 'North America', audience: '11M' },
-  { id: 'BR', name: 'Brazil', code: 'BR', region: 'South America', audience: '15M' },
-  { id: 'NG', name: 'Nigeria', code: 'NG', region: 'Africa', audience: '5M' },
-  { id: 'ZA', name: 'South Africa', code: 'ZA', region: 'Africa', audience: '4.5M' },
-  { id: 'JP', name: 'Japan', code: 'JP', region: 'Asia', audience: '14M' },
-];
-
-// Mock cities keyed by country
-export const MOCK_CITIES_DATA: Record<string, { id: string; name: string; country: string; region: string; audience: string }[]> = {
-  AE: [
-    { id: 'AE-ALL', name: 'All UAE Cities', country: 'AE', region: 'UAE', audience: '6.2M' },
-    { id: 'AE-DXB', name: 'Dubai', country: 'AE', region: 'UAE', audience: '2.8M' },
-    { id: 'AE-AUH', name: 'Abu Dhabi', country: 'AE', region: 'UAE', audience: '1.6M' },
-    { id: 'AE-SHJ', name: 'Sharjah', country: 'AE', region: 'UAE', audience: '1.1M' },
-    { id: 'AE-AAN', name: 'Al Ain', country: 'AE', region: 'UAE', audience: '680K' },
-    { id: 'AE-AJM', name: 'Ajman', country: 'AE', region: 'UAE', audience: '420K' },
-  ],
-  SA: [
-    { id: 'SA-ALL', name: 'All KSA Cities', country: 'SA', region: 'KSA', audience: '11.8M' },
-    { id: 'SA-RUH', name: 'Riyadh', country: 'SA', region: 'KSA', audience: '7.6M' },
-    { id: 'SA-JED', name: 'Jeddah', country: 'SA', region: 'KSA', audience: '4.6M' },
-    { id: 'SA-DMM', name: 'Dammam', country: 'SA', region: 'KSA', audience: '1.2M' },
-  ],
-  KW: [
-    { id: 'KW-ALL', name: 'All Kuwait Cities', country: 'KW', region: 'Kuwait', audience: '2.0M' },
-    { id: 'KW-KWI', name: 'Kuwait City', country: 'KW', region: 'Kuwait', audience: '1.4M' },
-  ],
-  QA: [
-    { id: 'QA-ALL', name: 'All Qatar Cities', country: 'QA', region: 'Qatar', audience: '1.7M' },
-    { id: 'QA-DOH', name: 'Doha', country: 'QA', region: 'Qatar', audience: '1.5M' },
-  ],
-  US: [
-    { id: 'US-NYC', name: 'New York', country: 'US', region: 'US', audience: '8.3M' },
-    { id: 'US-LA', name: 'Los Angeles', country: 'US', region: 'US', audience: '3.9M' },
-    { id: 'US-CHI', name: 'Chicago', country: 'US', region: 'US', audience: '2.7M' },
-    { id: 'US-HOU', name: 'Houston', country: 'US', region: 'US', audience: '2.3M' },
-    { id: 'US-MIA', name: 'Miami', country: 'US', region: 'US', audience: '450K' },
-    { id: 'US-SF', name: 'San Francisco', country: 'US', region: 'US', audience: '870K' },
-  ],
-  GB: [
-    { id: 'GB-LON', name: 'London', country: 'GB', region: 'UK', audience: '9M' },
-    { id: 'GB-MAN', name: 'Manchester', country: 'GB', region: 'UK', audience: '550K' },
-    { id: 'GB-BIR', name: 'Birmingham', country: 'GB', region: 'UK', audience: '1.1M' },
-  ],
-  EG: [
-    { id: 'EG-CAI', name: 'Cairo', country: 'EG', region: 'Egypt', audience: '10M' },
-    { id: 'EG-ALX', name: 'Alexandria', country: 'EG', region: 'Egypt', audience: '5.2M' },
-  ],
-};
-
 // Mock business locations
 const MOCK_BUSINESSES = [
   { id: 'biz-1', name: 'Mall of the Emirates', address: 'Al Barsha, Dubai, UAE', city: 'Dubai' },
@@ -92,14 +25,6 @@ const MOCK_BUSINESSES = [
 
 const countryColumns: Column<Country>[] = [
   { key: 'name', label: 'Country', sortable: true },
-];
-
-const countryFilters: FilterDef[] = [
-  {
-    key: 'region',
-    label: 'Region',
-    options: [...new Set(MOCK_COUNTRIES.map((c) => c.region))].sort().map((r) => ({ value: r, label: r })),
-  },
 ];
 
 
@@ -227,7 +152,6 @@ export default function CampaignInventoryStep({ countries, cities, data, onCount
           idKey="code"
           searchPlaceholder="Search countries..."
           searchableKeys={['name']}
-          filters={countryFilters}
           defaultSort={{ key: 'name', dir: 'asc' }}
           pageSize={10}
           variant="table"
