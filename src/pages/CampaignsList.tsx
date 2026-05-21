@@ -238,13 +238,12 @@ export default function CampaignsList() {
       if(!advertiserId) return;
       const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
       if(status !== 200 || error) {
-        toast({ title: t('common.error'), description: error?.message ?? 'Unable to load dashboard card data', variant: 'destructive' });
+        //toast({ title: t('common.error'), description: error?.message ?? 'Unable to load dashboard card data', variant: 'destructive' });
         return;
       }
       setDashboardCardData(data.data.cardTotals);
     }
-    fetchDashboardCardData();
-  
+    setTimeout(fetchDashboardCardData, 1000);
   }, [])
   
 
