@@ -281,8 +281,7 @@ export default function AlertBar() {
   const hiddenCount = alerts.length - 2;
   const hasPendingAd = false;
 
-  const handleBusinessSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleBusinessSubmit = async () => {
     setStep(2);
     const { error, status, message } = await userApi.updatePersonalInfo(
       userId,
@@ -394,9 +393,11 @@ export default function AlertBar() {
                   </div>
 
                   <form
-                    onSubmit={handleBusinessSubmit}
                     className="p-6 space-y-4"
-                    noValidate
+                    onSubmit={(e) => e.preventDefault()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                   >
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
@@ -409,6 +410,7 @@ export default function AlertBar() {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           className="h-11 text-black"
+                          required
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -421,6 +423,7 @@ export default function AlertBar() {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           className="h-11 text-black"
+                          required
                         />
                       </div>
                     </div>
@@ -435,12 +438,13 @@ export default function AlertBar() {
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
                           className="h-11 text-black"
+                          required
                         />
                       </div>
 
                       <div className="space-y-1.5">
                         <Label htmlFor="companyWebsite" className="text-xs">
-                          Company website
+                          Company website <sup>*</sup>
                         </Label>
                         <div className="relative">
                           <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -450,6 +454,7 @@ export default function AlertBar() {
                             value={companyWebsite}
                             onChange={(e) => setCompanyWebsite(e.target.value)}
                             className="h-11 pl-10 text-black"
+                            required
                           />
                         </div>
                       </div>
@@ -521,15 +526,17 @@ export default function AlertBar() {
                     </div>
 
                     <Button
-                      type="submit"
+                      type="button"
                       className="w-full h-12 font-medium mt-2"
                       disabled={
                         isLoading ||
                         !firstName ||
                         !lastName ||
                         !companyName ||
-                        !country
+                        !country ||
+                        !companyWebsite
                       }
+                      onClick={() => void handleBusinessSubmit()}
                     >
                       {isLoading ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

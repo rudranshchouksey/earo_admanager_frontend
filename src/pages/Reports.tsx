@@ -28,7 +28,34 @@ import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Campaign, campaignApi, CampaignsResponse } from '@/services/campaign';
 import { auth } from '@/services/auth';
-import { CampaignReport, reportsApi } from '@/services/reports';
+import {
+  CampaignReport,
+  CampaignReportCardTotals,
+  CampaignReportDailyRow,
+  AdDeliveryReportData,
+  AdDeliveryMetricRow,
+  AdPositionRow,
+  ContentLanguageRow,
+  DeviceOSRow,
+  ImpressionsByFilteredData,
+  ImpressionsFilterMetricRow,
+  DeviceTypeFilterRow,
+  AgeFilterRow,
+  GenderFilterRow,
+  PodcastTopicFilterRow,
+  CampaignImpressionsShareRow,
+  CampaignActionData,
+  ContentInventoryReportData,
+  ContentInventoryMetricRow,
+  GenreDataRow,
+  MediaTopicRow,
+  AudienceInsightRow,
+  CountryCityReportData,
+  CountryReportRow,
+  CityReportRow,
+  reportsApi,
+} from '@/services/reports';
+import { appNotifications } from '@/services/appNotifications';
 
 // interface Campaign {
 //   id: string;
@@ -62,6 +89,12 @@ interface DailyData {
 }
 
 interface DemographicSlice { name: string; value: number; }
+
+interface PieChartSlice extends DemographicSlice {
+  reach?: number;
+  spent?: number;
+  ltr?: number;
+}
 
 type MetricMode = 'bar' | 'line' | 'off';
 type MetricKey = 'impressions' | 'reach' | 'conversions' | 'spent' | 'ltr';
@@ -176,11 +209,41 @@ const COUNTRY_TO_CITIES: Record<string, string[]> = {
 
 // New constants for additional pie charts
 const AD_POSITIONS = ['Pre-roll', 'Mid-roll', 'Post-roll'];
+
+const AD_POSITION_LABELS: Record<string, string> = {
+  PRE_ROLL: 'Pre-roll',
+  MID_ROLL: 'Mid-roll',
+  POST_ROLL: 'Post-roll',
+  UNDEFINED: 'Undefined',
+};
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'English',
+  ar: 'Arabic',
+  sw: 'Swahili',
+  af: 'Afrikaans',
+  ru: 'Russian',
+  'en-us': 'English (US)',
+  es: 'Spanish',
+  fr: 'French',
+  hi: 'Hindi',
+  fa: 'Persian',
+  ur: 'Urdu',
+  tr: 'Turkish',
+};
 const CONTENT_LANGUAGES = ['English', 'Arabic', 'French', 'Hindi', 'Urdu', 'Spanish', 'Turkish'];
 const DEVICE_OS = ['Phone', 'Portable Media Player', 'Tablet', 'Desktop', 'Gaming Console', 'Smart Speaker', 'Smart TV', 'Connected Vehicle', 'Smart Watch', 'Less Common Devices'];
 const MEDIA_TOPICS = ['News', 'Entertainment', 'Sports', 'Technology', 'Lifestyle', 'Finance', 'Health', 'Education'];
 
 type Granularity = 'daily' | 'weekly' | 'monthly';
+
+type ApiPerformanceDateRange = 'DAY' | 'WEEK' | 'MONTH';
+
+function gridGranularityToApiDateRange(granularity: Granularity): ApiPerformanceDateRange {
+  if (granularity === 'weekly') return 'WEEK';
+  if (granularity === 'monthly') return 'MONTH';
+  return 'DAY';
+}
 
 function seededRandom(seed: number) {
   let s = seed;
@@ -288,6 +351,359 @@ function aggregateWithGranularity(
   return Array.from(map.values())
     .map(r => ({ ...r, ltr: r._ltrN > 0 ? Math.round(r._ltrSum / r._ltrN) : 0 }))
     .sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+}
+
+type ChartDailyPoint = {
+  date: string;
+  impressions: number;
+  reach: number;
+  conversions: number;
+  spent: number;
+  ltr: number;
+};
+
+function campaignReportRowToChartPoint(row: CampaignReportDailyRow): ChartDailyPoint {
+  return {
+    date: row.__time.start.substring(0, 10),
+    impressions: row.impressions ?? 0,
+    reach: row.demandAudioReachUniqueUsers ?? 0,
+    conversions: row.objectiveCountableSum ?? 0,
+    spent: row.totalSpend ?? 0,
+    ltr: row.ltr ?? 0,
+  };
+}
+
+function aggregateCardTotalsFromDailyRows(rows: CampaignReportDailyRow[]): CampaignReportCardTotals {
+  const impressions = rows.reduce((sum, r) => sum + (r.impressions ?? 0), 0);
+  const totalSpend = rows.reduce((sum, r) => sum + (r.totalSpend ?? 0), 0);
+  const objectiveCountableSum = rows.reduce((sum, r) => sum + (r.objectiveCountableSum ?? 0), 0);
+  const demandAudioImp = rows.reduce((sum, r) => sum + (r.demandAudioImp ?? 0), 0);
+  const demandAudioReachUniqueUsers = rows.reduce(
+    (max, r) => Math.max(max, r.demandAudioReachUniqueUsers ?? 0),
+    0,
+  );
+  const ltr =
+    impressions > 0
+      ? rows.reduce((sum, r) => sum + (r.ltr ?? 0) * (r.impressions ?? 0), 0) / impressions
+      : 0;
+  const demandECPM =
+    impressions > 0
+      ? rows.reduce((sum, r) => sum + (r.demandECPM ?? 0) * (r.impressions ?? 0), 0) / impressions
+      : 0;
+  const attributionCPAInUSD =
+    objectiveCountableSum > 0 ? totalSpend / objectiveCountableSum : 0;
+
+  return {
+    attributionCPAInUSD,
+    totalSpend,
+    demandECPM,
+    demandAudioReachUniqueUsers,
+    impressions,
+    ltr,
+    objectiveCountableSum,
+    demandAudioImp,
+  };
+}
+
+function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) return null;
+    const dailyRows = payload as CampaignReportDailyRow[];
+    return {
+      cardTotals: aggregateCardTotalsFromDailyRows(dailyRows),
+      PerformanceTotals: dailyRows,
+      data: [],
+    };
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  // Nested wrapper: { data: { cardTotals, data: [...] } }
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    const nested = parseCampaignReportsPayload(record.data);
+    if (nested) return nested;
+  }
+
+  const dailyRows = Array.isArray(record.data)
+    ? (record.data as CampaignReportDailyRow[])
+    : Array.isArray(record.PerformanceTotals)
+      ? (record.PerformanceTotals as CampaignReportDailyRow[])
+      : null;
+
+  if (!dailyRows || dailyRows.length === 0) return null;
+
+  const cardTotals =
+    (record.cardTotals as CampaignReportCardTotals | undefined) ??
+    aggregateCardTotalsFromDailyRows(dailyRows);
+
+  return { cardTotals, PerformanceTotals: dailyRows, data: record.data as CampaignReportDailyRow[] };
+}
+
+type LocationChartRow = {
+  name: string;
+  country?: string;
+  impressions: number;
+  reach: number;
+  conversions: number;
+  spent: number;
+  ltr?: number;
+};
+
+function formatLocationLabel(value?: string): string {
+  if (!value?.trim()) return 'Unknown';
+  return value
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function resolveReportCampaignIds(allCampaigns: Campaign[], selectedCampaignId: string): number[] {
+  if (selectedCampaignId === 'all') {
+    return allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id));
+  }
+  return allCampaigns
+    .filter((c) => c.id === selectedCampaignId)
+    .map((c) => Number(c.externalRefId))
+    .filter((id) => !Number.isNaN(id));
+}
+
+function mapCountryToChartRow(row: CountryReportRow): LocationChartRow {
+  return {
+    name: row.countryName,
+    impressions: row.impressions ?? 0,
+    reach: row.reach ?? 0,
+    conversions: 0,
+    spent: row.totalSpend ?? 0,
+  };
+}
+
+function formatAdPositionLabel(position: string): string {
+  return AD_POSITION_LABELS[position] ?? formatLocationLabel(position.replace(/_/g, ' '));
+}
+
+function formatLanguageLabel(language: string): string {
+  return LANGUAGE_LABELS[language.toLowerCase()] ?? language.toUpperCase();
+}
+
+function mapImpressionsFilteredToPieSlices<T extends ImpressionsFilterMetricRow>(
+  rows: T[],
+  getName: (row: T) => string,
+): PieChartSlice[] {
+  return rows
+    .map((row) => ({
+      name: getName(row),
+      value: row.impressions ?? 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function parseReportBudget(value: string | number | null | undefined): number {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  const parsed = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function mapCampaignPerformanceToGridRow(row: CampaignActionData): DailyData {
+  const reportDate = row.start?.substring(0, 10) ?? '';
+  const flightStart = row.startDate
+    ? (() => {
+        const d = parseISO(row.startDate);
+        return Number.isNaN(d.getTime()) ? row.startDate : format(d, 'MMM d, yyyy');
+      })()
+    : '';
+  const flightEnd = row.endDate
+    ? (() => {
+        const d = parseISO(row.endDate);
+        return Number.isNaN(d.getTime()) ? row.endDate : format(d, 'MMM d, yyyy');
+      })()
+    : '';
+
+  return {
+    date: reportDate,
+    impressions: row.impressions ?? 0,
+    reach: row.demandAudioReachUniqueUsers ?? 0,
+    conversions: row.objectiveCountableSum ?? 0,
+    spent: 0,
+    campaignName: row.campaignName ?? '',
+    campaignStatus: (row.status ?? '').toLowerCase(),
+    campaignGoal: row.campaignDB ?? '',
+    startDate: flightStart,
+    endDate: flightEnd,
+    dailyBudget: parseReportBudget(row.dailyCap),
+    totalBudget: parseReportBudget(row.totalBudget),
+    ltr: Math.round(row.ltr ?? 0),
+  };
+}
+
+function aggregatePerformanceGridRows(rows: DailyData[], gridGranularity: Granularity): DailyData[] {
+  if (gridGranularity === 'daily') {
+    return [...rows].sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  const bucketKey = (dateStr: string) => {
+    const dt = parseISO(dateStr);
+    if (gridGranularity === 'weekly') return format(startOfWeek(dt, { weekStartsOn: 1 }), 'MMM d, yyyy');
+    return format(startOfMonth(dt), 'MMM yyyy');
+  };
+
+  const map = new Map<string, DailyData & { _ltrSum: number; _n: number; _sortKey: string }>();
+  rows.forEach((d) => {
+    const key = `${d.campaignName}__${bucketKey(d.date)}`;
+    const ex = map.get(key);
+    if (ex) {
+      ex.impressions += d.impressions;
+      ex.reach += d.reach;
+      ex.conversions += d.conversions;
+      ex.spent += d.spent;
+      ex._ltrSum += d.ltr;
+      ex._n += 1;
+      if (d.date < ex._sortKey) ex._sortKey = d.date;
+    } else {
+      map.set(key, {
+        ...d,
+        date: bucketKey(d.date),
+        _sortKey: d.date,
+        _ltrSum: d.ltr,
+        _n: 1,
+      });
+    }
+  });
+
+  return Array.from(map.values())
+    .sort((a, b) => b._sortKey.localeCompare(a._sortKey))
+    .map(({ _ltrSum, _n, _sortKey, ...rest }) => ({
+      ...rest,
+      ltr: _n > 0 ? Math.round(_ltrSum / _n) : 0,
+    }));
+}
+
+function mapPodcastTopicsToBarRows(
+  rows: PodcastTopicFilterRow[],
+  totals: { totalReach: number; totalConversions: number; totalSpent: number },
+): LocationChartRow[] {
+  const totalImpressions = rows.reduce((sum, row) => sum + (row.impressions ?? 0), 0);
+
+  return rows
+    .map((row) => {
+      const share = totalImpressions > 0 ? (row.impressions ?? 0) / totalImpressions : 0;
+      return {
+        name: row.podcastTopicLabel,
+        impressions: row.impressions ?? 0,
+        reach: Math.round(totals.totalReach * share),
+        conversions: Math.round(totals.totalConversions * share),
+        spent: totals.totalSpent * share,
+      };
+    })
+    .sort((a, b) => b.impressions - a.impressions);
+}
+
+function mapAdDeliveryToPieSlices<T extends AdDeliveryMetricRow>(
+  rows: T[],
+  getName: (row: T) => string,
+): PieChartSlice[] {
+  return rows
+    .map((row) => ({
+      name: getName(row),
+      value: row.impressions ?? 0,
+      reach: row.uniqueUsers ?? 0,
+      spent: row.totalSpend ?? 0,
+      ltr: row.ltr ?? 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function mapContentInventoryToPieSlices<T extends ContentInventoryMetricRow>(
+  rows: T[],
+  getName: (row: T) => string,
+): PieChartSlice[] {
+  return rows
+    .map((row) => ({
+      name: getName(row),
+      value: row.impressions ?? 0,
+      reach: row.uniqueUsers ?? 0,
+      spent: row.totalSpend ?? 0,
+      ltr: row.ltr ?? 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function mapCityToChartRow(row: CityReportRow): LocationChartRow {
+  return {
+    name: formatLocationLabel(row.city),
+    impressions: row.impressions ?? 0,
+    reach: row.uniqueUsers ?? 0,
+    conversions: 0,
+    spent: row.totalSpend ?? 0,
+  };
+}
+
+function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint[] {
+  const map = new Map<string, ChartDailyPoint & { _ltrSum: number; _ltrN: number }>();
+
+  rows.forEach((row) => {
+    const point = campaignReportRowToChartPoint(row);
+    const existing = map.get(point.date) ?? {
+      ...point,
+      impressions: 0,
+      reach: 0,
+      conversions: 0,
+      spent: 0,
+      ltr: 0,
+      _ltrSum: 0,
+      _ltrN: 0,
+    };
+    existing.impressions += point.impressions;
+    existing.reach += point.reach;
+    existing.conversions += point.conversions;
+    existing.spent += point.spent;
+    if (point.ltr != null) {
+      existing._ltrSum += point.ltr;
+      existing._ltrN += 1;
+    }
+    map.set(point.date, existing);
+  });
+
+  return Array.from(map.values())
+    .map(({ _ltrSum, _ltrN, ...rest }) => ({
+      ...rest,
+      ltr: _ltrN > 0 ? Math.round(_ltrSum / _ltrN) : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function chartLabelFromDate(dateStr: string, granularity: Granularity): string {
+  const dt = parseISO(dateStr);
+  if (granularity === 'weekly') return format(startOfWeek(dt, { weekStartsOn: 1 }), 'MMM d');
+  if (granularity === 'monthly') return format(startOfMonth(dt), 'MMM yyyy');
+  return format(dt, 'MMM d');
+}
+
+function chartPointsToLabeledBuckets(
+  points: ChartDailyPoint[],
+  range: { from: Date; to: Date },
+  granularity: Granularity,
+  fromApi: boolean,
+) {
+  const filtered = points.filter((d) => {
+    const dt = parseISO(d.date);
+    return isWithinInterval(dt, { start: startOfDay(range.from), end: endOfDay(range.to) });
+  });
+
+  if (fromApi) {
+    return filtered
+      .map((d) => ({
+        ...d,
+        ltr: d.ltr ?? 0,
+        label: chartLabelFromDate(d.date, granularity),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  return aggregateWithGranularity(filtered, range, granularity);
 }
 
 const mockCampaigns: Campaign[] = [
@@ -609,12 +1025,12 @@ export default function Reports() {
 
 
 
-  return (
-    <div className='flex flex-col items-center justify-center h-full'>
-      <h3 className='text-2xl font-bold'>Coming Soon</h3>
-      <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
-    </div>
-  )
+  // return (
+  //   <div className='flex flex-col items-center justify-center h-full'>
+  //     <h3 className='text-2xl font-bold'>Coming Soon</h3>
+  //     <p className='text-sm text-muted-foreground'>We are working on this feature and it will be available soon.</p>
+  //   </div>
+  // )
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
@@ -623,6 +1039,12 @@ export default function Reports() {
   const isMobile = useIsMobile();
   // const { setExtraCrumbs } = usePageBreadcrumb();
   const [campaignsReport, setCampaignsReport] = useState<CampaignReport>();
+  const [countryCityReport, setCountryCityReport] = useState<CountryCityReportData | null>(null);
+  const [contentInventoryReport, setContentInventoryReport] = useState<ContentInventoryReportData | null>(null);
+  const [adDeliveryReport, setAdDeliveryReport] = useState<AdDeliveryReportData | null>(null);
+  const [impressionsByFiltered, setImpressionsByFiltered] = useState<ImpressionsByFilteredData | null>(null);
+  const [impressionsShareByCampaigns, setImpressionsShareByCampaigns] = useState<CampaignImpressionsShareRow[] | null>(null);
+  const [campaignPerformanceRows, setCampaignPerformanceRows] = useState<CampaignActionData[] | null>(null);
 
   const tzLabel = useMemo(() => {
     try {
@@ -684,120 +1106,289 @@ export default function Reports() {
 
 
   useEffect(() => {
-    
-    
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadCampaignReports = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds =
+        selectedCampaignId === 'all'
+          ? allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id))
+          : allCampaigns
+              .filter((c) => c.id === selectedCampaignId)
+              .map((c) => Number(c.externalRefId))
+              .filter((id) => !Number.isNaN(id));
+
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.getCampaignReports({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: gridGranularityToApiDateRange(granularity),
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data) {
+        if (error) console.error(error);
+        return;
+      }
+
+      const parsed = parseCampaignReportsPayload(data.data);
+      if (parsed) {
+        setCampaignsReport(parsed);
+      } else {
+        setCampaignsReport(undefined);
+      }
+    };
+
+    loadCampaignReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to, granularity]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadCountryCityReport = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.GetCountryCityReport({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: 'CUSTOM',
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setCountryCityReport(data.data);
+    };
+
+    loadCountryCityReport();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadContentInventory = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.GetContentInventory({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: 'CUSTOM',
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setContentInventoryReport(data.data);
+    };
+
+    loadContentInventory();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadAdDelivery = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.GetAdDelivery({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: 'CUSTOM',
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setAdDeliveryReport(data.data);
+    };
+
+    loadAdDelivery();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadImpressionsByFiltered = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.getImpressionsByFiltered({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: 'CUSTOM',
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setImpressionsByFiltered(data.data);
+    };
+
+    loadImpressionsByFiltered();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadImpressionsShareByCampaigns = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.ImpressionsShareByCampaigns({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: 'CUSTOM',
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !data?.data?.campaignMetrics) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setImpressionsShareByCampaigns(data.data.campaignMetrics);
+    };
+
+    loadImpressionsShareByCampaigns();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    const loadCampaignPerformance = async () => {
+      const { data: { session: sessionData } } = await auth.getSession();
+      if (!sessionData?.currentAdvertiserId) return;
+
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
+      const { data, status, error } = await reportsApi.getCampaignPerformance({
+        advertiserId: sessionData.currentAdvertiserId,
+        campaignIds,
+        dateRange: gridGranularityToApiDateRange(gridGranularity),
+        from: dateRange.from.toISOString().substring(0, 10),
+        to: dateRange.to.toISOString().substring(0, 10),
+        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+      });
+
+      if (cancelled) return;
+      if (status !== 200 || error || !Array.isArray(data?.data)) {
+        if (error) console.error(error);
+        return;
+      }
+
+      setCampaignPerformanceRows(data.data);
+    };
+
+    loadCampaignPerformance();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to, gridGranularity]);
+
+  useEffect(() => {
     const loadAllReports = async () => {
       const {data: {session: sessionData}} = await auth.getSession();
       if (!sessionData) {
         console.error("Not authenticated");
         return;
       }
-  
-      const getCampaignReports = async () => {
-        console.log({allCampaigns});
 
 
-        const {data, status, error} = await reportsApi.getCampaignReports({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-        setCampaignsReport(data.data as CampaignReport);
-      }
-      const getCampaignPerformance = async () => {
-        const {data, status, error} = await reportsApi.getCampaignPerformance({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5109],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-        //setCampaignsReport(data.data as CampaignReport);
-      }
-      const getImpressionsByFiltered = async () => {
-        const {data, status, error} = await reportsApi.getImpressionsByFiltered({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-        //setCampaignsReport(data.data as CampaignReport);
-      }
+      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      if (campaignIds.length === 0) return;
+
       const getListeningHeatMap = async () => {
 
         const {data, status, error} = await reportsApi.getListeningHeatMap({
           advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
+          campaignIds,
           dateRange: "CUSTOM",
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-      }
-      const ImpressionsShareByCampaigns = async () => {
-        const {data, status, error} = await reportsApi.ImpressionsShareByCampaigns({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-      }
-      const GetCountryCityReport = async () => {
-        const {data, status, error} = await reportsApi.GetCountryCityReport({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-      }
-      const GetContentInventory = async () => {
-        const {data, status, error} = await reportsApi.GetContentInventory({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
-        });
-        if (status !== 200 || error) {
-          console.error(error);
-          return;
-        }
-      }
-      const GetAdDelivery = async () => {
-        const {data, status, error} = await reportsApi.GetAdDelivery({
-          advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
-          dateRange: "CUSTOM",
-          from: dateRange.from.toISOString().substring(0, 10),
-          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
         });
         if (status !== 200 || error) {
           console.error(error);
@@ -807,10 +1398,11 @@ export default function Reports() {
       const GetDemographics = async () => {
         const {data, status, error} = await reportsApi.GetDemographics({
           advertiserId: sessionData.currentAdvertiserId || "",
-          campaignIds: [5140],
+          campaignIds,
           dateRange: "CUSTOM",
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
         });
         if (status !== 200 || error) {
           console.error(error);
@@ -819,21 +1411,15 @@ export default function Reports() {
       }
 
       await Promise.all([
-        getCampaignReports(),
-        getCampaignPerformance(),
-        getImpressionsByFiltered(),
         getListeningHeatMap(),
-        ImpressionsShareByCampaigns(),
-        GetCountryCityReport(),
-        GetContentInventory(),
-        GetAdDelivery(),
         GetDemographics(),
       ]);
     }
 
 
+    if (allCampaigns.length === 0) return;
     loadAllReports();
-  }, [allCampaigns])
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to])
   
 
   useEffect(() => {
@@ -854,10 +1440,22 @@ export default function Reports() {
         console.error(error);
         return;
       }
-      setAllCampaigns(data.data || []);      
+
+      const excludeDrafts = data.data.filter((c: Campaign) => c.status.toLowerCase() !== 'draft' && c.status.toLowerCase() !== 'rejected');
+      setAllCampaigns(excludeDrafts || []);      
       setLoading(false);
     };
     fetchData();
+
+
+    appNotifications.subscribe('advertiser:selected', () => {
+      console.log("advertiser:selected");
+      fetchData();
+    });
+
+    return () => {
+      //appNotifications.unsubscribe('advertiser:selected');
+    };
   }, []);
 
   useEffect(() => {
@@ -917,16 +1515,39 @@ export default function Reports() {
     //const rand = seededRandom(campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0));
     const totalImpressions =  campaignsReport.cardTotals.impressions; //  campaigns.reduce((a, c) => a + (c.actual_impressions || Math.round(c.budget * (30 + rand() * 20))), 0);
     const totalReach =  campaignsReport.cardTotals.demandAudioReachUniqueUsers;  //campaigns.reduce((a, c) => a + (c.reach || Math.round((c.actual_impressions || c.budget * 35) * 0.25)), 0);
-    const totalSpent =  0; //campaigns.reduce((a, c) => a + (c.actual_spend || Math.round(c.budget * 0.55 * 100) / 100), 0);
-    const totalBudget =  0; //campaigns.reduce((a, c) => a + c.budget, 0);
-    const avgLtr = campaignsReport.cardTotals.ltr; // campaigns.length > 0
-      // ? campaigns.reduce((a, c) => a + (c.ltr ?? 75), 0) / campaigns.length
-      // : 0;
-    const totalConversions = 0; //Math.round(totalImpressions * 0.02);
-    const budgetUtil = 0; //totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-    const cpa = 0; //totalConversions > 0 ? totalSpent / totalConversions : 0;
-    const impressionsGoal = 0; //campaigns.reduce((a, c) => a + Math.round(c.budget * 50), 0);
-    const avgCpm = 0; //totalImpressions > 0 ? totalSpent / (totalImpressions / 1000) : 0;
+    const totalSpent = campaignsReport.cardTotals.totalSpend;
+    const totalBudget = campaignsReport.cardTotals.totalBudget ?? 0;
+    const avgLtr = Math.round(campaignsReport.cardTotals.ltr ?? 0);
+    const totalConversions = campaignsReport.cardTotals.objectiveCountableSum ?? 0;
+    const budgetUtil = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+    let campaignGoal = 0;
+
+    try{
+
+      let obj: Record<string, number> = {};
+      console.log("campaignsReport", campaignsReport);
+      campaignsReport?.data?.forEach((c) => {
+        console.log("campaignId and campaignBudget", c.campaignId, c.campaignBudget);
+        if(c.campaignBudget && c.campaignId){
+          if(!obj[c.campaignId]){
+            const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');
+            const impressions = Number(cleanString);
+            campaignGoal += impressions;
+            obj[c.campaignId] = impressions;
+          }
+        }
+      })
+      
+    }catch(err){
+
+    }
+
+    const impressionsGoal = campaignGoal;
+
+
+    const cpa = ((totalBudget/impressionsGoal)*1000);
+
+    const avgCpm = campaignsReport.cardTotals.demandECPM ?? 0;
     return { totalImpressions, totalReach, totalSpent, avgLtr, totalConversions, budgetUtil, cpa, totalBudget, impressionsGoal, avgCpm };
   }, [campaignsReport]);
 
@@ -936,14 +1557,14 @@ export default function Reports() {
     let projectedImpsSum = 0;
     let count = 0;
     campaigns.forEach((c) => {
-      const start = new Date(c.start_date).getTime();
-      const end = new Date(c.end_date).getTime();
+      const start = new Date(c.startDate).getTime();
+      const end = new Date(c.endDate).getTime();
       if (!isFinite(start) || !isFinite(end) || end <= start) return;
       const elapsed = Math.max(0, Math.min(1, (today.getTime() - start) / (end - start)));
       elapsedSum += elapsed;
       // Project total impressions for this campaign at end of flight
-      const projImps = c.actual_impressions && elapsed > 0.05
-        ? c.actual_impressions / elapsed
+      const projImps = c.impressions && elapsed > 0.05
+        ? c.impressions / elapsed
         : c.budget * 35; // fallback CPM-based forecast
       projectedImpsSum += projImps;
       count++;
@@ -957,8 +1578,8 @@ export default function Reports() {
     let statusTone: StatusTone = 'green';
 
     const allDraft = campaigns.length > 0 && campaigns.every(c => c.status === 'draft');
-    const allCompleted = campaigns.length > 0 && campaigns.every(c => c.status === 'completed' || new Date(c.end_date) < today);
-    const notStarted = campaigns.length > 0 && campaigns.every(c => new Date(c.start_date) > today);
+    const allCompleted = campaigns.length > 0 && campaigns.every(c => c.status === 'completed' || new Date(c.endDate) < today);
+    const notStarted = campaigns.length > 0 && campaigns.every(c => new Date(c.startDate) > today);
 
     if (allDraft) { statusLabel = 'Draft'; statusTone = 'muted'; }
     else if (notStarted) { statusLabel = 'Starting soon'; statusTone = 'blue'; }
@@ -981,6 +1602,11 @@ export default function Reports() {
   }, [campaigns, kpis]);
 
   const rawDailyData = useMemo(() => {
+    const apiRows = campaignsReport?.PerformanceTotals;
+    if (apiRows && apiRows.length > 0) {
+      return dailyRowsToChartPoints(apiRows);
+    }
+
     const allDays = campaigns.flatMap(c => generateDailyData(c));
     const map = new Map<string, { date: string; impressions: number; reach: number; conversions: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number }>();
     allDays.forEach(d => {
@@ -998,32 +1624,67 @@ export default function Reports() {
     return Array.from(map.values())
       .map(r => ({ ...r, ltr: r._ltrN > 0 ? Math.round(r._ltrSum / r._ltrN) : 0 }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [campaigns]);
+  }, [campaigns, campaignsReport]);
 
   const dailyChartData = useMemo(() => {
-    return aggregateWithGranularity(rawDailyData, dateRange, granularity);
-  }, [rawDailyData, dateRange, granularity]);
+    if (campaignsReport?.PerformanceTotals?.length) {
+      return chartPointsToLabeledBuckets(
+        dailyRowsToChartPoints(campaignsReport.PerformanceTotals),
+        dateRange,
+        granularity,
+        true,
+      );
+    }
+    return chartPointsToLabeledBuckets(rawDailyData, dateRange, granularity, false);
+  }, [campaignsReport, rawDailyData, dateRange, granularity]);
 
   // Per-campaign stacked chart data (for "All Campaigns" view)
   const stackedChartData = useMemo(() => {
-    const perCampaign = campaigns.map(c => ({
-      campaign: c,
-      buckets: aggregateWithGranularity(generateDailyData(c), dateRange, granularity),
-    }));
+    const apiRows = campaignsReport?.PerformanceTotals;
+
+    const perCampaign =
+      apiRows?.length && campaigns.length > 1
+        ? campaigns.map((c) => {
+            const extId = Number(c.externalRefId);
+            const rows = apiRows.filter((r) => Number(r.campaignId) === extId);
+            const points = rows.map(campaignReportRowToChartPoint);
+            return {
+              campaign: c,
+              buckets: chartPointsToLabeledBuckets(points, dateRange, granularity, true),
+            };
+          })
+        : campaigns.map((c) => ({
+            campaign: c,
+            buckets: chartPointsToLabeledBuckets(
+              generateDailyData(c).map((d) => ({
+                date: d.date,
+                impressions: d.impressions,
+                reach: d.reach,
+                conversions: d.conversions,
+                spent: d.spent,
+                ltr: d.ltr,
+              })),
+              dateRange,
+              granularity,
+              false,
+            ),
+          }));
+
     const labelOrder: string[] = [];
-    const map = new Map<string, any>();
+    const map = new Map<string, Record<string, unknown>>();
     perCampaign.forEach(({ campaign, buckets }) => {
-      buckets.forEach(b => {
+      const seriesKey = campaign.id ?? String(campaign.externalRefId);
+      buckets.forEach((b) => {
         if (!map.has(b.label)) {
           map.set(b.label, { label: b.label });
           labelOrder.push(b.label);
         }
-        const row = map.get(b.label);
-        row[campaign.id] = (row[campaign.id] || 0) + (b as any)[reportMetric];
+        const row = map.get(b.label)!;
+        row[seriesKey] = (Number(row[seriesKey]) || 0) + Number((b as Record<string, number>)[reportMetric] ?? 0);
       });
     });
-    return labelOrder.map(l => map.get(l));
-  }, [campaigns, dateRange, granularity, reportMetric]);
+    return labelOrder.map((l) => map.get(l));
+  }, [campaigns, campaignsReport, dateRange, granularity, reportMetric]);
 
   const dailyGridData = useMemo(() => {
     const data = campaigns.flatMap(c => generateDailyData(c));
@@ -1033,46 +1694,53 @@ export default function Reports() {
     });
   }, [campaigns, dateRange]);
 
-  // Aggregate dailyGridData by selected granularity (per-campaign buckets)
+  const apiPerformanceGridData = useMemo(() => {
+    if (!campaignPerformanceRows?.length) return null;
+    return campaignPerformanceRows.map(mapCampaignPerformanceToGridRow);
+  }, [campaignPerformanceRows]);
+
   const performanceGridData = useMemo(() => {
-    if (gridGranularity === 'daily') return dailyGridData;
-    const bucketKey = (dateStr: string) => {
-      const dt = parseISO(dateStr);
-      if (gridGranularity === 'weekly') return format(startOfWeek(dt, { weekStartsOn: 1 }), 'MMM d, yyyy');
-      return format(startOfMonth(dt), 'MMM yyyy');
-    };
-    const map = new Map<string, any>();
-    dailyGridData.forEach(d => {
-      const key = `${d.campaignName}__${bucketKey(d.date)}`;
-      const ex = map.get(key);
-      if (ex) {
-        ex.impressions += d.impressions;
-        ex.reach += d.reach;
-        ex.conversions += d.conversions;
-        ex.spent += d.spent;
-        ex._ltrSum += d.ltr;
-        ex._n += 1;
-        if (d.date < ex._sortKey) ex._sortKey = d.date;
-      } else {
-        map.set(key, {
-          ...d,
-          date: bucketKey(d.date),
-          _sortKey: d.date,
-          _ltrSum: d.ltr,
-          _n: 1,
-        });
-      }
-    });
-    return Array.from(map.values())
-      .map(r => ({ ...r, ltr: Math.round(r._ltrSum / r._n) }))
-      .sort((a, b) => b._sortKey.localeCompare(a._sortKey));
-  }, [dailyGridData, gridGranularity]);
+    if (apiPerformanceGridData) {
+      return [...apiPerformanceGridData].sort((a, b) => b.date.localeCompare(a.date));
+    }
+    return aggregatePerformanceGridRows(dailyGridData, gridGranularity);
+  }, [apiPerformanceGridData, dailyGridData, gridGranularity]);
 
   const seed = useMemo(() => campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0), [campaigns]);
   const totalImpr = kpis.totalImpressions;
 
+  const campaignImpressionShareSlices = useMemo(() => {
+    if (impressionsShareByCampaigns?.length) {
+      return impressionsShareByCampaigns.map((row, i) => ({
+        name: row.campaignName,
+        value: row.impressions ?? 0,
+        color: COLORS[i % COLORS.length],
+      }));
+    }
+
+    const rand = seededRandom(seed + 999);
+    return campaigns.map((c, i) => ({
+      name: c.campaignName || c.id || 'Campaign',
+      value: c.impressions ?? Math.round((c.budget ?? 0) * (30 + rand() * 20)),
+      color: COLORS[i % COLORS.length],
+    }));
+  }, [impressionsShareByCampaigns, campaigns, seed]);
+
+  const campaignImpressionShareTotal = useMemo(
+    () => campaignImpressionShareSlices.reduce((sum, slice) => sum + slice.value, 0),
+    [campaignImpressionShareSlices],
+  );
+
   // Bar chart data
   const topShows = useMemo(() => {
+    if (impressionsByFiltered?.podcastTopicsResult?.length) {
+      return mapPodcastTopicsToBarRows(impressionsByFiltered.podcastTopicsResult, {
+        totalReach: kpis.totalReach,
+        totalConversions: kpis.totalConversions,
+        totalSpent: kpis.totalSpent,
+      });
+    }
+
     const impressions = generateDemographic(SHOW_NAMES, totalImpr, seed + 1);
     const reaches = generateDemographic(SHOW_NAMES, kpis.totalReach, seed + 10);
     const convs = generateDemographic(SHOW_NAMES, kpis.totalConversions, seed + 11);
@@ -1086,18 +1754,96 @@ export default function Reports() {
       spent: spents[i].value,
       ltr: 70 + Math.round(ltrRand() * 25),
     })).sort((a, b) => b.impressions - a.impressions);
-  }, [totalImpr, kpis.totalReach, kpis.totalConversions, kpis.totalSpent, seed]);
+  }, [impressionsByFiltered, totalImpr, kpis.totalReach, kpis.totalConversions, kpis.totalSpent, seed]);
 
   // Pie chart data
-  const deviceTypes = useMemo(() => generateDemographic(DEVICE_TYPES, totalImpr, seed + 3), [totalImpr, seed]);
-  const genders = useMemo(() => generateDemographic(GENDERS, totalImpr, seed + 4), [totalImpr, seed]);
-  const ageGroups = useMemo(() => generateDemographic(AGE_GROUPS, totalImpr, seed + 5), [totalImpr, seed]);
-  const podcastGenres = useMemo(() => generateDemographic(PODCAST_GENRES, totalImpr, seed + 6), [totalImpr, seed]);
-  const podcastAudiences = useMemo(() => generateDemographic(PODCAST_AUDIENCES, totalImpr, seed + 7), [totalImpr, seed]);
-  const adPositions = useMemo(() => generateDemographic(AD_POSITIONS, totalImpr, seed + 20), [totalImpr, seed]);
-  const contentLanguages = useMemo(() => generateDemographic(CONTENT_LANGUAGES, totalImpr, seed + 21), [totalImpr, seed]);
-  const deviceOS = useMemo(() => generateDemographic(DEVICE_OS, totalImpr, seed + 22), [totalImpr, seed]);
-  const mediaTopics = useMemo(() => generateDemographic(MEDIA_TOPICS, totalImpr, seed + 23), [totalImpr, seed]);
+  const deviceTypes = useMemo(() => {
+    if (impressionsByFiltered?.deviceTypeResult?.length) {
+      return mapImpressionsFilteredToPieSlices<DeviceTypeFilterRow>(
+        impressionsByFiltered.deviceTypeResult,
+        (row) => row.deviceTypeLabel,
+      );
+    }
+    return generateDemographic(DEVICE_TYPES, totalImpr, seed + 3);
+  }, [impressionsByFiltered, totalImpr, seed]);
+
+  const genders = useMemo(() => {
+    if (impressionsByFiltered?.genderResult?.length) {
+      return mapImpressionsFilteredToPieSlices<GenderFilterRow>(
+        impressionsByFiltered.genderResult,
+        (row) => row.genderLabel?.trim() || 'Unknown',
+      );
+    }
+    return generateDemographic(GENDERS, totalImpr, seed + 4);
+  }, [impressionsByFiltered, totalImpr, seed]);
+
+  const ageGroups = useMemo(() => {
+    if (impressionsByFiltered?.ageResult?.length) {
+      return mapImpressionsFilteredToPieSlices<AgeFilterRow>(
+        impressionsByFiltered.ageResult,
+        (row) => row.age?.trim() || row.ageLabel?.trim() || 'Unknown',
+      );
+    }
+    return generateDemographic(AGE_GROUPS, totalImpr, seed + 5);
+  }, [impressionsByFiltered, totalImpr, seed]);
+  const podcastGenres = useMemo(() => {
+    if (contentInventoryReport?.genreData?.length) {
+      return mapContentInventoryToPieSlices<GenreDataRow>(
+        contentInventoryReport.genreData,
+        (row) => row.genreName || row.genre,
+      );
+    }
+    return generateDemographic(PODCAST_GENRES, totalImpr, seed + 6);
+  }, [contentInventoryReport, totalImpr, seed]);
+
+  const podcastAudiences = useMemo(() => {
+    if (contentInventoryReport?.audienceInsights?.length) {
+      return mapContentInventoryToPieSlices<AudienceInsightRow>(
+        contentInventoryReport.audienceInsights,
+        (row) => row.audienceName,
+      );
+    }
+    return generateDemographic(PODCAST_AUDIENCES, totalImpr, seed + 7);
+  }, [contentInventoryReport, totalImpr, seed]);
+
+  const adPositions = useMemo(() => {
+    if (adDeliveryReport?.adPositionData?.length) {
+      return mapAdDeliveryToPieSlices<AdPositionRow>(
+        adDeliveryReport.adPositionData,
+        (row) => formatAdPositionLabel(row.adPosition),
+      );
+    }
+    return generateDemographic(AD_POSITIONS, totalImpr, seed + 20);
+  }, [adDeliveryReport, totalImpr, seed]);
+
+  const contentLanguages = useMemo(() => {
+    if (adDeliveryReport?.contentLanguageData?.length) {
+      return mapAdDeliveryToPieSlices<ContentLanguageRow>(
+        adDeliveryReport.contentLanguageData,
+        (row) => formatLanguageLabel(row.language),
+      );
+    }
+    return generateDemographic(CONTENT_LANGUAGES, totalImpr, seed + 21);
+  }, [adDeliveryReport, totalImpr, seed]);
+
+  const deviceOS = useMemo(() => {
+    if (adDeliveryReport?.deviceOSData?.length) {
+      return mapAdDeliveryToPieSlices<DeviceOSRow>(
+        adDeliveryReport.deviceOSData,
+        (row) => row.osLabel || formatLocationLabel(row.os ?? 'Other'),
+      );
+    }
+    return generateDemographic(DEVICE_OS, totalImpr, seed + 22);
+  }, [adDeliveryReport, totalImpr, seed]);
+  const mediaTopics = useMemo(() => {
+    if (contentInventoryReport?.mediaTopics?.length) {
+      return mapContentInventoryToPieSlices<MediaTopicRow>(
+        contentInventoryReport.mediaTopics,
+        (row) => row.mediaName,
+      );
+    }
+    return generateDemographic(MEDIA_TOPICS, totalImpr, seed + 23);
+  }, [contentInventoryReport, totalImpr, seed]);
 
   // Location data
   const targetedCities = useMemo(() => {
@@ -1138,6 +1884,12 @@ export default function Reports() {
   }, [campaigns]);
 
   const cityRows = useMemo(() => {
+    if (countryCityReport?.cityData?.length) {
+      return countryCityReport.cityData
+        .map(mapCityToChartRow)
+        .sort((a, b) => b.impressions - a.impressions);
+    }
+
     const names = targetedCities.map(t => t.city);
     const impr = generateDemographic(names, totalImpr, seed + 8);
     const reaches = generateDemographic(names, kpis.totalReach, seed + 13);
@@ -1153,27 +1905,34 @@ export default function Reports() {
       spent: spents[i].value,
       ltr: 70 + Math.round(ltrRand() * 25),
     })).sort((a, b) => b.impressions - a.impressions);
-  }, [targetedCities, totalImpr, kpis.totalReach, kpis.totalConversions, kpis.totalSpent, seed]);
+  }, [countryCityReport, targetedCities, totalImpr, kpis.totalReach, kpis.totalConversions, kpis.totalSpent, seed]);
 
   const countryRows = useMemo(() => {
+    if (countryCityReport?.countryData?.length) {
+      return countryCityReport.countryData
+        .map(mapCountryToChartRow)
+        .sort((a, b) => b.impressions - a.impressions);
+    }
+
     const map = new Map<string, { name: string; impressions: number; reach: number; conversions: number; spent: number; _ltrSum: number; _ltrN: number; ltr: number }>();
     cityRows.forEach(r => {
-      const existing = map.get(r.country);
+      const country = r.country ?? 'Other';
+      const existing = map.get(country);
       if (existing) {
         existing.impressions += r.impressions;
         existing.reach += r.reach;
         existing.conversions += r.conversions;
         existing.spent += r.spent;
-        existing._ltrSum += r.ltr;
+        existing._ltrSum += r.ltr ?? 0;
         existing._ltrN += 1;
       } else {
-        map.set(r.country, { name: r.country, impressions: r.impressions, reach: r.reach, conversions: r.conversions, spent: r.spent, _ltrSum: r.ltr, _ltrN: 1, ltr: r.ltr });
+        map.set(country, { name: country, impressions: r.impressions, reach: r.reach, conversions: r.conversions, spent: r.spent, _ltrSum: r.ltr ?? 0, _ltrN: 1, ltr: r.ltr ?? 0 });
       }
     });
     return Array.from(map.values())
       .map(r => ({ ...r, ltr: Math.round(r._ltrSum / r._ltrN) }))
       .sort((a, b) => b.impressions - a.impressions);
-  }, [cityRows]);
+  }, [countryCityReport, cityRows]);
 
   const gridColDefs = useMemo<ColDef[]>(() => [
     { field: 'date', headerName: gridGranularity === 'daily' ? 'Date' : gridGranularity === 'weekly' ? 'Week of' : 'Month', width: 130, sort: 'desc' },
@@ -1195,21 +1954,21 @@ export default function Reports() {
   const campaignOverviewRows = useMemo(() => {
     const rand = seededRandom(seed + 444);
     return campaigns.map(c => {
-      const impressions = c.actual_impressions || Math.round(c.budget * (30 + rand() * 20));
-      const spent = c.actual_spend || Math.round(c.budget * 0.55 * 100) / 100;
-      const reach = c.reach || Math.round(impressions * 0.25);
-      const goal = Math.round(c.budget * 50);
-      const ecpm = impressions > 0 ? spent / (impressions / 1000) : 0;
+      const impressions = c.impressions;
+      const spend = c.spend;
+      const reach = c.reach;
+      const goal = c.campaignBudget;
+      const ecpm = impressions > 0 ? spend / (impressions / 1000) : 0;
       return {
         id: c.id,
-        name: c.name,
+        campaignName: c.campaignName,
         status: c.status,
-        startDate: c.start_date,
-        endDate: c.end_date,
-        budget: c.budget,
-        spent,
-        utilization: c.budget > 0 ? Math.min(100, Math.round((spent / c.budget) * 100)) : 0,
-        impressionsGoal: goal,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        budget: c.totalBudget,
+        spend,
+        utilization: c.totalBudget > 0 ? Math.min(100, Math.round((spend / c.totalBudget) * 100)) : 0,
+        campaignBudget: goal,
         impressions,
         reach,
         ltr: c.ltr ?? 75,
@@ -1219,20 +1978,17 @@ export default function Reports() {
   }, [campaigns, seed]);
 
   const overviewColDefs = useMemo<ColDef[]>(() => [
-    { field: 'name', headerName: 'Campaign', flex: 2, minWidth: 160 },
+    { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 160 },
     {
       field: 'id',
       headerName: 'Campaign ID',
       width: 130,
-      valueFormatter: p => (p.value ? String(p.value).slice(0, 8) : ''),
-      tooltipValueGetter: p => String(p.value ?? ''),
-      cellClass: 'font-mono text-xs text-muted-foreground',
     },
     { field: 'status', headerName: 'Status', width: 110, cellRenderer: StatusRenderer },
     { field: 'startDate', headerName: 'Start Date', width: 110 },
     { field: 'endDate', headerName: 'End Date', width: 110 },
-    { field: 'budget', headerName: 'Budget', width: 110, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toLocaleString()}` },
-    { field: 'spent', headerName: 'Spend', width: 110, type: 'numericColumn', valueFormatter: p => `$${Math.round(p.value ?? 0).toLocaleString()}` },
+    { field: 'totalBudget', headerName: 'Budget', width: 110, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toLocaleString()}` },
+    { field: 'spend', headerName: 'Spend', width: 110, type: 'numericColumn', valueFormatter: p => `$${Math.round(p.value ?? 0).toLocaleString()}` },
     {
       headerName: 'Utilization', width: 140,
       cellRenderer: (p: ICellRendererParams) => (
@@ -1242,9 +1998,9 @@ export default function Reports() {
         </div>
       ),
     },
-    { field: 'impressionsGoal', headerName: 'Impressions Goal', width: 140, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
-    { field: 'impressions', headerName: 'Impressions', width: 120, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
-    { field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
+    { field: 'campaignBudget', headerName: 'Impressions Goal', width: 140, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
+    { field: 'impressions', headerName: 'Impressions', width: 120, type: 'numericColumn' },
+    { field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn' },
     { field: 'ltr', headerName: 'LTR', width: 80, type: 'numericColumn', valueFormatter: p => `${p.value ?? 0}%` },
     { field: 'ecpm', headerName: 'eCPM', width: 90, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(2)}` },
   ], []);
@@ -1361,7 +2117,7 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  const renderPieChart = (title: string, data: DemographicSlice[]) => {
+  const renderPieChart = (title: string, data: PieChartSlice[]) => {
     const totalImpressions = data.reduce((a, d) => a + d.value, 0);
     const ltrRand = seededRandom(seed + title.length * 7 + 31);
     const rows = data.map((d, i) => {
@@ -1369,9 +2125,9 @@ export default function Reports() {
       return {
         name: d.name,
         impressions: d.value,
-        reach: Math.round(kpis.totalReach * share),
-        spend: kpis.totalSpent * share,
-        ltr: 80 + Math.round(ltrRand() * 20),
+        reach: d.reach ?? Math.round(kpis.totalReach * share),
+        spend: d.spent ?? kpis.totalSpent * share,
+        ltr: d.ltr ?? 80 + Math.round(ltrRand() * 20),
         color: COLORS[i % COLORS.length],
       };
     });
@@ -1543,9 +2299,9 @@ export default function Reports() {
                   {selectedCampaignId === 'all' && campaigns.length > 1 ? (
                     campaigns.map((c, i) => (
                       <Bar
-                        key={c.id}
-                        dataKey={c.id}
-                        name={c.name}
+                        key={c.id ?? String(c.externalRefId)}
+                        dataKey={c.id ?? String(c.externalRefId)}
+                        name={c.campaignName ?? `Campaign ${c.externalRefId}`}
                         stackId="metric"
                         fill={COLORS[i % COLORS.length]}
                         radius={i === campaigns.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
@@ -1565,7 +2321,7 @@ export default function Reports() {
           </Card>
 
           {/* ─── Per-Campaign Charts (All Campaigns view) ─── */}
-          {selectedCampaignId === 'all' && campaigns.length > 1 && (
+          {selectedCampaignId === 'all'  && (
             <div className="grid grid-cols-1 gap-4">
               {/* LTR per campaign */}
               <Card>
@@ -1576,7 +2332,7 @@ export default function Reports() {
                   <ResponsiveContainer width="100%" height={Math.max(240, campaigns.length * 36)}>
                     <ComposedChart
                       data={[...campaigns]
-                        .map(c => ({ name: c.name, ltr: c.ltr ?? 75 }))
+                        .map(c => ({ name: c.campaignName, ltr: c.ltr ? parseInt(c.ltr+"") : 0 }))
                         .sort((a, b) => b.ltr - a.ltr)}
                       layout="vertical"
                       margin={{ left: 10, right: 30 }}
@@ -1597,48 +2353,44 @@ export default function Reports() {
                   <CardTitle className="text-base">Impressions share by campaigns</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {(() => {
-                    const rand = seededRandom(seed + 999);
-                    const slices = campaigns.map((c, i) => ({
-                      name: c.name,
-                      value: c.actual_impressions || Math.round(c.budget * (30 + rand() * 20)),
-                      color: COLORS[i % COLORS.length],
-                    }));
-                    const total = slices.reduce((a, s) => a + s.value, 0);
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
-                        <ResponsiveContainer width="100%" height={240}>
-                          <PieChart>
-                            <Pie
-                              data={slices}
-                              cx="50%" cy="50%"
-                              innerRadius={60} outerRadius={95}
-                              paddingAngle={2}
-                              dataKey="value"
-                              label={(e: any) => `${((e.value / total) * 100).toFixed(1)}%`}
-                              labelLine={false}
-                            >
-                              {slices.map((s, i) => <Cell key={i} fill={s.color} />)}
-                            </Pie>
-                            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v.toLocaleString()} (${((v / total) * 100).toFixed(1)}%)`} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="w-full space-y-1.5 text-xs">
-                          {slices.map((s) => (
-                            <div key={s.name} className="flex items-center justify-between gap-3">
-                              <span className="inline-flex items-center gap-2 min-w-0">
-                                <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                                <span className="text-foreground truncate">{s.name}</span>
-                              </span>
-                              <span className="tabular-nums text-muted-foreground shrink-0">
-                                {((s.value / total) * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                  {campaignImpressionShareSlices.length === 0 || campaignImpressionShareTotal === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">No impression share data for this period.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
+                      <ResponsiveContainer width="100%" height={240}>
+                        <PieChart>
+                          <Pie
+                            data={campaignImpressionShareSlices}
+                            cx="50%" cy="50%"
+                            innerRadius={60} outerRadius={95}
+                            paddingAngle={2}
+                            dataKey="value"
+                            label={(e: { value: number }) => `${((e.value / campaignImpressionShareTotal) * 100).toFixed(1)}%`}
+                            labelLine={false}
+                          >
+                            {campaignImpressionShareSlices.map((s, i) => <Cell key={i} fill={s.color} />)}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(v: number) => `${v.toLocaleString()} (${((v / campaignImpressionShareTotal) * 100).toFixed(1)}%)`}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="w-full space-y-1.5 text-xs">
+                        {campaignImpressionShareSlices.map((s) => (
+                          <div key={s.name} className="flex items-center justify-between gap-3">
+                            <span className="inline-flex items-center gap-2 min-w-0">
+                              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                              <span className="text-foreground truncate">{s.name}</span>
+                            </span>
+                            <span className="tabular-nums text-muted-foreground shrink-0">
+                              {((s.value / campaignImpressionShareTotal) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1690,6 +2442,7 @@ export default function Reports() {
                   {renderPieChart('Ad Position', adPositions)}
                   {renderPieChart('Content Language', contentLanguages)}
                   {renderPieChart('Device OS', deviceOS)}
+                  {renderPieChart('Device Type', deviceTypes)}
                 </div>
               </div>
 
@@ -1697,7 +2450,6 @@ export default function Reports() {
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Demographics</h2>
                 <div className="grid grid-cols-1 gap-4">
-                  {renderPieChart('Device Type', deviceTypes)}
                   {renderPieChart('Age', ageGroups)}
                   {renderPieChart('Gender', genders)}
                 </div>
@@ -1718,15 +2470,15 @@ export default function Reports() {
                     renderCard={(row) => (
                       <div key={row.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="font-medium text-foreground text-sm truncate">{row.name}</p>
+                          <p className="font-medium text-foreground text-sm truncate">{row.campaignName}</p>
                           <Badge variant="secondary" className={statusColors[row.status] || ''}>
                             {formatStatus(row.status)}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{row.startDate} → {row.endDate}</p>
                         <div className="space-y-1.5">
-                          <MobileStatRow label="Budget" value={`$${row.budget.toLocaleString()}`} />
-                          <MobileStatRow label="Spend" value={`$${Math.round(row.spent).toLocaleString()}`} />
+                          <MobileStatRow label="Budget" value={`$${row.totalBudget.toLocaleString()}`} />
+                          <MobileStatRow label="Spend" value={`$${Math.round(row.spend).toLocaleString()}`} />
                           <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
                           <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
                           <MobileStatRow label="LTR" value={`${row.ltr}%`} />
@@ -1784,7 +2536,7 @@ export default function Reports() {
                           {formatStatus(row.campaignStatus)}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{row.campaignName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{row.campaignName || row.campaignDB}</p>
                       <div className="space-y-1.5">
                         <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
                         <MobileStatRow label="Spend" value={`$${row.spent.toFixed(0)}`} />
@@ -1795,7 +2547,7 @@ export default function Reports() {
                   )}
                 />
               ) : (
-                <div style={{ height: 600 }}>
+                <div style={{ height: 350 }}>
                   <AgGridReact
                     theme={appGridTheme}
                     modules={[AllCommunityModule]}

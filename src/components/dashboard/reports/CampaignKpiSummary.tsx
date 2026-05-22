@@ -31,7 +31,7 @@ const toneClasses = (tone: KpiTone) => {
 
 const formatNum = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  //if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return Math.round(n).toString();
 };
 const formatMoney = (n: number): string =>
@@ -185,7 +185,7 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
 
           {/* Budget */}
           <Tile
-            label="Budget"
+            label="Spend"
             value={formatMoney(budget.spent)}
             visual={<Donut pct={budgetPct} color={colorBudget} />}
           >

@@ -1106,13 +1106,9 @@ function ExpressCustomization({
 function ProCustomization({
  contentSettings,
  onContentSettingsChange,
- trackingPixel,
- onTrackingPixelChange
 }: {
   contentSettings: ProContentSettings;
   onContentSettingsChange: (v: ProContentSettings) => void;
-  trackingPixel: string;
-  onTrackingPixelChange: (v: string) => void;
 }) {
   const updateContent = (key: keyof ProContentSettings, value: boolean | number | string) =>
     onContentSettingsChange({ ...contentSettings, [key]: value });
@@ -1177,21 +1173,7 @@ function ProCustomization({
         </div>
       </section>
 
-      {/* Tracking Pixel — after Content Settings */}
-      <div className="space-y-2">
-        <Label className="text-base font-semibold">Tracking Pixel URL (Optional) <MyTooltip html={trackingPixelTooltip} /> </Label>
-        <div className="relative">
-        <Input
-          value={trackingPixel}
-          onChange={(e) => onTrackingPixelChange(e.target.value)}
-          placeholder="https://tracking.example.com/pixel?id=YOUR_ID"
-          type="url"
-        />
-        <span className="absolute right-2 top-2">
-          <MyTooltip infoText="Paste the full pixel URL provided by your tracking platform. The pixel fires once per ad impression — it does not require a listener to take any action." />
-        </span>
-        </div>
-      </div>
+
     </div>
   );
 }
@@ -1513,11 +1495,25 @@ export default function AdCreatorForm({
               <ProCustomization
                 contentSettings={proContentSettings}
                 onContentSettingsChange={onProContentSettingsChange}
-                trackingPixel={trackingPixel}
-                onTrackingPixelChange={onTrackingPixelChange}
               />
             )
           }
+
+          {/* Tracking Pixel — after Content Settings */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">Tracking Pixel URL (Optional) <MyTooltip html={trackingPixelTooltip} /> </Label>
+            <div className="relative">
+            <Input
+              value={trackingPixel}
+              onChange={(e) => onTrackingPixelChange(e.target.value)}
+              placeholder="https://tracking.example.com/pixel?id=YOUR_ID"
+              type="url"
+            />
+            <span className="absolute right-2 top-2">
+              <MyTooltip infoText="Paste the full pixel URL provided by your tracking platform. The pixel fires once per ad impression — it does not require a listener to take any action." />
+            </span>
+            </div>
+          </div>
 
           <Button
             className="w-full h-12"
@@ -1624,9 +1620,27 @@ export default function AdCreatorForm({
 
               {
                 isPro && showMusicOptions && (
-                  <ProCustomization contentSettings={proContentSettings} onContentSettingsChange={onProContentSettingsChange} trackingPixel={trackingPixel} onTrackingPixelChange={onTrackingPixelChange} />
+                  <ProCustomization contentSettings={proContentSettings} onContentSettingsChange={onProContentSettingsChange} />
                 )
               }
+
+          {/* Tracking Pixel — after Content Settings */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">Tracking Pixel URL (Optional) <MyTooltip html={trackingPixelTooltip} /> </Label>
+            <div className="relative">
+            <Input
+              value={trackingPixel}
+              onChange={(e) => onTrackingPixelChange(e.target.value)}
+              placeholder="https://tracking.example.com/pixel?id=YOUR_ID"
+              type="url"
+            />
+            <span className="absolute right-2 top-2">
+              <MyTooltip infoText="Paste the full pixel URL provided by your tracking platform. The pixel fires once per ad impression — it does not require a listener to take any action." />
+            </span>
+            </div>
+          </div>
+
+
             </div>
 
             <audio ref={audioRef} src={generatedAd.url} preload="auto" />
