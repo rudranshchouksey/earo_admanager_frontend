@@ -55,6 +55,11 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
         URL.revokeObjectURL(url);
         return;
       }
+      if (tempAudio.duration < 1) {
+        setError(`Audio must be 1 second or more. This file is ${Math.round(tempAudio.duration)}s.`);
+        URL.revokeObjectURL(url);
+        return;
+      }
       setFile(selected);
       setAudioUrl(url);
       setDuration(Math.round(tempAudio.duration));

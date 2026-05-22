@@ -75,6 +75,11 @@ export interface Campaign {
   impressions?: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   adGroups?: AdGroup[];
+  externalRefId?: number;
+  spend?: number;
+  reach?: number;
+  ltr?: number;
+  ecpm?: number;
 }
 
 export interface CampaignsResponse {
