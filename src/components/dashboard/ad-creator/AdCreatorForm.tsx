@@ -891,7 +891,7 @@ function ExpressCustomization({
 
         {isPro && (
           <div className="space-y-2">
-            <Label className="text-sm">Speaker Age  </Label>
+            <Label className="text-sm flex items-center gap-2">Speaker Age  </Label>
             <Select value={age} onValueChange={onAgeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a tone" />
