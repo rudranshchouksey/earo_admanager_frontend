@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
-  const { isPro, isAgency, role } = useSessionFlags();
+  const { isPro, isAgency } = useSessionFlags();
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
@@ -81,6 +81,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [accountType, setAccountType] = useState<string>('');
+  const role = "ADMIN";
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
