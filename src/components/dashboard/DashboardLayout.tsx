@@ -192,7 +192,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
     }
     getProfile();
-  }, [session?.currentOrganizationId, isPro])
+  }, [session?.currentOrganizationId, isPro, advertisers])
   
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
