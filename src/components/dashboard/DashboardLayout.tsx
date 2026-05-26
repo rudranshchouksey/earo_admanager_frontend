@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
-  const { isPro, isAgency } = useSessionFlags();
+  const { isPro, isAgency, role } = useSessionFlags();
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
@@ -134,11 +134,38 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (selectedAdvertiser) {
-      console.log("selectedAdvertiser", selectedAdvertiser);
-      auth.setCurrentAdvertiserId(selectedAdvertiser, advertisers.find((a) => a.id === selectedAdvertiser)?.isPro ?? false);
-      const orgId = advertisers.find((a) => a.id === selectedAdvertiser)?.orgId;
-      if (orgId) {
-        auth.setCurrentOrganizationId(orgId);
+      console.log("selectedAdvertiser", selectedAdvertiser, advertisers);
+      if(advertisers.length === 0){
+        console.log("no advertisers", session?.currentOrganizationId);
+       
+        advertiserApi.getAdvertisers(session?.currentOrganizationId ?? '').then(res => {
+          console.log("allAdvertisers", res.status, res.data.data);
+          if(res.status === 200 && res.data.data.length > 0){
+            setAdvertisers(res.data.data);
+            const currentAdvertiser = res.data.data.find((a) => a.id === selectedAdvertiser);
+            if(currentAdvertiser){
+              auth.setCurrentAdvertiserId(currentAdvertiser?.id ?? '', currentAdvertiser?.isPro ?? false);
+              const orgId = currentAdvertiser?.orgId;
+              if (orgId) {
+                auth.setCurrentOrganizationId(orgId);
+              }
+            }
+            else{
+              // auth.setCurrentAdvertiserId('', false);
+              // const orgId = res.data.data[0]?.orgId;
+              // if (orgId) {
+              //   auth.setCurrentOrganizationId(orgId);
+              // }
+            }
+          }
+        }).catch(err => console.log("error", err));
+      }
+      else{
+        auth.setCurrentAdvertiserId(selectedAdvertiser, advertisers.find((a) => a.id === selectedAdvertiser)?.isPro ?? false);
+        const orgId = advertisers.find((a) => a.id === selectedAdvertiser)?.orgId;
+        if (orgId) {
+          auth.setCurrentOrganizationId(orgId);
+        }
       }
 
       setTimeout(() => {
@@ -163,7 +190,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
     }
     getProfile();
-  }, [])
+  }, [session?.currentOrganizationId, isPro])
   
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
@@ -347,15 +374,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {adv.advertiserName}
                   </SelectItem>
                 ))}
-                <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account?page=advertisers')}>
-                  Add Advertiser                 
-                </SelectItem>
+                {
+                  (role === "ADMIN" || role === "EDITOR" ) && (
+                    <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account?page=advertisers')}>
+                      Add Advertiser                 
+                    </SelectItem>  
+                  )
+                }
               </SelectContent>
             </Select>
           )}
 
           {/* Persistent CTAs — hidden on dashboard home for new users, always shown elsewhere */}
-          {(location.pathname !== '/dashboard' || !isNewUser) && (
+          {(location.pathname !== '/dashboard' || !isNewUser) && (role === "ADMIN" || role === "EDITOR") && (
             <div className="flex items-center gap-3">
               <Button size="sm" variant="outline" className="h-9 gap-2" onClick={() => navigate('/dashboard/ads/new')}>
                 <Volume2 className="h-4 w-4 shrink-0" />
