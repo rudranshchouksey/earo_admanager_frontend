@@ -22,6 +22,7 @@ import {
   DEFAULT_INDUSTRY_CATEGORY,
   DEFAULT_SUB_INDUSTRY,
 } from '@/constants/industryCategories';
+import { useSessionFlags } from '@/hooks/useSessionFlags';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -101,7 +102,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [form, setForm] = useState<AdvertiserForm>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
-
+  const { role } = useSessionFlags();
   const openCreate = () => {
     setEditing(null);
     setForm(defaultForm);
@@ -221,13 +222,13 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
       {
         headerName: '',
         field: 'actions',
-        width: 90,
-        cellRenderer: ActionsRenderer,
+        width: role === "ADMIN" || role === "EDITOR" ? 90 : 0,
+        cellRenderer: role === "ADMIN" || role === "EDITOR" ? ActionsRenderer : undefined,
         sortable: false,
         filter: false,
       },
     ],
-    [t, StatusRenderer, ActionsRenderer, IndustryRenderer],
+    [t, StatusRenderer, ActionsRenderer, IndustryRenderer, role],
   );
 
   return (
@@ -238,10 +239,14 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
             <CardTitle>{t('account.advertisers')}</CardTitle>
             <CardDescription>{t('account.manage_advertisers')}</CardDescription>
           </div>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            {t('account.new_advertiser')}
-          </Button>
+          {
+            (role === "ADMIN" || role === "EDITOR" ) && (
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="h-4 w-4 mr-1" />
+                {t('account.new_advertiser')}
+              </Button>
+            )
+          }
         </CardHeader>
         <CardContent>
           {isMobile ? (

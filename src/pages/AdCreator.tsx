@@ -19,6 +19,7 @@ import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
+import { Helmet } from "react-helmet-async";
 
 const PAGE_SIZE = 5;
 
@@ -559,6 +560,10 @@ export default function AdCreator() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
+
+      <Helmet>
+        <title>EARO | Audio Ad</title>
+      </Helmet>
       <div>
         {id ? (
           <h1 className="text-2xl font-semibold text-foreground">

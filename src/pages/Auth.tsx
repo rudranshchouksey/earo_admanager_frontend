@@ -22,6 +22,7 @@ import { OtpModal } from "@/components/auth/otp-modal";
 import { MfaSelector } from "@/components/auth/mfa-selector";
 import { userApi } from "@/services/user";
 import { AuthPageBackground } from "@/components/dashboard/MockDashboardPreview";
+import { Helmet } from "react-helmet-async";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -396,6 +397,10 @@ export default function Auth() {
 
   return (
     <AuthPageBackground>
+        <Helmet>
+          <title>EARO | Join</title>
+        </Helmet>
+
         <div className="w-full space-y-6">
           <Link to="/" className="flex items-center justify-center gap-2">
             <img src="/og-image.png" alt="logo" className="h-10 w-auto" />
@@ -427,7 +432,8 @@ export default function Auth() {
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.log("Login Failed")}
-                    shape="square"
+                    shape="square"                    
+                    width="100%"
                   />
                 </GoogleOAuthProvider>
               </div>

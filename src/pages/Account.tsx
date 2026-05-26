@@ -76,6 +76,8 @@ import {
   DEFAULT_INDUSTRY_CATEGORY,
   DEFAULT_SUB_INDUSTRY,
 } from "@/constants/industryCategories";
+import { Helmet } from "react-helmet-async";
+import { countryList } from "@/lib/countries";
 interface Cards {
   id: string;
   cardId: string;
@@ -136,7 +138,10 @@ export default function Account() {
   const [industry, setIndustry] = useState<string>("RETAIL");
   const [subIndustry, setSubIndustry] = useState<string>("Fashion & Apparel");
   const [country, setCountry] = useState("");
-  const [countries, setCountries] = useState<Country[]>([]);
+  // const [countries, setCountries] = useState<Country[]>([]);
+  const { isPro, isAgency, role } = useSessionFlags();
+  const countries:Country[] = countryList;
+
   const { geoData, isLoading: geoLoading } = useGeoLocation();
 
   useEffect(() => {
@@ -217,20 +222,6 @@ export default function Account() {
       getAdvertisers(organizationId);
 
 
-
-
-
-      const fetchCountries = async () => {
-        const { data, error } = await targetingApi.getCountries();
-        if (error) {
-          console.error(error);
-          return;
-        }
-        setCountries(data?.data || []);
-      };
-
-      fetchCountries();
-
     };
 
     const fetchCards = async () => {
@@ -275,10 +266,13 @@ export default function Account() {
     }
 
 
-    paymentHistory();
+    if(role === 'ADMIN') {
+      paymentHistory();
+      fetchCards();
+    }
     load();
-    fetchCards();
-  }, []);
+
+  }, [role, isAgency, isPro]);
 
 
   // // Auto-fill country from geo-detect
@@ -526,7 +520,7 @@ export default function Account() {
   const update = (field: keyof UserProfile, value: any) =>
     setProfile((p) => ({ ...p, [field]: value }));
 
-  const { isPro, isAgency } = useSessionFlags();
+
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
@@ -580,8 +574,35 @@ export default function Account() {
     setDeletePaymentMethodAlertOpen(true);
   };
 
+    let gridRows;
+
+    if (isAgency) {
+      if (role === 'ADMIN') {
+        gridRows = 5;
+      } else if (role === 'EDITOR') {
+        gridRows = 2;
+      } else {
+        gridRows = 1;
+      }
+    } else {
+      if (role === 'ADMIN') {
+        gridRows = isPro ? 4 : 3;
+      } else if (role === 'EDITOR') {
+        gridRows = 1;
+      } else {
+        gridRows = 1;
+      }
+    }
+
+
+
+  console.log({isAgency, role, isPro, gridRows});
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <Helmet>
+        <title>EARO | Account</title>
+      </Helmet>
       <div>
         <h1 className="text-2xl font-bold text-foreground">
           {t("account.title")}
@@ -595,26 +616,32 @@ export default function Account() {
         key={isPro ? "pro" : "express"}
       >
         <TabsList
-          className={`grid w-full ${isAgency ? "grid-cols-4" : isPro ? "grid-cols-3" : "grid-cols-3"}`}
+          className={`grid w-full grid-cols-${gridRows}`}
         >
           {(
             <TabsTrigger value="profile">
               {t("account.tab_profile")}
             </TabsTrigger>
           )}
-          {/* {isPro && (
+          {isPro && role === "ADMIN" && (
             <TabsTrigger value="users">{t("account.tab_users")}</TabsTrigger>
-          )} */}
-          {isAgency && (
+          )}
+          {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
             <TabsTrigger value="advertisers">
               {t("account.tab_advertisers")}
             </TabsTrigger>
           )}
-          <TabsTrigger value="company">{t("account.tab_company")}</TabsTrigger>
+          {
+            role === 'ADMIN' && <TabsTrigger value="company">{t("account.tab_company")}</TabsTrigger>
+
+          }
+          {
+            role === 'ADMIN' && <TabsTrigger value="billing">{t("account.tab_billing")}</TabsTrigger>
+          }
           {/* <TabsTrigger value="tracking">
             {t("account.tab_tracking")}
           </TabsTrigger> */}
-          <TabsTrigger value="billing">{t("account.tab_billing")}</TabsTrigger>
+
         </TabsList>
 
         {/* PROFILE TAB (Express only) */}
@@ -739,186 +766,241 @@ export default function Account() {
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {/* {isPro && (
+        {isPro && role === "ADMIN" && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>
-        )} */}
+        )}
 
         {/* ADVERTISERS TAB (Pro Agency only) */}
-        {isAgency && (
+        {isAgency && ( role === 'ADMIN' || role === 'EDITOR' ) && (
           <TabsContent value="advertisers" className="mt-4">
             <AdvertisersTab advertisers={advertisers} createAdvertiser={createAdvertiser} updateAdvertiser={updateAdvertiser} />
           </TabsContent>
         )}
 
         {/* COMPANY TAB */}
-        <TabsContent value="company" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("account.company_details")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form onSubmit={saveCompanyDetails} className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t("account.company_name")}</Label>
-                <Input
-                  value={organizationDetails?.orgName ?? ""}
-                  onChange={(e) => setOrganizationDetails({...organizationDetails, orgName: e.target.value})}
-                  placeholder="Acme Inc."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("account.company_type")}</Label>
-                <Input
-                  value={organizationDetails?.orgType ?? ""}
-                  placeholder="Company Type"
-                  readOnly
-                  disabled
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("account.industry")}</Label>
-                <Select
-                  value={industry}
-                  onValueChange={(v) => {
-                    setIndustry(v);
-                    setSubIndustry(INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "" );
-                    setOrganizationDetails({
-                      ...organizationDetails!,
-                      industry: v,
-                      subIndustry: INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "",
-                    })
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("account.select_industry")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(INDUSTRY_CATEGORIES) as [IndustryCategoryKey, (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey]][]).map(
-                      ([key, cat]) => (
-                        <SelectItem key={key} value={key}>
-                          {cat.name}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Sub-industry</Label>
-                <Select
-                  value={
-                    subIndustry
-                  }
-                  onValueChange={(v) => {
-                    setSubIndustry(v);
-                    setOrganizationDetails({
-                      ...organizationDetails!,
-                      subIndustry: v,
-                    })
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sub-industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    { INDUSTRY_CATEGORIES[industry] ?   INDUSTRY_CATEGORIES[industry].industries?.map((sub:string) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
-                    )) : null}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>{t("account.affiliateCode")}</Label>
-                <div className="flex gap-2">
+        {
+          role === 'ADMIN' && (
+          <TabsContent value="company" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("account.company_details")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={saveCompanyDetails} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t("account.company_name")}</Label>
                   <Input
-                    value={profile.affiliateCode}
-                    disabled
-                    className="font-mono"
+                    value={organizationDetails?.orgName ?? ""}
+                    onChange={(e) => setOrganizationDetails({...organizationDetails, orgName: e.target.value})}
+                    placeholder="Acme Inc."
                   />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={copyReferralCode}
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("account.company_type")}</Label>
+                  <Input
+                    value={organizationDetails?.orgType ?? ""}
+                    placeholder="Company Type"
+                    readOnly
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("account.industry")}</Label>
+                  <Select
+                    value={industry}
+                    onValueChange={(v) => {
+                      setIndustry(v);
+                      setSubIndustry(INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "" );
+                      setOrganizationDetails({
+                        ...organizationDetails!,
+                        industry: v,
+                        subIndustry: INDUSTRY_CATEGORIES[v] && INDUSTRY_CATEGORIES[v].industries ? INDUSTRY_CATEGORIES[v].industries : "",
+                      })
+                    }}
                   >
-                    <Copy className="h-4 w-4" />
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("account.select_industry")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(INDUSTRY_CATEGORIES) as [IndustryCategoryKey, (typeof INDUSTRY_CATEGORIES)[IndustryCategoryKey]][]).map(
+                        ([key, cat]) => (
+                          <SelectItem key={key} value={key}>
+                            {cat.name}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sub-industry</Label>
+                  <Select
+                    value={
+                      subIndustry
+                    }
+                    onValueChange={(v) => {
+                      setSubIndustry(v);
+                      setOrganizationDetails({
+                        ...organizationDetails!,
+                        subIndustry: v,
+                      })
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub-industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      { INDUSTRY_CATEGORIES[industry] ?   INDUSTRY_CATEGORIES[industry].industries?.map((sub:string) => (
+                        <SelectItem key={sub} value={sub}>
+                          {sub}
+                        </SelectItem>
+                      )) : null}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>{t("account.affiliateCode")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={profile.affiliateCode}
+                      disabled
+                      className="font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={copyReferralCode}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t("account.language")}</Label>
+                  <Select
+                    value={profile.language?.toLowerCase() ?? "en"}
+                    onValueChange={(v) => update("language", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="ar">Arabic</SelectItem>
+                      <SelectItem value="hi">Hindi</SelectItem>
+                      <SelectItem value="bn">Bengali</SelectItem>
+                      <SelectItem value="zh">Chinese</SelectItem>
+                      <SelectItem value="es">Spanish</SelectItem>
+                      <SelectItem value="fr">French</SelectItem>
+                      <SelectItem value="de">German</SelectItem>
+                      <SelectItem value="ja">Japanese</SelectItem>
+                      <SelectItem value="ko">Korean</SelectItem>
+                      <SelectItem value="ru">Russian</SelectItem>
+                      <SelectItem value="pt">Portuguese</SelectItem>
+                      <SelectItem value="it">Italian</SelectItem>
+                      <SelectItem value="tr">Turkish</SelectItem>
+                      <SelectItem value="ta">Tamil</SelectItem>
+                      <SelectItem value="te">Telugu</SelectItem>
+                      <SelectItem value="ml">Malayalam</SelectItem>
+                      <SelectItem value="kn">Kannada</SelectItem>
+                      <SelectItem value="gu">Gujarati</SelectItem>
+                      <SelectItem value="mr">Marathi</SelectItem>
+                      <SelectItem value="pa">Punjabi</SelectItem>
+                      <SelectItem value="ur">Urdu</SelectItem>
+                      <SelectItem value="fa">Persian</SelectItem>
+                      <SelectItem value="th">Thai</SelectItem>
+                      <SelectItem value="vi">Vietnamese</SelectItem>
+                      <SelectItem value="id">Indonesian</SelectItem>
+                      <SelectItem value="ms">Malay</SelectItem>
+                      <SelectItem value="nl">Dutch</SelectItem>
+                      <SelectItem value="pl">Polish</SelectItem>
+                      <SelectItem value="uk">Ukrainian</SelectItem>
+                      <SelectItem value="sv">Swedish</SelectItem>
+                      <SelectItem value="da">Danish</SelectItem>
+                      <SelectItem value="fi">Finnish</SelectItem>
+                      <SelectItem value="no">Norwegian</SelectItem>
+                      <SelectItem value="el">Greek</SelectItem>
+                      <SelectItem value="he">Hebrew</SelectItem>
+                      <SelectItem value="cs">Czech</SelectItem>
+                      <SelectItem value="ro">Romanian</SelectItem>
+                      <SelectItem value="hu">Hungarian</SelectItem>
+                      <SelectItem value="sk">Slovak</SelectItem>
+                      <SelectItem value="bg">Bulgarian</SelectItem>
+                      <SelectItem value="hr">Croatian</SelectItem>
+                      <SelectItem value="sr">Serbian</SelectItem>
+                      <SelectItem value="sl">Slovenian</SelectItem>
+                      <SelectItem value="et">Estonian</SelectItem>
+                      <SelectItem value="lv">Latvian</SelectItem>
+                      <SelectItem value="lt">Lithuanian</SelectItem>
+                      <SelectItem value="sw">Swahili</SelectItem>
+                      <SelectItem value="am">Amharic</SelectItem>
+                      <SelectItem value="fil">Filipino</SelectItem>
+                      <SelectItem value="ne">Nepali</SelectItem>
+                      <SelectItem value="si">Sinhala</SelectItem>
+                      <SelectItem value="my">Burmese</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Country</Label>
+                  <Select
+                    value={country}
+                    onValueChange={(v) => {
+                      setCountry(v)
+                      setOrganizationDetails({
+                        ...organizationDetails!,
+                        country: v,
+                      })
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country.id} value={country.name}>
+                          {country.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>{t("account.newsletter")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("account.newsletter_hint")}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={profile.newsletterOpt}
+                    onCheckedChange={(v) => update("newsletterOpt", v)}
+                  />
+                </div>
+
+                {
+                  (role === "ADMIN" || role === "EDITOR" ) && (
+                    <Button type="submit" disabled={saving}>
+                    {saving ? t("common.saving") : t("common.save_changes")}
                   </Button>
-                </div>
-                
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("account.language")}</Label>
-                <Select
-                  value={profile.language?.toLowerCase() ?? "en"}
-                  onValueChange={(v) => update("language", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">
-                      {t("layout.language_en")}
-                    </SelectItem>
-                    <SelectItem value="ar">
-                      {t("layout.language_ar")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Country</Label>
-                <Select
-                  value={country}
-                  onValueChange={(v) => {
-                    setCountry(v)
-                    setOrganizationDetails({
-                      ...organizationDetails!,
-                      country: v,
-                    })
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countries.map((country) => (
-                      <SelectItem key={country.id} value={country.name}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>{t("account.newsletter")}</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("account.newsletter_hint")}
-                  </p>
-                </div>
-                <Switch
-                  checked={profile.newsletterOpt}
-                  onCheckedChange={(v) => update("newsletterOpt", v)}
-                />
-              </div>
-
-              <Button type="submit" disabled={saving}>
-                {saving ? t("common.saving") : t("common.save_changes")}
-              </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
+    
+                  )
+                }
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          )
+        }
         {/* TRACKING TAB */}
         <TabsContent value="tracking" className="mt-4">
           <Card>
@@ -945,313 +1027,317 @@ export default function Account() {
         </TabsContent>
 
         {/* BILLING TAB */}
-        <TabsContent value="billing" className="mt-4 space-y-4">
-          <Tabs defaultValue="prepaid">
-            {/* <TabsList
-              className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
-            >
-              <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
-              {isAgency && (
-                <TabsTrigger value="postpaid">
-                  {t("account.postpaid")}
-                </TabsTrigger>
-              )}
-            </TabsList> */}
-
-            {/* PREPAID SUB-TAB */}
-            <TabsContent value="prepaid" className="mt-4 space-y-4">
-              <div className="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-foreground">
-                        $1,240.00
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("account.spent_this_month")}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Receipt className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-foreground">
-                        $2,500.00
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("account.paid_this_month")}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("account.payment_methods")}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {
-                    cards.length > 0 ? (
-                      cards.map((card) => (
-                        <div key={card.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                          <div className="flex items-center justify-between w-full gap-3">
-                            <div className="flex items-center gap-3">
-                            <CreditCard className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                {card.last_4}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {card.type}
-                              </p>
-                            </div>
-                            </div>
-                            <span>
-                              <Button variant="secondary" size="sm" onClick={deletePaymentMethod}>
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex items-center justify-center rounded-lg border border-border p-3">
-                        <button className="text-sm text-muted-foreground">
-                          No payment methods found
-                        </button>
+        {
+          role === 'ADMIN' && (
+            <TabsContent value="billing" className="mt-4 space-y-4">
+            <Tabs defaultValue="prepaid">
+              {/* <TabsList
+                className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
+              >
+                <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
+                {isAgency && (
+                  <TabsTrigger value="postpaid">
+                    {t("account.postpaid")}
+                  </TabsTrigger>
+                )}
+              </TabsList> */}
+  
+              {/* PREPAID SUB-TAB */}
+              <TabsContent value="prepaid" className="mt-4 space-y-4">
+                <div className="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <DollarSign className="h-5 w-5 text-primary" />
                       </div>
-                    )
-                  }
-                  
-                  <Button variant="outline" size="sm" onClick={addPaymentMethod}>
-                    {t("account.add_payment_method")}
-                  </Button> 
-                </CardContent>
-              </Card>
-
-              <Card className="hidden">
-                <CardHeader>
-                  <CardTitle>{t("account.coupons")}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input placeholder={t("account.enter_coupon")} />
-                    <Button variant="outline">{t("account.apply")}</Button>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-3">
-                      <Tag className="h-4 w-4 text-primary" />
                       <div>
-                        <p className="text-sm font-medium text-foreground">
-                          WELCOME25
+                        <p className="text-2xl font-bold text-foreground">
+                          $1,240.00
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          25% off — applied automatically
+                          {t("account.spent_this_month")}
                         </p>
                       </div>
-                    </div>
-                    <Badge className="bg-green-100 text-green-700 border-0">
-                      {t("account.active")}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("account.payment_history")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("account.date")}</TableHead>
-                        <TableHead>{t("account.description")}</TableHead>
-                        <TableHead>{t("account.amount")}</TableHead>
-                        <TableHead>{t("account.status")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {
-                        paymentHistory.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center">
-                              <p className="text-xs text-muted-foreground">
-                                No payment history found
-                              </p>
-                            </TableCell>
-                          </TableRow>
-                        ) : ( paymentHistory.map((row, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-sm">{row.createdAt}</TableCell>
-                          <TableCell className="text-sm">{row.description}</TableCell>
-                          <TableCell className="text-sm font-medium">
-                            ${row.amount.toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-xs">
-                              {row.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                          )
-                        ))
-                      }
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* POSTPAID SUB-TAB (Pro only) */}
-            {/* {isAgency && (
-              <TabsContent value="postpaid" className="mt-4 space-y-4">
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Receipt className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-foreground">
+                          $2,500.00
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("account.paid_this_month")}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+  
                 <Card>
                   <CardHeader>
-                    <CardTitle>{t("account.credit_approval")}</CardTitle>
+                    <CardTitle>{t("account.payment_methods")}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-3 rounded-lg border border-border p-4">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {t("account.credit_check_passed")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("account.approved_on")}
-                        </p>
+                  <CardContent className="space-y-3">
+                    {
+                      cards.length > 0 ? (
+                        cards.map((card) => (
+                          <div key={card.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                            <div className="flex items-center justify-between w-full gap-3">
+                              <div className="flex items-center gap-3">
+                              <CreditCard className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  {card.last_4}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {card.type}
+                                </p>
+                              </div>
+                              </div>
+                              <span>
+                                <Button variant="secondary" size="sm" onClick={deletePaymentMethod}>
+                                  <Trash className="h-3 w-3" />
+                                </Button>
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-center justify-center rounded-lg border border-border p-3">
+                          <button className="text-sm text-muted-foreground">
+                            No payment methods found
+                          </button>
+                        </div>
+                      )
+                    }
+                    
+                    <Button variant="outline" size="sm" onClick={addPaymentMethod}>
+                      {t("account.add_payment_method")}
+                    </Button> 
+                  </CardContent>
+                </Card>
+  
+                <Card className="hidden">
+                  <CardHeader>
+                    <CardTitle>{t("account.coupons")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input placeholder={t("account.enter_coupon")} />
+                      <Button variant="outline">{t("account.apply")}</Button>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="flex items-center gap-3">
+                        <Tag className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            WELCOME25
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            25% off — applied automatically
+                          </p>
+                        </div>
                       </div>
-                      <Badge className="ml-auto bg-green-100 text-green-700 border-0">
-                        {t("account.approved")}
+                      <Badge className="bg-green-100 text-green-700 border-0">
+                        {t("account.active")}
                       </Badge>
                     </div>
                   </CardContent>
                 </Card>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.approved_credit_limit")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        $50,000
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.credit_usage")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        $18,750
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.credit_utilization")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        37.5%
-                      </p>
-                      <Progress value={37.5} className="mt-2 h-2" />
-                    </CardContent>
-                  </Card>
-                </div>
-
+  
                 <Card>
                   <CardHeader>
-                    <CardTitle>{t("account.invoice_history")}</CardTitle>
+                    <CardTitle>{t("account.payment_history")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>{t("account.invoice")}</TableHead>
                           <TableHead>{t("account.date")}</TableHead>
+                          <TableHead>{t("account.description")}</TableHead>
                           <TableHead>{t("account.amount")}</TableHead>
-                          <TableHead>{t("account.due_date")}</TableHead>
                           <TableHead>{t("account.status")}</TableHead>
-                          <TableHead className="w-10"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {[
-                          {
-                            inv: "INV-2026-003",
-                            date: "Feb 01, 2026",
-                            amount: "$8,250.00",
-                            due: "Mar 03, 2026",
-                            status: "Pending",
-                          },
-                          {
-                            inv: "INV-2026-002",
-                            date: "Jan 01, 2026",
-                            amount: "$6,500.00",
-                            due: "Jan 31, 2026",
-                            status: "Paid",
-                          },
-                          {
-                            inv: "INV-2025-012",
-                            date: "Dec 01, 2025",
-                            amount: "$4,000.00",
-                            due: "Dec 31, 2025",
-                            status: "Paid",
-                          },
-                        ].map((row, i) => (
+                        {
+                          paymentHistory.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center">
+                                <p className="text-xs text-muted-foreground">
+                                  No payment history found
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          ) : ( paymentHistory.map((row, i) => (
                           <TableRow key={i}>
-                            <TableCell className="text-sm font-medium text-primary">
-                              {row.inv}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {row.date}
-                            </TableCell>
+                            <TableCell className="text-sm">{row.createdAt}</TableCell>
+                            <TableCell className="text-sm">{row.description}</TableCell>
                             <TableCell className="text-sm font-medium">
-                              {row.amount}
+                              ${row.amount.toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-sm">{row.due}</TableCell>
                             <TableCell>
-                              <Badge
-                                variant={
-                                  row.status === "Paid"
-                                    ? "secondary"
-                                    : "outline"
-                                }
-                                className="text-xs"
-                              >
+                              <Badge variant="secondary" className="text-xs">
                                 {row.status}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
                           </TableRow>
-                        ))}
+                            )
+                          ))
+                        }
                       </TableBody>
                     </Table>
                   </CardContent>
                 </Card>
               </TabsContent>
-            )} */}
-          </Tabs>
-        </TabsContent>
+  
+              {/* POSTPAID SUB-TAB (Pro only) */}
+              {/* {isAgency && (
+                <TabsContent value="postpaid" className="mt-4 space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t("account.credit_approval")}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3 rounded-lg border border-border p-4">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {t("account.credit_check_passed")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("account.approved_on")}
+                          </p>
+                        </div>
+                        <Badge className="ml-auto bg-green-100 text-green-700 border-0">
+                          {t("account.approved")}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {t("account.approved_credit_limit")}
+                        </p>
+                        <p className="text-2xl font-bold text-foreground">
+                          $50,000
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {t("account.credit_usage")}
+                        </p>
+                        <p className="text-2xl font-bold text-foreground">
+                          $18,750
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {t("account.credit_utilization")}
+                        </p>
+                        <p className="text-2xl font-bold text-foreground">
+                          37.5%
+                        </p>
+                        <Progress value={37.5} className="mt-2 h-2" />
+                      </CardContent>
+                    </Card>
+                  </div>
+  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t("account.invoice_history")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("account.invoice")}</TableHead>
+                            <TableHead>{t("account.date")}</TableHead>
+                            <TableHead>{t("account.amount")}</TableHead>
+                            <TableHead>{t("account.due_date")}</TableHead>
+                            <TableHead>{t("account.status")}</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {[
+                            {
+                              inv: "INV-2026-003",
+                              date: "Feb 01, 2026",
+                              amount: "$8,250.00",
+                              due: "Mar 03, 2026",
+                              status: "Pending",
+                            },
+                            {
+                              inv: "INV-2026-002",
+                              date: "Jan 01, 2026",
+                              amount: "$6,500.00",
+                              due: "Jan 31, 2026",
+                              status: "Paid",
+                            },
+                            {
+                              inv: "INV-2025-012",
+                              date: "Dec 01, 2025",
+                              amount: "$4,000.00",
+                              due: "Dec 31, 2025",
+                              status: "Paid",
+                            },
+                          ].map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium text-primary">
+                                {row.inv}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {row.date}
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                {row.amount}
+                              </TableCell>
+                              <TableCell className="text-sm">{row.due}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    row.status === "Paid"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {row.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )} */}
+            </Tabs>
+          </TabsContent>  
+          )
+        }
       </Tabs>
 
       <SetupMFAModal

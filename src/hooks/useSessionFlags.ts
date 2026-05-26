@@ -7,6 +7,7 @@ export interface SessionFlags {
   isPro: boolean;
   isNewUser: boolean;
   isAgency: boolean;
+  role: 'ADMIN' | 'EDITOR' | 'VIEWER';
 }
 
 function loadFallbackFlags(): SessionFlags {
@@ -18,10 +19,11 @@ function loadFallbackFlags(): SessionFlags {
         isPro: parsed.dashboardMode === 'pro',
         isNewUser: parsed.userState === 'new',
         isAgency: parsed.proSubType === 'agency',
+        role: parsed.role as 'ADMIN' | 'EDITOR' | 'VIEWER'
       };
     }
   } catch {}
-  return { isPro: false, isNewUser: false, isAgency: false };
+  return { isPro: false, isNewUser: false, isAgency: false, role: 'VIEWER' };
 }
 
 /**
@@ -44,6 +46,7 @@ export function useSessionFlags(): SessionFlags {
           isNewUser: meta.userState === 'new',
           // Prefer canonical boolean; fall back to orgType match for older sessions.
           isAgency: isAgency,
+          role: organization?.role as 'ADMIN' | 'EDITOR' | 'VIEWER' || 'VIEWER'
         });
       } else {
         setFlags(loadFallbackFlags());

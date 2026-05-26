@@ -30,7 +30,7 @@ export default function DashboardHome() {
   const [audioAds, setAudioAds] = useState([]);
 
   const { t } = useTranslation();
-
+  const { role } = useSessionFlags();
   const fetchStats = useCallback(async () => {
     const { data: { session } } = await auth.getSession();
     if (!session) return;
@@ -214,26 +214,30 @@ export default function DashboardHome() {
            <div className="bg-muted/50 rounded-[32px] p-4">
             <div className="">
               {/* Left: Audio Player Card */}
-              <Card className="border-0 shadow-none rounded-[24px] bg-card">
-                <CardContent className="p-5 space-y-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Your Brand</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      Share it or edit the ad to change the script or the voice talent.
-                    </p>
-                  </div>
-
-                  {/* Waveform player */}
-                  <DashboardAdPlayer audioUrl={audioAds?.[0]?.sourceUrl ?? ''} />
-
-                   {/* Edit / Create Campaign buttons */}
-                   <div className="flex flex-row gap-3">
-                     <Button className="h-10" onClick={() => navigate('/dashboard/campaigns/new')}>
-                       Create Campaign
-                     </Button>
-                   </div>
-                </CardContent>
-              </Card>
+              {
+                (role === "ADMIN" || role === "EDITOR" ) && (
+                  <Card className="border-0 shadow-none rounded-[24px] bg-card">
+                  <CardContent className="p-5 space-y-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Your Brand</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Share it or edit the ad to change the script or the voice talent.
+                      </p>
+                    </div>
+  
+                    {/* Waveform player */}
+                    <DashboardAdPlayer audioUrl={audioAds?.[0]?.sourceUrl ?? ''} />
+  
+                     {/* Edit / Create Campaign buttons */}
+                     <div className="flex flex-row gap-3">
+                       <Button className="h-10" onClick={() => navigate('/dashboard/campaigns/new')}>
+                         Create Campaign
+                       </Button>
+                     </div>
+                  </CardContent>
+                </Card>  
+                )
+              }
 
               {/* Right: Podcast Shelf */}
               <div className="flex  hidden flex-col justify-start pt-2 px-1">
@@ -294,7 +298,7 @@ export default function DashboardHome() {
       )}
 
       {/* Primary CTAs — new users only */}
-      {isNewUser && (
+      {isNewUser && (role === "ADMIN" || role === "EDITOR") && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="border-2 border-transparent hover:border-primary/20 hover:shadow-md transition-shadow rounded-[32px]">
             <CardContent className="p-4 space-y-2">
