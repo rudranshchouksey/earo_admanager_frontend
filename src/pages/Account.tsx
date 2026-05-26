@@ -140,6 +140,7 @@ export default function Account() {
   const [country, setCountry] = useState("");
   // const [countries, setCountries] = useState<Country[]>([]);
   const { isPro, isAgency, role } = useSessionFlags();
+  
   const countries:Country[] = countryList;
 
   const { geoData, isLoading: geoLoading } = useGeoLocation();
@@ -616,27 +617,27 @@ export default function Account() {
         key={isPro ? "pro" : "express"}
       >
         <TabsList
-          className={`grid w-full grid-cols-${gridRows ?? 1}`}
+          className={`flex flex-row  justify-around w-full `}
         >
           {(
-            <TabsTrigger value="profile">
+            <TabsTrigger value="profile" className=" min-w-[200px]">
               {t("account.tab_profile")} 
             </TabsTrigger>
           )}
           {isPro && role === "ADMIN" && (
-            <TabsTrigger value="users">{t("account.tab_users")}</TabsTrigger>
+            <TabsTrigger value="users" className=" min-w-[200px]">{t("account.tab_users")}</TabsTrigger>
           )}
           {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
-            <TabsTrigger value="advertisers">
+            <TabsTrigger value="advertisers" className=" min-w-[200px]">
               {t("account.tab_advertisers")}
             </TabsTrigger>
           )}
           {
-            role === 'ADMIN' && <TabsTrigger value="company">{t("account.tab_company")}</TabsTrigger>
+            role === 'ADMIN' && <TabsTrigger value="company" className=" min-w-[200px]">{t("account.tab_company")}</TabsTrigger>
 
           }
           {
-            role === 'ADMIN' && <TabsTrigger value="billing">{t("account.tab_billing")}</TabsTrigger>
+            role === 'ADMIN' && <TabsTrigger value="billing" className=" min-w-[200px]">{t("account.tab_billing")}</TabsTrigger>
           }
           {/* <TabsTrigger value="tracking">
             {t("account.tab_tracking")}
