@@ -574,7 +574,7 @@ export default function Account() {
     setDeletePaymentMethodAlertOpen(true);
   };
 
-    let gridRows;
+    let gridRows: number = 5;
 
     if (isAgency) {
       if (role === 'ADMIN') {
@@ -616,11 +616,11 @@ export default function Account() {
         key={isPro ? "pro" : "express"}
       >
         <TabsList
-          className={`grid w-full grid-cols-${gridRows}`}
+          className={`grid w-full grid-cols-${gridRows ?? 1}`}
         >
           {(
             <TabsTrigger value="profile">
-              {t("account.tab_profile")}
+              {t("account.tab_profile")} 
             </TabsTrigger>
           )}
           {isPro && role === "ADMIN" && (
