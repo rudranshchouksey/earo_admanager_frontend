@@ -185,7 +185,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const organization = data.data.organizations[0];
         if(organization.orgType === "SME" && ! organization.requestedForAgency) setShowAgencySignupBtn(true);
         console.log({organization, isPro})
-        setAccountType(organization.orgType === "SME" ? isPro ? "Pro" : "Express" : "Agency");
+        const proFlagFromAdvertisers = organization.orgType === "SME" ? advertisers.some((a) => a.isPro) : true;
+        console.log({proFlagFromAdvertisers})
+        setAccountType(organization.orgType === "SME" ? (isPro || proFlagFromAdvertisers) ? "Pro" : "Express" : "Agency");
       }
 
       setUserEmail(data.data.email ?? null);
