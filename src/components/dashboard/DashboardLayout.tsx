@@ -184,6 +184,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if(data.data?.organizations && data.data.organizations.length > 0) {
         const organization = data.data.organizations[0];
         if(organization.orgType === "SME" && ! organization.requestedForAgency) setShowAgencySignupBtn(true);
+        console.log({organization, isPro})
         setAccountType(organization.orgType === "SME" ? isPro ? "Pro" : "Express" : "Agency");
       }
 
