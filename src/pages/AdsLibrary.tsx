@@ -438,6 +438,10 @@ export default function AdsLibrary() {
       valueFormatter: (p) => p.value ? String(p.value) : '—',
     },
     {
+      field: 'pixelUrl', headerName: 'Pixel URL', width: 100,
+      valueFormatter: (p) => p.value ? String(p.value) : '—',
+    },
+    {
       field: 'createdAt',
       headerName: 'Created',
       width: 130,

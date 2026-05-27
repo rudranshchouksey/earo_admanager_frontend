@@ -248,7 +248,7 @@ export default function AdCreator() {
       setMusics([]);
       setMusicsPage(1);
       setMusicsTotalPages(1);
-      setSelectedMusic("");
+      //setSelectedMusic("");
     } else {
       setMusicsLoadingMore(true);
     }
@@ -467,6 +467,16 @@ export default function AdCreator() {
           setDescription(data.data.generatedScript);
           setGoal(data.data.campaignGoal);
           setType("SCRIPT");
+
+
+          setProContent({
+            ...proContent,
+            startMs: data.data.playbackStart || 0,
+            endMs: data.data.playbackEnd || 30000,
+            volume: data.data.volume || 50,
+            fadeIn: data.data.audioFadeIn || true,
+            fadeOut: data.data.audioFadeOut || true,
+          })
 
           const {
             status: voiceStatus,

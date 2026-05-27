@@ -19,6 +19,11 @@ export interface Ad {
   isError: boolean;
   fileUrl?:string;
   duration?:number;
+  playbackStart?: number;
+  playbackEnd?: number;
+  volume?: number;
+  audioFadeIn?: boolean;
+  audioFadeOut?: boolean;
 }
 
 export interface Voice {
@@ -158,6 +163,7 @@ export interface AdData {
     CPA: string;
     eCPM: string;
     jobId?: string;
+    pixelUrl?: string;
 }
 
 export interface AdsResponse {

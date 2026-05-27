@@ -1259,7 +1259,7 @@ export default function AdCreatorForm({
   const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
-  const [showMusicOptions, setShowMusicOptions] = useState(false);
+  const [showMusicOptions, setShowMusicOptions] = useState(selectedMusic ? true : false);
 
 
 
@@ -1523,7 +1523,6 @@ export default function AdCreatorForm({
             {
               !canSubmit || !selectedVoice || (showMusicOptions && !selectedMusic) || isGenerating ? "Complete the details above to generate your ad" : "Generate My Ad"
             }
-            Generate My Ad
 
             <MyTooltip iconClassName="text-white-50 hover:text-white" infoText="Click to generate your ad using the voice, music, and settings selected above. Generation takes under a minute. You'll be able to preview and regenerate before saving." />
           </Button>
