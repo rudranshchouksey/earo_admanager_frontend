@@ -688,6 +688,7 @@ export default function Account() {
                       type="tel"
                       onChange={(e) => update("phone", e.target.value)}
                       placeholder="+971..."
+                      maxLength={15}
                     />
                   </div>
                   <Button type="submit" disabled={saving}>

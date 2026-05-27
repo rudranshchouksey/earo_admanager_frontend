@@ -140,7 +140,7 @@ export default function CampaignsList() {
 
 
     if (status !== 200 || error) {
-      toast({ title: t('common.error'), description: message ?? 'Unable to load campaigns', variant: 'destructive' });
+      toast({ title: t('common.error'), description:  'Unable to load campaigns', variant: 'destructive' });
       setCampaigns([]);
       setMeta((m) => ({ ...m, total: 0, page: 1, totalPages: 1 }));
       setLoading(false);
@@ -434,7 +434,7 @@ export default function CampaignsList() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="Processing">Processing</SelectItem>
+              <SelectItem value="PROCESSING">Processing</SelectItem>
               <SelectItem value="SCHEDULED">Scheduled</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="PAUSED">Paused</SelectItem>
