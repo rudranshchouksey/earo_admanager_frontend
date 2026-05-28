@@ -321,7 +321,7 @@ export default function CampaignsList() {
     },
     {
       field: 'ltr', headerName: 'LTR', width: 80, type: 'numericColumn',
-      valueFormatter: (p) => p.value != null ? `${p.value}%` : '—',
+      valueFormatter: (p) => p.value != null ? `${p.value?.toFixed(0)}%` : '—',
       sortable: false,
     },
     {
@@ -390,7 +390,7 @@ export default function CampaignsList() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Spend</p>
-            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.totalSpend ?? '-'}</p>
+            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.totalSpend.toFixed(2) ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
