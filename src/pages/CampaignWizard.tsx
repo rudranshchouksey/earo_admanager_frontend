@@ -1737,7 +1737,6 @@ export default function CampaignWizard() {
           className="hidden lg:block fixed right-6 top-40 bottom-[100px] w-[280px] space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
           style={{ zIndex: 10 }}
         >
-          <CampaignSummary items={summaryItems} />
           <ForecastSidebar
             isLoading={isLoadingForecast}
             totalBudget={Number(budget.totalBudget) || 0}
@@ -1746,6 +1745,7 @@ export default function CampaignWizard() {
             {...forecastData}
             noOfDays={durationDays}
           />
+          <CampaignSummary items={summaryItems} />
         </div>
       </div>
       <CampaignLaunchModal

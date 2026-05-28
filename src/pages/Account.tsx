@@ -156,7 +156,7 @@ export default function Account() {
       data: advertisers,
       status: advertisersStatus,
       message: advertisersMessage,
-    } = await advertiserApi.getAdvertisers(orgId);
+    } = await advertiserApi.getAdvertisers(orgId, 1, 1000);
     if (advertisersStatus !== 200) {
       toast({
         title: t("common.error"),

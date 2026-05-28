@@ -369,14 +369,14 @@ export default function UsersTab() {
             <CardTitle>{t("account.team_users")}</CardTitle>
             <CardDescription>{t("account.manage_team")}</CardDescription>
           </div>
-          {
+          {/* {
             (role === "ADMIN" || role === "EDITOR" ) && (
               <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
               {t("account.new_user")}
             </Button>                
             )
-          }
+          } */}
         </CardHeader>
         <CardContent>
           {isMobile ? (
@@ -515,7 +515,7 @@ export default function UsersTab() {
             )} */}
 
 
-<div className="space-y-3">
+            <div className="space-y-3">
               <Label>{t("account.rights")}</Label>
               <RadioGroup
                 value={form.role}
