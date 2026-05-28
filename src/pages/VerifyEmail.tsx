@@ -13,6 +13,7 @@ import {
 import { campaignApi } from "@/services/campaign";
 import { auth } from "@/services/auth";
 import { toast } from "@/hooks/use-toast";
+import { Helmet } from "react-helmet-async";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -49,7 +50,9 @@ export default function VerifyEmail() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
-
+      <Helmet>
+        <title>EARO | Verify Email </title>
+      </Helmet>
       {
         verifying ? (
           <div className="flex items-center justify-center">

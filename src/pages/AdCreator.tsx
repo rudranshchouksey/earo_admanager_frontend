@@ -19,6 +19,7 @@ import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
+import { Helmet } from "react-helmet-async";
 
 const PAGE_SIZE = 5;
 
@@ -247,7 +248,7 @@ export default function AdCreator() {
       setMusics([]);
       setMusicsPage(1);
       setMusicsTotalPages(1);
-      setSelectedMusic("");
+      //setSelectedMusic("");
     } else {
       setMusicsLoadingMore(true);
     }
@@ -467,6 +468,16 @@ export default function AdCreator() {
           setGoal(data.data.campaignGoal);
           setType("SCRIPT");
 
+
+          setProContent({
+            ...proContent,
+            startMs: data.data.playbackStart || 0,
+            endMs: data.data.playbackEnd || 30000,
+            volume: data.data.volume || 50,
+            fadeIn: data.data.audioFadeIn || true,
+            fadeOut: data.data.audioFadeOut || true,
+          })
+
           const {
             status: voiceStatus,
             error: voiceError,
@@ -559,6 +570,10 @@ export default function AdCreator() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
+
+      <Helmet>
+        <title>EARO | Audio Ad</title>
+      </Helmet>
       <div>
         {id ? (
           <h1 className="text-2xl font-semibold text-foreground">

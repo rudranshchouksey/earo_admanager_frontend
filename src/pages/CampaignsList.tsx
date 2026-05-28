@@ -18,6 +18,8 @@ import { auth } from '@/services/auth';
 import { advertiserApi } from '@/services/advertiser';
 import { appNotifications } from '@/services/appNotifications';
 import { CardTotals, reportsApi } from '@/services/reports';
+import { useSessionFlags } from '@/hooks/useSessionFlags';
+import { Helmet } from 'react-helmet-async';
 
 
 const statusColors: Record<string, string> = {
@@ -76,6 +78,7 @@ export default function CampaignsList() {
     limit: 10,
     totalPages: 1,
   });
+  const { role } = useSessionFlags();
   
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
@@ -137,7 +140,7 @@ export default function CampaignsList() {
 
 
     if (status !== 200 || error) {
-      toast({ title: t('common.error'), description: message ?? 'Unable to load campaigns', variant: 'destructive' });
+      toast({ title: t('common.error'), description:  'Unable to load campaigns', variant: 'destructive' });
       setCampaigns([]);
       setMeta((m) => ({ ...m, total: 0, page: 1, totalPages: 1 }));
       setLoading(false);
@@ -361,6 +364,10 @@ export default function CampaignsList() {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
+
+      <Helmet>
+        <title>EARO | Campaigns</title>
+      </Helmet>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Campaigns</h1>
@@ -427,7 +434,7 @@ export default function CampaignsList() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="Processing">Processing</SelectItem>
+              <SelectItem value="PROCESSING">Processing</SelectItem>
               <SelectItem value="SCHEDULED">Scheduled</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="PAUSED">Paused</SelectItem>
@@ -449,7 +456,7 @@ export default function CampaignsList() {
                   ? 'Try adjusting your search or filters.'
                   : 'Create your first campaign to start reaching listeners.'}
               </p>
-              {!hasActiveFilters && (
+              {!hasActiveFilters && (role === "ADMIN" || role === "EDITOR" ) && (
                 <Button onClick={() => navigate('/dashboard/campaigns/new')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Campaign

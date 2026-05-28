@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { auth } from '@/services/auth';
 import { useEffect } from 'react';
 import { userApi } from '@/services/user';
+import { Helmet } from 'react-helmet-async';
 
 /** Re-export for auth page background preview */
 export { default as MockDashboardPreview, AuthPageBackground } from '@/components/dashboard/MockDashboardPreview';
@@ -39,10 +40,16 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <ProtectedRoute>
+    <>
+    
+      <Helmet>
+        <title>EARO | Dashboard</title>
+      </Helmet>
+      <ProtectedRoute>
       <DashboardLayout>
         <Outlet />
       </DashboardLayout>
     </ProtectedRoute>
+    </>
   );
 }

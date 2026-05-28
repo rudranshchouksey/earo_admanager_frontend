@@ -110,8 +110,8 @@ interface CreateCampaignResponse {
 }
 
 export const campaignApi = {
-  applyCoupon: (amount: number, couponCode: string) =>
-    request<any>('/api/v1/wallet-billing/applyCoupon', { method: 'POST', body: { amount, couponCode } }),
+  applyCoupon: (amount: number, couponCode: string, advertiserId: string) =>
+    request<any>('/api/v1/wallet-billing/applyCoupon', { method: 'POST', body: { amount, couponCode, advertiserId } }),
 
   /** Fetches all campaigns for the dashboard */
   getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = '', sortBy = 'createdAt', sortOrder = 'desc'}) => 

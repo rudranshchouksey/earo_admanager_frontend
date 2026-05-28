@@ -23,6 +23,7 @@ export interface AuthUser {
     mfaEnabled?: boolean;
     mfaSkipUntil?: string;
     organizations?: Organizations[];
+    role: "ADMIN" | "EDITOR" | "VIEWER";
   };
 }
 

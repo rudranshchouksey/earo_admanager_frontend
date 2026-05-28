@@ -298,7 +298,7 @@ export default function CampaignActionsGrid() {
                   <td className="px-3 py-2 text-right text-foreground">${Number(campaign.totalBudget).toLocaleString()}</td>
                   <td className="px-3 py-2 text-right text-foreground">${(campaign.campaignBudget ?? 0).toLocaleString()}</td>
                   <td className="px-3 py-2 text-right text-foreground">{(campaign.impressions ?? 0).toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right text-foreground">{campaign.ltr != null ? `${campaign.ltr}%` : '—'}</td>
+                  <td className="px-3 py-2 text-right text-foreground">{campaign.ltr != null ? `${campaign.ltr?.toFixed(0)}%` : '—'}</td>
                   <td className="px-3 py-2"><ActionButtons group={activeTab} campaign={campaign} /></td>
                 </tr>
               ))}

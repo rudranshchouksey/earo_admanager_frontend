@@ -56,6 +56,10 @@ import {
   reportsApi,
 } from '@/services/reports';
 import { appNotifications } from '@/services/appNotifications';
+import { Helmet } from 'react-helmet-async';
+
+
+
 
 // interface Campaign {
 //   id: string;
@@ -706,16 +710,6 @@ function chartPointsToLabeledBuckets(
   return aggregateWithGranularity(filtered, range, granularity);
 }
 
-const mockCampaigns: Campaign[] = [
-  { id: 'mock-1', name: 'Ramadan Brand Awareness', status: 'active', campaign_type: 'awareness', start_date: '2026-02-01', end_date: '2026-03-15', budget: 5000, actual_spend: 2340, actual_impressions: 187200, reach: 45800, ltr: 78 },
-  { id: 'mock-2', name: 'Summer Product Launch', status: 'active', campaign_type: 'awareness', start_date: '2026-01-20', end_date: '2026-02-28', budget: 3000, actual_spend: 1870, actual_impressions: 112500, reach: 31200, ltr: 82 },
-  { id: 'mock-3', name: 'Podcast Sponsorship Q1', status: 'active', campaign_type: 'engagement', start_date: '2026-01-01', end_date: '2026-03-31', budget: 8000, actual_spend: 4150, actual_impressions: 320000, reach: 89000, ltr: 71 },
-  { id: 'mock-4', name: 'Holiday Campaign 2025', status: 'completed', campaign_type: 'awareness', start_date: '2025-12-01', end_date: '2025-12-31', budget: 4500, actual_spend: 4480, actual_impressions: 256000, reach: 62000, ltr: 85 },
-  { id: 'mock-5', name: 'Back to School Promo', status: 'completed', campaign_type: 'conversions', start_date: '2025-08-15', end_date: '2025-09-15', budget: 2500, actual_spend: 2500, actual_impressions: 198000, reach: 41000, ltr: 76 },
-  { id: 'mock-6', name: 'National Day Special', status: 'completed', campaign_type: 'awareness', start_date: '2025-11-15', end_date: '2025-12-05', budget: 3500, actual_spend: 3490, actual_impressions: 210000, reach: 55000, ltr: 80 },
-  { id: 'mock-7', name: 'New App Install Drive', status: 'paused', campaign_type: 'conversions', start_date: '2026-01-10', end_date: '2026-02-28', budget: 6000, actual_spend: 1200, actual_impressions: 72000, reach: 18500, ltr: 68 },
-  { id: 'mock-8', name: 'Weekend Flash Sale', status: 'draft', campaign_type: 'engagement', start_date: '2026-03-01', end_date: '2026-03-03', budget: 1500, actual_spend: null, actual_impressions: null, reach: null, ltr: null },
-];
 
 // ─── Date Range Picker ───────────────────────
 type Preset = { label: string; getRange: () => { from: Date; to: Date } };
@@ -2186,6 +2180,11 @@ export default function Reports() {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
+
+      <Helmet>
+        <title>EARO | Reports</title>
+      </Helmet>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>

@@ -29,6 +29,8 @@ import { adsApi, AdData } from '@/services/ads';
 import { campaignApi } from '@/services/campaign';
 import { appNotifications } from '@/services/appNotifications';
 import { advertiserApi } from '@/services/advertiser';
+import { useSessionFlags } from '@/hooks/useSessionFlags';
+import { Helmet } from 'react-helmet-async';
 
 interface AdStats {
   impressions: number;
@@ -57,6 +59,7 @@ export default function AdsLibrary() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { role } = useSessionFlags();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [meta, setMeta] = useState<{ total: number; page: number; limit: number; totalPages: number }>({
@@ -435,6 +438,10 @@ export default function AdsLibrary() {
       valueFormatter: (p) => p.value ? String(p.value) : '—',
     },
     {
+      field: 'pixelUrl', headerName: 'Pixel URL', width: 100,
+      valueFormatter: (p) => p.value ? String(p.value) : '—',
+    },
+    {
       field: 'createdAt',
       headerName: 'Created',
       width: 130,
@@ -445,6 +452,12 @@ export default function AdsLibrary() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <audio ref={audioRef} preload="none" />
+
+
+    
+      <Helmet>
+        <title>EARO | Audio Ads</title>
+      </Helmet>
 
       <div className="flex items-center justify-between">
         <div>
@@ -500,10 +513,14 @@ export default function AdsLibrary() {
             <p className="text-muted-foreground mb-6">
               {ads.length === 0 ? t('ads.no_ads_desc') : t('campaigns.adjust_filters')}
             </p>
-            <Button onClick={() => navigate('/dashboard/ads/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('ads.create_audio_ad')}
-            </Button>
+            {
+              (role === "ADMIN" || role === "EDITOR" ) && (
+                <Button onClick={() => navigate('/dashboard/ads/new')}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('ads.create_audio_ad')}
+              </Button>                  
+              )
+            }
           </CardContent>
         </Card>
       ) : (

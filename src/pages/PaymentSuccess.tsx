@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { campaignApi } from "@/services/campaign";
+import { Helmet } from "react-helmet-async";
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
@@ -39,6 +40,9 @@ export default function PaymentSuccess() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
+      <Helmet>
+        <title>EARO | Payment Sucess </title>
+      </Helmet>
       <Card className="w-full max-w-md text-center shadow-sm">
         <CardHeader className="space-y-4">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">

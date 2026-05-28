@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Helmet } from "react-helmet-async";
 
 export default function PaymentFailed() {
   const navigate = useNavigate();
@@ -17,6 +18,11 @@ export default function PaymentFailed() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
+
+      <Helmet>
+        <title>EARO | Payment Failed </title>
+      </Helmet>
+
       <Card className="w-full max-w-md text-center shadow-sm">
         <CardHeader className="space-y-4">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">

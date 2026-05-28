@@ -9,8 +9,8 @@ export interface TeamUser {
   status: string;
   role: string;
   orgId: string;
-  advertiserAccounts?: string;
-  advertiserIds: string[];
+  AdvertiserAccounts?: string;
+  advertiserId: string | string[];
 }
 
 export interface TeamUserResponse {
@@ -25,12 +25,12 @@ export const teamApi = {
   createTeamUser: (user: TeamUser, organizationId: string) =>
     request<TeamUserResponse>("/api/v1/users/createUser", {
       method: "POST",
-      body: { ...user, orgId: organizationId },
+      body: { ...user, orgId: organizationId, advertiserIds: user.advertiserId ? typeof user.advertiserId === "string" ? user.advertiserId.split(",") : user.advertiserId : [] , advertiserAccounts: user.AdvertiserAccounts || "SPECIFIC"},
     }),
   updateTeamUser: (user: TeamUser, organizationId: string) =>
     request<TeamUserResponse>("/api/v1/users/updateUser", {
       method: "POST",
-      body: { ...user, orgId: organizationId, userId: user.id },
+      body: { ...user, orgId: organizationId, userId: user.id, advertiserIds: user.advertiserId ? typeof user.advertiserId === "string" ? user.advertiserId.split(",") : user.advertiserId : [] , advertiserAccounts: user.AdvertiserAccounts || "SPECIFIC"},
     }),
   deleteTeamUser: (userId: string, organizationId: string) =>
     request<TeamUserResponse>("/api/v1/users/deleteUser", {
@@ -43,7 +43,7 @@ export const teamApi = {
       body: user,
     }),
   resetPassword: (userId: string) =>
-    request<TeamUserResponse>("/api/v1/users/resetPassword", {
+    request<TeamUserResponse>("/api/v1/auth/resetPasswordForUser", {
       method: "POST",
       body: { userId },
     }),
@@ -56,5 +56,10 @@ export const teamApi = {
     request<TeamUserResponse>("/api/v1/users/getUser", {
       method: "GET",
       body: { userId },
+    }),
+  resendInvite: (userId: string, advertiserId: string) =>
+    request<TeamUserResponse>("/api/v1/users/resendInvite", {
+      method: "POST",
+      body: { userId, advertiserId },
     }),
 };

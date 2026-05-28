@@ -40,6 +40,7 @@ import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
 import { adsApi } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
+import { Helmet } from "react-helmet-async";
 
 interface Cards {
   id: string;
@@ -955,7 +956,10 @@ export default function CampaignWizard() {
   const applyCoupon = async (couponCode: string, isManual: boolean = true) => {
     setIsApplyingCoupon(true);
     try {
-      const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode);
+      const { data: { session } } = await auth.getSession();
+      if(!session) return;
+
+      const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode, session.currentAdvertiserId);
 
 
       console.log({data, error, status});
@@ -1564,6 +1568,9 @@ export default function CampaignWizard() {
   if(id && !loadedExistingCampaign)
     return (
       <div className="flex items-center justify-center h-64">
+        <Helmet>
+          <title>EARO | Campaign</title>
+        </Helmet>
         <Loader2 className="animate-spin mr-2" />
         Loading campaign data...
       </div>
@@ -1571,6 +1578,10 @@ export default function CampaignWizard() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
+
+        <Helmet>
+          <title>EARO | Campaign</title>
+        </Helmet>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">
@@ -1726,7 +1737,6 @@ export default function CampaignWizard() {
           className="hidden lg:block fixed right-6 top-40 bottom-[100px] w-[280px] space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto"
           style={{ zIndex: 10 }}
         >
-          <CampaignSummary items={summaryItems} />
           <ForecastSidebar
             isLoading={isLoadingForecast}
             totalBudget={Number(budget.totalBudget) || 0}
@@ -1735,6 +1745,7 @@ export default function CampaignWizard() {
             {...forecastData}
             noOfDays={durationDays}
           />
+          <CampaignSummary items={summaryItems} />
         </div>
       </div>
       <CampaignLaunchModal

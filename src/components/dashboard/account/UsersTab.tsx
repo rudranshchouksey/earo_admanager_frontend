@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Send, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Send, KeyRound, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -57,8 +57,7 @@ const statusColors: Record<string, string> = {
 
 export default function UsersTab() {
   const isMobile = useIsMobile();
-  const { isPro, isAgency } = useSessionFlags();
-
+  const { isPro, isAgency, role } = useSessionFlags();
   const [users, setUsers] = useState<TeamUser[]>([]);
 
   const { t } = useTranslation();
@@ -71,15 +70,15 @@ export default function UsersTab() {
     lastName: "",
     phone: "",
     status: "ACTIVE",
-    role: "view",
+    role: "VIEWER",
     orgId: "",
-    advertiserAccounts: "SPECIFIC",
-    advertiserIds: [],
+    AdvertiserAccounts: "SPECIFIC",
+    advertiserId: "",
   } as TeamUser);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
-
+  const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
   const getTeamUsers = async (organizationId: string) => {
     const { data, status, error, message } = await teamApi.getTeamUsers(organizationId);
     if (status !== 200 || error) {
@@ -106,10 +105,10 @@ export default function UsersTab() {
       lastName: "",
       phone: "",
       status: "ACTIVE",
-      role: "view",
+      role: "VIEWER",
       orgId: "",
-      advertiserAccounts: "SPECIFIC",
-      advertiserIds: [],
+      AdvertiserAccounts: "SPECIFIC",
+      advertiserId: "",
       // SME Pro: pre-fill with all accounts (single advertiser)
     });
     setDialogOpen(true);
@@ -118,7 +117,7 @@ export default function UsersTab() {
   const openEdit = (user: TeamUser) => {
     console.log("user", user);
     setEditingUser(user);
-    setForm({ ...user, advertiserIds: user.advertiserIds || [], advertiserAccounts: user.advertiserAccounts || "SPECIFIC" });
+    setForm({ ...user, advertiserId: user.advertiserId || "", AdvertiserAccounts: user.AdvertiserAccounts || "SPECIFIC" });
     setDialogOpen(true);
   };
 
@@ -139,25 +138,27 @@ export default function UsersTab() {
     setDeleteConfirmOpen(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.email || !form.firstName || !form.lastName) {
       toast({ title: t("account.fill_required"), variant: "destructive" });
       return;
     }
+    const session = getStoredSession();
+    if (!session) {
+      toast({ title: "Session not found", variant: "destructive" });
+      return;
+    }
 
     if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editingUser.id ? { ...u, ...form } : u)),
-      );
-      toast({ title: t("account.user_updated") });
-    } else {
-      const newUser: TeamUser = {
-        ...form,
-        id: crypto.randomUUID(),
-        status: "ACTIVE",
-      };
-      setUsers((prev) => [...prev, newUser]);
-      toast({ title: t("account.user_created") });
+      const { status, error, message } = await teamApi.updateTeamUser({...form, advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : "SPECIFIC"}, session.currentOrganizationId);
+      setSendingInvite(false);
+      if(status !== 200 || error){
+        toast({ title: message, variant: "destructive" });
+        return;
+      }
+      toast({ title: message });
+      setDialogOpen(false);
+      getTeamUsers(session.currentOrganizationId);
     }
     setDialogOpen(false);
   };
@@ -173,7 +174,7 @@ export default function UsersTab() {
       return;
     }
 
-    if(form.advertiserIds.length === 0) {
+    if(!form.advertiserId) {
       toast({ title: "Please select at least one advertiser account", variant: "destructive" });
       return;
     }
@@ -182,7 +183,9 @@ export default function UsersTab() {
 
       setSendingInvite(true);
 
-      const { status, error, message } = await teamApi.updateTeamUser(form, session.currentOrganizationId);
+      //const { status, error, message } = await teamApi.updateTeamUser({...form, advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : []}, session.currentOrganizationId);
+      
+      const { status, error, message } = await teamApi.resendInvite(editingUser.id,typeof form.advertiserId === "string" ? form.advertiserId : form.advertiserId[0]);
       setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
@@ -201,7 +204,7 @@ export default function UsersTab() {
       // };
       // setUsers((prev) => [...prev, newUser]);
       setSendingInvite(true);
-      const { status, error, message } = await teamApi.createTeamUser(form, session.currentOrganizationId);
+      const { status, error, message } = await teamApi.createTeamUser({...form, advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : "SPECIFIC"}, session.currentOrganizationId);
       setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
@@ -219,11 +222,22 @@ export default function UsersTab() {
     setDialogOpen(false);
   };
 
-  const handleResetPassword = () => {
-    toast({
-      title: "Password reset email sent",
-      description: `A reset link has been sent to ${form.email}`,
-    });
+  const handleResetPassword = async () => {
+    const session = getStoredSession();
+    if (!session) {
+      toast({ title: "Session not found", variant: "destructive" });
+      return;
+    }
+   
+    setIsResetPasswordLoading(true);
+    const { status, error, message } = await teamApi.resetPassword(editingUser.id);
+    setIsResetPasswordLoading(false);
+    if(status !== 200 || error){
+      toast({ title: message, variant: "destructive" });
+      return;  
+    }
+    toast({ title: message });
+    setDialogOpen(false);
   };
 
   const updateForm = (field: keyof Omit<TeamUser, "id">, value: any) =>
@@ -232,8 +246,8 @@ export default function UsersTab() {
   // Derive display label for accounts column
   const getAccountsDisplay = (user: TeamUser) => {
     if (isPro) return "Own Account";
-    if (user.advertiserAccounts === "ALL") return "All Accounts";
-    if (user.advertiserAccounts === "SPECIFIC") return "Specific Accounts";
+    if (user.AdvertiserAccounts === "ALL") return "All Accounts";
+    if (user.AdvertiserAccounts === "SPECIFIC") return "Specific Accounts";
     return "None";
   };
 
@@ -321,13 +335,13 @@ export default function UsersTab() {
       {
         headerName: "",
         field: "actions",
-        width: 90,
-        cellRenderer: ActionsRenderer,
+        width: role === "ADMIN" || role === "EDITOR" ? 90 : 0,
+        cellRenderer: role === "ADMIN" || role === "EDITOR" ? ActionsRenderer : undefined,
         sortable: false,
         filter: false,
       },
     ],
-    [StatusRenderer, RightsRenderer, ActionsRenderer, AccountsRenderer],
+    [StatusRenderer, RightsRenderer, ActionsRenderer, AccountsRenderer, role],
   );
 
   useEffect(() => {
@@ -355,10 +369,14 @@ export default function UsersTab() {
             <CardTitle>{t("account.team_users")}</CardTitle>
             <CardDescription>{t("account.manage_team")}</CardDescription>
           </div>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            {t("account.new_user")}
-          </Button>
+          {/* {
+            (role === "ADMIN" || role === "EDITOR" ) && (
+              <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" />
+              {t("account.new_user")}
+            </Button>                
+            )
+          } */}
         </CardHeader>
         <CardContent>
           {isMobile ? (
@@ -444,7 +462,7 @@ export default function UsersTab() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 max-h-[600px] overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("account.first_name_required")}</Label>
@@ -496,57 +514,6 @@ export default function UsersTab() {
               </div>
             )} */}
 
-            {isAgency && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Advertiser Accounts</Label>
-                  <SearchableList
-                    items={advertisers}
-                    columns={[
-                      { key: "advertiserName", label: "Advertiser Name", sortable: true },
-                      {
-                        key: "industry",
-                        label: "Industry",
-                        hideOnMobile: true,
-                      },
-                    ]}
-                    selectionMode="multi"
-                    selectedIds={form.advertiserIds}
-                    onSelectionChange={(ids) => updateForm("advertiserIds", ids)}
-                    selectAllFiltered
-                    idKey="id"
-                    searchPlaceholder="Search advertisers..."
-                    collapsible
-                    collapsibleLabel="Select advertiser accounts..."
-                    defaultOpen={false}
-                    maxHeight="200px"
-                    pageSize={50}
-                    emptyMessage="No advertisers found"
-                  />
-                </div>
-                {/* <div className="flex items-center gap-3">
-                  <Switch
-                    id="future-accounts"
-                    checked={form.includesFutureAccounts}
-                    onCheckedChange={(checked) =>
-                      updateForm("includesFutureAccounts", checked)
-                    }
-                  />
-                  <Label
-                    htmlFor="future-accounts"
-                    className="font-normal cursor-pointer text-sm"
-                  >
-                    Include all future accounts automatically
-                  </Label>
-                </div> */}
-                {/* {form.includesFutureAccounts && (
-                  <p className="text-xs text-muted-foreground -mt-2 ml-12">
-                    This user will automatically get access to any new
-                    advertiser accounts created in the future.
-                  </p>
-                )} */}
-              </div>
-            )}
 
             <div className="space-y-3">
               <Label>{t("account.rights")}</Label>
@@ -585,6 +552,60 @@ export default function UsersTab() {
               </RadioGroup>
             </div>
 
+
+            {isAgency && (form.role !== "ADMIN") && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Advertiser Accounts </Label>
+                  <SearchableList
+                    items={advertisers}
+                    columns={[
+                      { key: "advertiserName", label: "Advertiser Name", sortable: true },
+                      {
+                        key: "industry",
+                        label: "Industry",
+                        hideOnMobile: true,
+                      },
+                    ]}
+                    selectionMode="multi"
+                    selectedIds={form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : []}
+                    onSelectionChange={(ids) => updateForm("advertiserId", typeof form.advertiserId === "string" ? ids.join(",") : ids)}
+                    selectAllFiltered
+                    idKey="id"
+                    searchPlaceholder="Search advertisers..."
+                    collapsible
+                    collapsibleLabel="Select advertiser accounts..."
+                    defaultOpen={false}
+                    maxHeight="200px"
+                    pageSize={50}
+                    emptyMessage="No advertisers found"
+                  />
+                </div>
+                {/* <div className="flex items-center gap-3">
+                  <Switch
+                    id="future-accounts"
+                    checked={form.includesFutureAccounts}
+                    onCheckedChange={(checked) =>
+                      updateForm("includesFutureAccounts", checked)
+                    }
+                  />
+                  <Label
+                    htmlFor="future-accounts"
+                    className="font-normal cursor-pointer text-sm"
+                  >
+                    Include all future accounts automatically
+                  </Label>
+                </div> */}
+                {/* {form.includesFutureAccounts && (
+                  <p className="text-xs text-muted-foreground -mt-2 ml-12">
+                    This user will automatically get access to any new
+                    advertiser accounts created in the future.
+                  </p>
+                )} */}
+              </div>
+            )}
+
+
             {editingUser && (
               <div className="space-y-2">
                 <Label>{t("account.user_status")}</Label>
@@ -611,36 +632,40 @@ export default function UsersTab() {
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             {editingUser && (
               <div className="flex gap-2 mr-auto">
-                <Button
+                {/* <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setDeleteConfirmOpen(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Delete User
-                </Button>
+                </Button> */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleResetPassword}
+                  disabled={isResetPasswordLoading}
                 >
                   <KeyRound className="h-4 w-4 mr-1" />
-                  Reset Password
+                  {isResetPasswordLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reset Password"}
                 </Button>
               </div>
             )}
             <div className="flex gap-2">
-              {/* <Button variant="outline" onClick={handleSave}>
-                {editingUser
-                  ? t("account.save_changes")
-                  : t("account.save_draft")}
-              </Button> */}
-              <Button onClick={handleSendInvite} disabled={sendingInvite}>
+            <Button onClick={handleSendInvite} disabled={sendingInvite} variant="outline">
                 <Send className="h-4 w-4 mr-1" />
                 {editingUser
                   ? t("account.resend_invite")
                   : t("account.send_invite")}
               </Button>
+              {
+                editingUser && (
+                  <Button  onClick={handleSave}>
+                    {t("account.save_changes")}
+                </Button>
+  
+                )
+              }
             </div>
           </DialogFooter>
         </DialogContent>

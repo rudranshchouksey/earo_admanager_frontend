@@ -27,7 +27,7 @@ export interface AdvertiserResponse {
 }
 
 export const advertiserApi = {
-  getAdvertisers: (organizationId: string) => request<AdvertiserResponse>('/api/v1/users/getAdvertisers', {method:"POST", body: { orgId: organizationId }}),
+  getAdvertisers: (organizationId: string, page= 1, limit = 1000) => request<AdvertiserResponse>('/api/v1/users/getAdvertisers', {method:"POST", body: { orgId: organizationId, page, limit }}),
 
   createAdvertiser: ({advertiserName, orgId, industry, subIndustry}: {advertiserName: string, orgId: string, industry: string, subIndustry: string}) => request<AdvertiserResponse>('/api/v1/users/createAdvertiser', {method:"POST", body: {advertiserName, orgId, industry, subIndustry}}),
 
