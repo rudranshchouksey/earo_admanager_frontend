@@ -1,14 +1,14 @@
-import { LucideIcon } from 'lucide-react';
+import { Loader2, LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface StatCardProps {
   label: string;
   value: string;
   icon: LucideIcon;
-  trend?: string;
+  loading?: boolean;
 }
 
-export default function StatCard({ label, value, icon: Icon, trend }: StatCardProps) {
+export default function StatCard({ label, value, icon: Icon, loading }: StatCardProps) {
   return (
     <Card className="bg-card rounded-lg">
       <CardContent className="p-3">
@@ -18,8 +18,13 @@ export default function StatCard({ label, value, icon: Icon, trend }: StatCardPr
             <Icon className="h-3.5 w-3.5 text-primary" />
           </div>
         </div>
-        <p className="text-xl font-semibold text-foreground">{value}</p>
-        {trend && <p className="text-xs text-muted-foreground mt-0.5">{trend}</p>}
+        {
+          loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <p className="text-xl font-semibold text-foreground">{value}</p>
+          )
+        }
       </CardContent>
     </Card>
   );
