@@ -161,55 +161,17 @@ const formatStatus = (s: string) => {
 };
 
 const GOALS = ['awareness', 'engagement', 'conversions', 'reach'];
-const SHOW_NAMES = [
-  'The Morning Show', 'Tech Talk Daily', 'Culture Vibes', 'Business Insider', 'Music Hour',
-  'Sports Recap', 'News Roundup', 'Comedy Club', 'Health & Wellness', 'Trending Now',
-  'True Crime Files', 'Startup Stories', 'Daily Digest', 'Science Explained', 'Pop Culture Pod',
-  'Finance Focus', 'Travel Tales', 'Gaming World', 'Parenting Plus', 'History Uncovered',
-  'Mindful Minutes', 'Food & Flavor', 'Career Boost', 'Book Club Radio', 'Night Owl Sessions',
-];
-const DEVICE_TYPES = ['Mobile', 'Desktop', 'Smart Speaker', 'Connected TV'];
-const GENDERS = ['Male', 'Female'];
-const AGE_GROUPS = ['18-24', '25-34', '35-44', '45-54', '55+'];
-const PODCAST_GENRES = ['True Crime', 'Business', 'Comedy', 'News & Politics', 'Health & Fitness', 'Technology', 'Education', 'Sports', 'Society & Culture', 'Arts'];
-const PODCAST_AUDIENCES = ['Millennials', 'Gen Z', 'Gen X', 'Baby Boomers', 'Parents', 'Students', 'Professionals', 'Entrepreneurs'];
-const LOCATIONS = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Jeddah', 'Cairo', 'Kuwait City', 'Doha', 'Muscat', 'Manama', 'Amman', 'Beirut', 'Casablanca'];
-const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SHOW_NAMES = [];
+const DEVICE_TYPES = [];
+const GENDERS = [];
+const AGE_GROUPS = [];
+const PODCAST_GENRES = [];
+const PODCAST_AUDIENCES = [];
+const LOCATIONS = [];
+const DAYS_OF_WEEK = [];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const CITY_TO_COUNTRY: Record<string, string> = {
-  'Dubai': 'United Arab Emirates',
-  'Abu Dhabi': 'United Arab Emirates',
-  'Riyadh': 'Saudi Arabia',
-  'Jeddah': 'Saudi Arabia',
-  'Cairo': 'Egypt',
-  'Kuwait City': 'Kuwait',
-  'Doha': 'Qatar',
-  'Muscat': 'Oman',
-  'Manama': 'Bahrain',
-  'Amman': 'Jordan',
-  'Beirut': 'Lebanon',
-  'Casablanca': 'Morocco',
-};
-const COUNTRY_TO_CITIES: Record<string, string[]> = {
-  'United Arab Emirates': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Al Ain'],
-  'Saudi Arabia': ['Riyadh', 'Jeddah', 'Dammam', 'Mecca', 'Medina'],
-  'Egypt': ['Cairo', 'Alexandria', 'Giza', 'Sharm El Sheikh'],
-  'Kuwait': ['Kuwait City', 'Hawalli', 'Salmiya', 'Farwaniya'],
-  'Qatar': ['Doha', 'Al Wakrah', 'Al Khor'],
-  'Oman': ['Muscat', 'Salalah', 'Sohar', 'Nizwa'],
-  'Bahrain': ['Manama', 'Muharraq', 'Riffa'],
-  'Jordan': ['Amman', 'Irbid', 'Zarqa', 'Aqaba'],
-  'Lebanon': ['Beirut', 'Tripoli', 'Sidon', 'Jounieh'],
-  'Morocco': ['Casablanca', 'Rabat', 'Marrakech', 'Fes', 'Tangier'],
-  'Iraq': ['Baghdad', 'Erbil', 'Basra', 'Sulaymaniyah'],
-  'Tunisia': ['Tunis', 'Sfax', 'Sousse'],
-  'Algeria': ['Algiers', 'Oran', 'Constantine'],
-  'Libya': ['Tripoli', 'Benghazi', 'Misrata'],
-  'Sudan': ['Khartoum', 'Omdurman', 'Port Sudan'],
-  'Palestine': ['Ramallah', 'Gaza', 'Nablus', 'Hebron'],
-  'Syria': ['Damascus', 'Aleppo', 'Homs'],
-  'Yemen': ['Sanaa', 'Aden', 'Taiz'],
-};
+const CITY_TO_COUNTRY: Record<string, string> = {};
+const COUNTRY_TO_CITIES: Record<string, string[]> = {};
 
 // New constants for additional pie charts
 const AD_POSITIONS = ['Pre-roll', 'Mid-roll', 'Post-roll'];
@@ -235,9 +197,9 @@ const LANGUAGE_LABELS: Record<string, string> = {
   ur: 'Urdu',
   tr: 'Turkish',
 };
-const CONTENT_LANGUAGES = ['English', 'Arabic', 'French', 'Hindi', 'Urdu', 'Spanish', 'Turkish'];
-const DEVICE_OS = ['Phone', 'Portable Media Player', 'Tablet', 'Desktop', 'Gaming Console', 'Smart Speaker', 'Smart TV', 'Connected Vehicle', 'Smart Watch', 'Less Common Devices'];
-const MEDIA_TOPICS = ['News', 'Entertainment', 'Sports', 'Technology', 'Lifestyle', 'Finance', 'Health', 'Education'];
+const CONTENT_LANGUAGES = [];
+const DEVICE_OS = [];
+const MEDIA_TOPICS = [];
 
 type Granularity = 'daily' | 'weekly' | 'monthly';
 
