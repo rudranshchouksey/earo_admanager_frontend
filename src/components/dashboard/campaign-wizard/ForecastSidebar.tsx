@@ -71,7 +71,6 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
             <p><span className="font-medium text-foreground">Estimated ads played:</span> The number of ad impressions you're likely to deliver with your current budget.</p>
             <p><span className="font-medium text-foreground">Estimated unique listeners:</span> The approximate number of distinct listeners your ads will reach.</p>
             <p><span className="font-medium text-foreground">Max frequency:</span> The average number of times each listener may hear your ad.</p>
-            <p><span className="font-medium text-foreground">Deliverability:</span> Indicates how achievable your setup is based on targeting scope and inventory availability.</p>
             <p>Adjusting your targeting or budget can impact these estimates.</p>
           </div>
         )}
