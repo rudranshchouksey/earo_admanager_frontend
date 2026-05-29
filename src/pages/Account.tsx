@@ -659,7 +659,7 @@ export default function Account() {
                       <Label>{t("account.first_name")} <sup>*</sup></Label>
                       <Input
                         value={profile.firstName}
-                        onChange={(e) => update("firstName", e.target.value)}
+                        onChange={(e) => update("firstName", e.target.value.replace(/[^a-zA-Z\s'-]/g, ""))}
                         placeholder="John"
                         required
                       />
@@ -668,7 +668,7 @@ export default function Account() {
                       <Label>{t("account.last_name")} <sup>*</sup></Label>
                       <Input
                         value={profile.lastName}
-                        onChange={(e) => update("lastName", e.target.value)}
+                        onChange={(e) => update("lastName", e.target.value.replace(/[^a-zA-Z\s'-]/g, ""))}
                         placeholder="Doe"
                         required
                       />
@@ -686,7 +686,7 @@ export default function Account() {
                     <Input
                       value={profile.phone}
                       type="tel"
-                      onChange={(e) => update("phone", e.target.value)}
+                      onChange={(e) => update("phone", e.target.value.replace(/(?!^\+)[^0-9]/g, ""))}
                       placeholder="+971..."
                       maxLength={15}
                     />

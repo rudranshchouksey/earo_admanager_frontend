@@ -155,10 +155,25 @@ export default function UsersTab() {
       return;
     }
 
+
+    if(form.AdvertiserAccounts === "SPECIFIC" && !form.advertiserId) {
+      toast({ title: "Please select at least one advertiser account", variant: "destructive" });
+      return;
+    }
+
+    let newRole = form.role;
+
+    if(form.AdvertiserAccounts === "SPECIFIC") {
+      newRole = form.role === "EDITOR" ? "EDITOR_RESTRICTED" : form.role === "VIEWER" ? "VIEWER_RESTRICTED" : form.role;
+    } else if(form.AdvertiserAccounts === "ALL") {
+      newRole = form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role;
+    }
+    
+
     if (editingUser) {
       const { status, error, message } = await teamApi.updateTeamUser({
         ...form, 
-        role: form.AdvertiserAccounts === "ALL" ? form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role : form.role,
+        role: newRole,
         advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], 
         AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : form.AdvertiserAccounts
       }, 
@@ -631,7 +646,7 @@ export default function UsersTab() {
             )}
 
 
-            {editingUser && (
+            {/* {editingUser && (
               <div className="space-y-2">
                 <Label>{t("account.user_status")}</Label>
                 <Select
@@ -651,7 +666,7 @@ export default function UsersTab() {
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            )} */}
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">

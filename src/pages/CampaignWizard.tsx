@@ -969,6 +969,14 @@ export default function CampaignWizard() {
           description: data?.message || error?.message || "Invalid coupon code",
           variant: "destructive",
         });
+        setPayment((prev) => ({ ...prev, 
+          couponCode: "",
+          discountValue: 0,
+          discountType: "",
+          originalAmount: Number(budget.totalBudget),
+          discountApplied: 0,
+          finalAmount: Number(budget.totalBudget),
+         }));
       }
 
       // if(status === 200 && d)

@@ -221,7 +221,7 @@ export default function DashboardHome() {
             <div className="">
               {/* Left: Audio Player Card */}
               {
-                (role === "ADMIN" || role === "EDITOR" ) && (
+                (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
                   <Card className="border-0 shadow-none rounded-[24px] bg-card">
                   <CardContent className="p-5 space-y-3">
                     <div>
@@ -304,7 +304,7 @@ export default function DashboardHome() {
       )}
 
       {/* Primary CTAs — new users only */}
-      {isNewUser && (role === "ADMIN" || role === "EDITOR") && (
+      {isNewUser && (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="border-2 border-transparent hover:border-primary/20 hover:shadow-md transition-shadow rounded-[32px]">
             <CardContent className="p-4 space-y-2">
