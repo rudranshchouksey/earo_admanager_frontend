@@ -353,7 +353,7 @@ export default function DashboardHome() {
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <StatCard label="Total Impressions" value={stats.impressions.toLocaleString()} icon={Eye} loading={loadingStats} />
-              <StatCard label="Total Spent" value={`$${stats.spend.toLocaleString()}`} icon={DollarSign} loading={loadingStats} />
+              <StatCard label="Total Spend" value={`$${stats.spend?.toFixed(2).toLocaleString()}`} icon={DollarSign} loading={loadingStats} />
               <StatCard label="Total Reach" value={stats.reach.toLocaleString()} icon={MousePointerClick} loading={loadingStats} />
               <StatCard label="CPA" value={`$${cpa}`} icon={Target} loading={loadingStats} />
             </div>
