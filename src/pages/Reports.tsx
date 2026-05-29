@@ -333,6 +333,7 @@ type ChartDailyPoint = {
 };
 
 function campaignReportRowToChartPoint(row: CampaignReportDailyRow): ChartDailyPoint {
+  console.log('row?__time?.start?.substring(0, 10)', row?.__time?.start?.substring(0, 10));
   return {
     date: row.__time?.start?.substring(0, 10) ?? '',
     impressions: row.impressions ?? 0,
