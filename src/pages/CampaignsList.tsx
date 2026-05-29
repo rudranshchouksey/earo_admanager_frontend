@@ -305,7 +305,7 @@ export default function CampaignsList() {
     },
     {
       field: 'spend', headerName: 'Spend', width: 110, type: 'numericColumn',
-      valueFormatter: (p) => `$${(p.value ?? 0).toLocaleString()}`,
+      valueFormatter: (p) => `$${(p.value ?? 0).toFixed(2).toLocaleString()}`,
       sortable: false
     },
     {
@@ -390,7 +390,7 @@ export default function CampaignsList() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard label="Total Impressions" value={dashboardCardData.impressions.toLocaleString()} icon={Eye} loading={loadingDashboardData} />
-        <StatCard label="Total Spent" value={`$${dashboardCardData.totalSpend.toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
+        <StatCard label="Total Spend" value={`$${dashboardCardData.totalSpend.toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
         <StatCard label="Total Reach" value={dashboardCardData.demandAudioReachUniqueUsers.toLocaleString()} icon={MousePointerClick} loading={loadingDashboardData} />
         <StatCard label="CPA" value={`$${dashboardCardData.attributionCPAInUSD.toFixed(2)}`} icon={Target} loading={loadingDashboardData} />
   
