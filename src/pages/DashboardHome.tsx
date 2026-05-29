@@ -22,6 +22,7 @@ import { appNotifications } from '@/services/appNotifications';
 export default function DashboardHome() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0, cpa: 0 });
+  const [loadingStats, setloadingStats] = useState(false);
   const [userName, setUserName] = useState('');
 
   const [isNewUser, setIsNewUser] = useState(false);
@@ -36,14 +37,19 @@ export default function DashboardHome() {
     if (!session) return;
     const advertiserId = session.currentAdvertiserId;
     if (!advertiserId) return;
+    setloadingStats(true);
     const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
-    if (status !== 200 || error) return;
+    if (status !== 200 || error) {
+      setloadingStats(false);
+      return;
+    }
     setStats({
       impressions: data.data.cardTotals.impressions,
       spend: data.data.cardTotals.totalSpend,
       reach: data.data.cardTotals.demandAudioReachUniqueUsers,
       cpa: data.data.cardTotals.attributionCPAInUSD,
     });
+    setloadingStats(false);
   }, []);
 
   const load = useCallback(async () => {
@@ -346,10 +352,10 @@ export default function DashboardHome() {
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <StatCard label="Total Impressions" value={stats.impressions.toLocaleString()} icon={Eye} trend={stats.impressions > 0 ? 'Active' : 'No data yet'} />
-              <StatCard label="Total Spent" value={`$${stats.spend.toLocaleString()}`} icon={DollarSign} trend={stats.spend > 0 ? 'Active' : 'No data yet'} />
-              <StatCard label="Total Reach" value={stats.reach.toLocaleString()} icon={MousePointerClick} trend={stats.reach > 0 ? 'Active' : 'No data yet'} />
-              <StatCard label="CPA" value={`$${cpa}`} icon={Target} trend={stats.reach > 0 ? 'Active' : 'No data yet'} />
+              <StatCard label="Total Impressions" value={stats.impressions.toLocaleString()} icon={Eye} loading={loadingStats} />
+              <StatCard label="Total Spent" value={`$${stats.spend.toLocaleString()}`} icon={DollarSign} loading={loadingStats} />
+              <StatCard label="Total Reach" value={stats.reach.toLocaleString()} icon={MousePointerClick} loading={loadingStats} />
+              <StatCard label="CPA" value={`$${cpa}`} icon={Target} loading={loadingStats} />
             </div>
           </div>
 

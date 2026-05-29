@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import { appNotifications } from '@/services/appNotifications';
 import { CardTotals, reportsApi } from '@/services/reports';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { Helmet } from 'react-helmet-async';
+import StatCard from '@/components/dashboard/StatCard';
 
 
 const statusColors: Record<string, string> = {
@@ -45,7 +46,7 @@ const GRID_COL_TO_SORT_BY: Record<string, string> = {
 
 const UtilizationRenderer = (params: ICellRendererParams) => {
   const c = params.data as Campaign;
-  const util = c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
+  const util = c.totalBudget > 0 ? Math.min(100, Math.round(((c.spend ?? 0) / c.totalBudget) * 100)) : 0;
   return (
     <div className="flex items-center gap-2 h-full">
       <Progress value={util} className="h-1.5 w-16" />
@@ -73,6 +74,7 @@ export default function CampaignsList() {
     impressions: 0,
     demandAudioReachUniqueUsers: 0,
   })
+  const [loadingDashboardData, setLoadingDashboardData] = useState(false);
   const [meta, setMeta] = useState<{ total: number; page: number; limit: number; totalPages: number }>({
     total: 0,
     page: 1,
@@ -236,16 +238,21 @@ export default function CampaignsList() {
   useEffect(() => {
   
     const fetchDashboardCardData = async () => {
+
       const session = await auth.getSession();
       if(!session) return;
+      
       const advertiserId = session.data.session.currentAdvertiserId;
       if(!advertiserId) return;
+      setLoadingDashboardData(true);
       const { data, error, status } = await reportsApi.getDashboardCardsData({ advertiserId });
       if(status !== 200 || error) {
         //toast({ title: t('common.error'), description: error?.message ?? 'Unable to load dashboard card data', variant: 'destructive' });
+        setLoadingDashboardData(false);
         return;
       }
       setDashboardCardData(data.data.cardTotals);
+      setLoadingDashboardData(false);
     }
     setTimeout(fetchDashboardCardData, 1000);
   }, [])
@@ -306,7 +313,7 @@ export default function CampaignsList() {
       cellRenderer: UtilizationRenderer,
       valueGetter: (p) => {
         const c = p.data as Campaign;
-        return c.budget > 0 ? Math.min(100, Math.round(((c.actual_spend ?? 0) / c.budget) * 100)) : 0;
+        return c.totalBudget > 0 ? Math.min(100, Math.round(((c.spend ?? 0) / c.totalBudget) * 100)) : 0;
       },
       sortable: false,
     },
@@ -382,30 +389,11 @@ export default function CampaignsList() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Budget</p>
-            <p className="text-2xl font-semibold text-foreground">{ '-'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Spend</p>
-            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.totalSpend.toFixed(2) ?? '-'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Impressions</p>
-            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.impressions ?? '-'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Reach</p>
-            <p className="text-2xl font-semibold text-foreground">{dashboardCardData.demandAudioReachUniqueUsers ?? '-'}</p>
-          </CardContent>
-        </Card>
+      <StatCard label="Total Impressions" value={dashboardCardData.impressions.toLocaleString()} icon={Eye} loading={loadingDashboardData} />
+        <StatCard label="Total Spent" value={`$${dashboardCardData.totalSpend.toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
+        <StatCard label="Total Reach" value={dashboardCardData.demandAudioReachUniqueUsers.toLocaleString()} icon={MousePointerClick} loading={loadingDashboardData} />
+        <StatCard label="CPA" value={`$${dashboardCardData.attributionCPAInUSD.toFixed(2)}`} icon={Target} loading={loadingDashboardData} />
+  
       </div>
 
       <Card>
