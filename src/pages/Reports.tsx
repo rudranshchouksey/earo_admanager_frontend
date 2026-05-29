@@ -334,7 +334,7 @@ type ChartDailyPoint = {
 
 function campaignReportRowToChartPoint(row: CampaignReportDailyRow): ChartDailyPoint {
   return {
-    date: row.__time.start.substring(0, 10),
+    date: row.__time.start?.substring(0, 10),
     impressions: row.impressions ?? 0,
     reach: row.demandAudioReachUniqueUsers ?? 0,
     conversions: row.objectiveCountableSum ?? 0,
