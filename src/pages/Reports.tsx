@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { type StatusTone } from '@/components/dashboard/reports/CampaignStatusSummary';
 import CampaignKpiSummary from '@/components/dashboard/reports/CampaignKpiSummary';
 // import { usePageBreadcrumb } from '@/contexts/PageBreadcrumbContext';
-import { Eye, Users, Target, DollarSign, TrendingUp, BarChart3, Percent, Download, CalendarIcon, ChevronDown, Clock } from 'lucide-react';
+import { Eye, Users, Target, DollarSign, TrendingUp, BarChart3, Percent, Download, CalendarIcon, ChevronDown, Clock, Loader2 } from 'lucide-react';
 import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   ComposedChart, Bar, Line, PieChart, Pie, Cell,
@@ -141,16 +141,20 @@ const METRIC_COLORS: Record<string, string> = {
   ltr: 'hsl(280, 60%, 55%)',
 };
 
+
+
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   pending: 'bg-orange-100 text-orange-800',
-  ready: 'bg-blue-100 text-blue-800',
   running: 'bg-green-100 text-green-800',
+  ready: 'bg-blue-100 text-blue-800',
   active: 'bg-green-100 text-green-800',
+  scheduled: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-primary/10 text-primary',
   rejected: 'bg-red-100 text-red-800',
 };
+
 
 const formatStatus = (s: string) => {
   if (!s) return s;
@@ -174,7 +178,7 @@ const CITY_TO_COUNTRY: Record<string, string> = {};
 const COUNTRY_TO_CITIES: Record<string, string[]> = {};
 
 // New constants for additional pie charts
-const AD_POSITIONS = ['Pre-roll', 'Mid-roll', 'Post-roll'];
+const AD_POSITIONS = [];
 
 const AD_POSITION_LABELS: Record<string, string> = {
   PRE_ROLL: 'Pre-roll',
@@ -263,7 +267,7 @@ function generateDemographic(names: string[], total: number, seed: number): Demo
 const formatNum = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString();
 
 const StatusRenderer = (params: ICellRendererParams) => (
-  <Badge variant="secondary" className={statusColors[params.value] || ''}>{formatStatus(params.value)}</Badge>
+  <Badge variant="secondary" className={statusColors[params.value?.toLowerCase()] || ''}>{formatStatus(params.value)}</Badge>
 );
 
 const UtilizationRenderer = (params: ICellRendererParams) => {
@@ -919,14 +923,71 @@ function StackedCampaignTooltip({ active, payload, label, metric }: any) {
   );
 }
 
+type ReportLoadingKey =
+  | 'campaignReport'
+  | 'countryCity'
+  | 'contentInventory'
+  | 'adDelivery'
+  | 'impressionsFiltered'
+  | 'impressionsShare'
+  | 'campaignPerformance';
+
+type ReportLoadingState = Record<ReportLoadingKey, boolean>;
+
+const ALL_REPORT_LOADING: ReportLoadingState = {
+  campaignReport: true,
+  countryCity: true,
+  contentInventory: true,
+  adDelivery: true,
+  impressionsFiltered: true,
+  impressionsShare: true,
+  campaignPerformance: true,
+};
+
+const NO_REPORT_LOADING: ReportLoadingState = {
+  campaignReport: false,
+  countryCity: false,
+  contentInventory: false,
+  adDelivery: false,
+  impressionsFiltered: false,
+  impressionsShare: false,
+  campaignPerformance: false,
+};
+
+function ChartLoadingShell({
+  loading,
+  children,
+  minHeight = 280,
+  className,
+}: {
+  loading: boolean;
+  children: ReactNode;
+  minHeight?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('relative', className)} style={{ minHeight }}>
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-[1px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+          <span className="sr-only">Loading chart</span>
+        </div>
+      )}
+      <div className={cn(loading && 'pointer-events-none opacity-30')}>{children}</div>
+    </div>
+  );
+}
+
 // ─── Horizontal bar chart card (reusable) ───
-function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, extraKeys }: {
+function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, extraKeys, loading = false }: {
   title: string;
   data: any[];
   selectedMetric: MetricKey;
   onMetricChange: (v: MetricKey) => void;
   extraKeys?: MetricKey[];
+  loading?: boolean;
 }) {
+  const chartHeight = Math.max(280, data.length * 28);
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -936,7 +997,10 @@ function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, e
         </div>
       </CardHeader>
       <CardContent>
-        {data.length === 1 ? (
+        <ChartLoadingShell loading={loading} minHeight={chartHeight}>
+        {data.length === 0 && !loading ? (
+          <p className="text-sm text-muted-foreground py-12 text-center">No data for this period.</p>
+        ) : data.length === 1 ? (
           <div className="space-y-4">
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-semibold text-foreground">{data[0].name}</span>
@@ -957,7 +1021,7 @@ function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, e
             </div>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={Math.max(280, data.length * 28)}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             <ComposedChart data={data} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis type="number" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
@@ -972,6 +1036,7 @@ function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, e
             </ComposedChart>
           </ResponsiveContainer>
         )}
+        </ChartLoadingShell>
       </CardContent>
     </Card>
   );
@@ -1001,6 +1066,7 @@ export default function Reports() {
   const [impressionsByFiltered, setImpressionsByFiltered] = useState<ImpressionsByFilteredData | null>(null);
   const [impressionsShareByCampaigns, setImpressionsShareByCampaigns] = useState<CampaignImpressionsShareRow[] | null>(null);
   const [campaignPerformanceRows, setCampaignPerformanceRows] = useState<CampaignActionData[] | null>(null);
+  const [reportLoading, setReportLoading] = useState<ReportLoadingState>(NO_REPORT_LOADING);
 
   const tzLabel = useMemo(() => {
     try {
@@ -1060,46 +1126,64 @@ export default function Reports() {
   // Granularity for the Campaign Performance grid
   const [gridGranularity, setGridGranularity] = useState<Granularity>('daily');
 
+  // Clear chart/report data when filters change so stale graphs are not shown while loading
+  useEffect(() => {
+    setCampaignsReport(undefined);
+    setCountryCityReport(null);
+    setContentInventoryReport(null);
+    setAdDeliveryReport(null);
+    setImpressionsByFiltered(null);
+    setImpressionsShareByCampaigns(null);
+    setCampaignPerformanceRows(null);
+    setReportLoading(ALL_REPORT_LOADING);
+  }, [selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, campaignReport: true }));
 
     const loadCampaignReports = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds =
-        selectedCampaignId === 'all'
-          ? allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id))
-          : allCampaigns
-              .filter((c) => c.id === selectedCampaignId)
-              .map((c) => Number(c.externalRefId))
-              .filter((id) => !Number.isNaN(id));
+        const campaignIds =
+          selectedCampaignId === 'all'
+            ? allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id))
+            : allCampaigns
+                .filter((c) => c.id === selectedCampaignId)
+                .map((c) => Number(c.externalRefId))
+                .filter((id) => !Number.isNaN(id));
 
-      if (campaignIds.length === 0) return;
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.getCampaignReports({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: gridGranularityToApiDateRange(granularity),
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.getCampaignReports({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: gridGranularityToApiDateRange(granularity),
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data) {
-        if (error) console.error(error);
-        return;
-      }
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          if (error) console.error(error);
+          return;
+        }
 
-      const parsed = parseCampaignReportsPayload(data.data);
-      if (parsed) {
-        setCampaignsReport(parsed);
-      } else {
-        setCampaignsReport(undefined);
+        const parsed = parseCampaignReportsPayload(data.data);
+        if (parsed) {
+          setCampaignsReport(parsed);
+        } else {
+          setCampaignsReport(undefined);
+        }
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, campaignReport: false }));
+        }
       }
     };
 
@@ -1113,30 +1197,37 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, countryCity: true }));
 
     const loadCountryCityReport = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.GetCountryCityReport({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: 'CUSTOM',
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.GetCountryCityReport({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setCountryCityReport(data.data);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, countryCity: false }));
+        }
       }
-
-      setCountryCityReport(data.data);
     };
 
     loadCountryCityReport();
@@ -1149,30 +1240,37 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, contentInventory: true }));
 
     const loadContentInventory = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.GetContentInventory({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: 'CUSTOM',
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.GetContentInventory({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setContentInventoryReport(data.data);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, contentInventory: false }));
+        }
       }
-
-      setContentInventoryReport(data.data);
     };
 
     loadContentInventory();
@@ -1185,30 +1283,37 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, adDelivery: true }));
 
     const loadAdDelivery = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.GetAdDelivery({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: 'CUSTOM',
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.GetAdDelivery({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setAdDeliveryReport(data.data);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, adDelivery: false }));
+        }
       }
-
-      setAdDeliveryReport(data.data);
     };
 
     loadAdDelivery();
@@ -1221,29 +1326,36 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, impressionsFiltered: true }));
 
     const loadImpressionsByFiltered = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.getImpressionsByFiltered({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: 'CUSTOM',
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-      });
+        const { data, status, error } = await reportsApi.getImpressionsByFiltered({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setImpressionsByFiltered(data.data);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, impressionsFiltered: false }));
+        }
       }
-
-      setImpressionsByFiltered(data.data);
     };
 
     loadImpressionsByFiltered();
@@ -1256,30 +1368,37 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, impressionsShare: true }));
 
     const loadImpressionsShareByCampaigns = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.ImpressionsShareByCampaigns({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: 'CUSTOM',
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.ImpressionsShareByCampaigns({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !data?.data?.campaignMetrics) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data?.campaignMetrics) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setImpressionsShareByCampaigns(data.data.campaignMetrics);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, impressionsShare: false }));
+        }
       }
-
-      setImpressionsShareByCampaigns(data.data.campaignMetrics);
     };
 
     loadImpressionsShareByCampaigns();
@@ -1292,30 +1411,37 @@ export default function Reports() {
     if (allCampaigns.length === 0) return;
 
     let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, campaignPerformance: true }));
 
     const loadCampaignPerformance = async () => {
-      const { data: { session: sessionData } } = await auth.getSession();
-      if (!sessionData?.currentAdvertiserId) return;
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
-      if (campaignIds.length === 0) return;
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
 
-      const { data, status, error } = await reportsApi.getCampaignPerformance({
-        advertiserId: sessionData.currentAdvertiserId,
-        campaignIds,
-        dateRange: gridGranularityToApiDateRange(gridGranularity),
-        from: dateRange.from.toISOString().substring(0, 10),
-        to: dateRange.to.toISOString().substring(0, 10),
-        campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
-      });
+        const { data, status, error } = await reportsApi.getCampaignPerformance({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: gridGranularityToApiDateRange(gridGranularity),
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+        });
 
-      if (cancelled) return;
-      if (status !== 200 || error || !Array.isArray(data?.data)) {
-        if (error) console.error(error);
-        return;
+        if (cancelled) return;
+        if (status !== 200 || error || !Array.isArray(data?.data)) {
+          if (error) console.error(error);
+          return;
+        }
+
+        setCampaignPerformanceRows(data.data);
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, campaignPerformance: false }));
+        }
       }
-
-      setCampaignPerformanceRows(data.data);
     };
 
     loadCampaignPerformance();
@@ -1562,6 +1688,7 @@ export default function Reports() {
     if (apiRows && apiRows.length > 0) {
       return dailyRowsToChartPoints(apiRows);
     }
+    if (!campaignsReport) return [];
 
     const allDays = campaigns.flatMap(c => generateDailyData(c));
     const map = new Map<string, { date: string; impressions: number; reach: number; conversions: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number }>();
@@ -1597,6 +1724,7 @@ export default function Reports() {
   // Per-campaign stacked chart data (for "All Campaigns" view)
   const stackedChartData = useMemo(() => {
     const apiRows = campaignsReport?.PerformanceTotals;
+    if (!campaignsReport) return [];
 
     const perCampaign =
       apiRows?.length && campaigns.length > 1
@@ -1659,8 +1787,9 @@ export default function Reports() {
     if (apiPerformanceGridData) {
       return [...apiPerformanceGridData].sort((a, b) => b.date.localeCompare(a.date));
     }
+    if (campaignPerformanceRows === null) return [];
     return aggregatePerformanceGridRows(dailyGridData, gridGranularity);
-  }, [apiPerformanceGridData, dailyGridData, gridGranularity]);
+  }, [apiPerformanceGridData, campaignPerformanceRows, dailyGridData, gridGranularity]);
 
   const seed = useMemo(() => campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0), [campaigns]);
   const totalImpr = kpis.totalImpressions;
@@ -1673,6 +1802,7 @@ export default function Reports() {
         color: COLORS[i % COLORS.length],
       }));
     }
+    if (impressionsShareByCampaigns === null) return [];
 
     const rand = seededRandom(seed + 999);
     return campaigns.map((c, i) => ({
@@ -1696,6 +1826,7 @@ export default function Reports() {
         totalSpent: kpis.totalSpent,
       });
     }
+    if (impressionsByFiltered === null) return [];
 
     const impressions = generateDemographic(SHOW_NAMES, totalImpr, seed + 1);
     const reaches = generateDemographic(SHOW_NAMES, kpis.totalReach, seed + 10);
@@ -1720,6 +1851,7 @@ export default function Reports() {
         (row) => row.deviceTypeLabel,
       );
     }
+    if (impressionsByFiltered === null) return [];
     return generateDemographic(DEVICE_TYPES, totalImpr, seed + 3);
   }, [impressionsByFiltered, totalImpr, seed]);
 
@@ -1730,6 +1862,7 @@ export default function Reports() {
         (row) => row.genderLabel?.trim() || 'Unknown',
       );
     }
+    if (impressionsByFiltered === null) return [];
     return generateDemographic(GENDERS, totalImpr, seed + 4);
   }, [impressionsByFiltered, totalImpr, seed]);
 
@@ -1740,6 +1873,7 @@ export default function Reports() {
         (row) => row.age?.trim() || row.ageLabel?.trim() || 'Unknown',
       );
     }
+    if (impressionsByFiltered === null) return [];
     return generateDemographic(AGE_GROUPS, totalImpr, seed + 5);
   }, [impressionsByFiltered, totalImpr, seed]);
   const podcastGenres = useMemo(() => {
@@ -1749,6 +1883,7 @@ export default function Reports() {
         (row) => row.genreName || row.genre,
       );
     }
+    if (contentInventoryReport === null) return [];
     return generateDemographic(PODCAST_GENRES, totalImpr, seed + 6);
   }, [contentInventoryReport, totalImpr, seed]);
 
@@ -1759,6 +1894,7 @@ export default function Reports() {
         (row) => row.audienceName,
       );
     }
+    if (contentInventoryReport === null) return [];
     return generateDemographic(PODCAST_AUDIENCES, totalImpr, seed + 7);
   }, [contentInventoryReport, totalImpr, seed]);
 
@@ -1769,6 +1905,7 @@ export default function Reports() {
         (row) => formatAdPositionLabel(row.adPosition),
       );
     }
+    if (adDeliveryReport === null) return [];
     return generateDemographic(AD_POSITIONS, totalImpr, seed + 20);
   }, [adDeliveryReport, totalImpr, seed]);
 
@@ -1779,6 +1916,7 @@ export default function Reports() {
         (row) => formatLanguageLabel(row.language),
       );
     }
+    if (adDeliveryReport === null) return [];
     return generateDemographic(CONTENT_LANGUAGES, totalImpr, seed + 21);
   }, [adDeliveryReport, totalImpr, seed]);
 
@@ -1789,6 +1927,7 @@ export default function Reports() {
         (row) => row.osLabel || formatLocationLabel(row.os ?? 'Other'),
       );
     }
+    if (adDeliveryReport === null) return [];
     return generateDemographic(DEVICE_OS, totalImpr, seed + 22);
   }, [adDeliveryReport, totalImpr, seed]);
   const mediaTopics = useMemo(() => {
@@ -1798,6 +1937,7 @@ export default function Reports() {
         (row) => row.mediaName,
       );
     }
+    if (contentInventoryReport === null) return [];
     return generateDemographic(MEDIA_TOPICS, totalImpr, seed + 23);
   }, [contentInventoryReport, totalImpr, seed]);
 
@@ -1845,6 +1985,7 @@ export default function Reports() {
         .map(mapCityToChartRow)
         .sort((a, b) => b.impressions - a.impressions);
     }
+    if (countryCityReport === null) return [];
 
     const names = targetedCities.map(t => t.city);
     const impr = generateDemographic(names, totalImpr, seed + 8);
@@ -1869,6 +2010,7 @@ export default function Reports() {
         .map(mapCountryToChartRow)
         .sort((a, b) => b.impressions - a.impressions);
     }
+    if (countryCityReport === null) return [];
 
     const map = new Map<string, { name: string; impressions: number; reach: number; conversions: number; spent: number; _ltrSum: number; _ltrN: number; ltr: number }>();
     cityRows.forEach(r => {
@@ -2073,7 +2215,7 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  const renderPieChart = (title: string, data: PieChartSlice[]) => {
+  const renderPieChart = (title: string, data: PieChartSlice[], chartLoading: boolean) => {
     const totalImpressions = data.reduce((a, d) => a + d.value, 0);
     const ltrRand = seededRandom(seed + title.length * 7 + 31);
     const rows = data.map((d, i) => {
@@ -2094,47 +2236,53 @@ export default function Reports() {
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col lg:flex-row items-center gap-6">
-            <div className="w-full lg:w-[220px] shrink-0">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" labelLine={false}>
-                    {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => (v as number).toLocaleString()} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left font-medium py-1.5 pr-2">Name</th>
-                    <th className="text-right font-medium py-1.5 px-2">Impressions</th>
-                    <th className="text-right font-medium py-1.5 px-2">Reach</th>
-                    <th className="text-right font-medium py-1.5 px-2">Spend</th>
-                    <th className="text-right font-medium py-1.5 pl-2">LTR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.name} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 pr-2">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                          <span className="text-foreground">{r.name}</span>
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend.toFixed(2)}</td>
-                      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ChartLoadingShell loading={chartLoading} minHeight={200}>
+            {data.length === 0 && !chartLoading ? (
+              <p className="text-sm text-muted-foreground py-12 text-center">No data for this period.</p>
+            ) : (
+              <div className="flex flex-col lg:flex-row items-center gap-6">
+                <div className="w-full lg:w-[220px] shrink-0">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" labelLine={false}>
+                        {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => (v as number).toLocaleString()} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground">
+                        <th className="text-left font-medium py-1.5 pr-2">Name</th>
+                        <th className="text-right font-medium py-1.5 px-2">Impressions</th>
+                        <th className="text-right font-medium py-1.5 px-2">Reach</th>
+                        <th className="text-right font-medium py-1.5 px-2">Spend</th>
+                        <th className="text-right font-medium py-1.5 pl-2">LTR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r) => (
+                        <tr key={r.name} className="border-b border-border/50 last:border-0">
+                          <td className="py-1.5 pr-2">
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                              <span className="text-foreground">{r.name}</span>
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend.toFixed(2)}</td>
+                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </ChartLoadingShell>
         </CardContent>
       </Card>
     );
@@ -2215,7 +2363,8 @@ export default function Reports() {
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
                 cpa={{ value: kpis.cpa, deltaPct: cpaDeltaPct, series: cpaSeries }}
                 cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
-              />
+                loading={reportLoading.campaignReport}
+                />
             );
           })()}
 
@@ -2244,6 +2393,7 @@ export default function Reports() {
               </div>
             </CardHeader>
             <CardContent>
+              <ChartLoadingShell loading={reportLoading.campaignReport} minHeight={320}>
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={selectedCampaignId === 'all' && campaigns.length > 1 ? stackedChartData : dailyChartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -2278,6 +2428,7 @@ export default function Reports() {
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
+              </ChartLoadingShell>
             </CardContent>
           </Card>
 
@@ -2290,21 +2441,23 @@ export default function Reports() {
                   <CardTitle className="text-base">LTR% by campaigns</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={Math.max(240, campaigns.length * 36)}>
-                    <ComposedChart
-                      data={[...campaigns]
-                        .map(c => ({ name: c.campaignName, ltr: c.ltr ? parseInt(c.ltr+"") : 0 }))
-                        .sort((a, b) => b.ltr - a.ltr)}
-                      layout="vertical"
-                      margin={{ left: 10, right: 30 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${v}%`} />
-                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} className="fill-muted-foreground" width={130} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} />
-                      <Bar dataKey="ltr" name="LTR" fill="hsl(210, 70%, 55%)" radius={[0, 2, 2, 0]} label={{ position: 'right', fontSize: 10, formatter: (v: number) => `${v}%` }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <ChartLoadingShell loading={reportLoading.campaignReport} minHeight={Math.max(240, campaigns.length * 36)}>
+                    <ResponsiveContainer width="100%" height={Math.max(240, campaigns.length * 36)}>
+                      <ComposedChart
+                        data={[...campaigns]
+                          .map(c => ({ name: c.campaignName, ltr: c.ltr ? parseInt(c.ltr+"") : 0 }))
+                          .sort((a, b) => b.ltr - a.ltr)}
+                        layout="vertical"
+                        margin={{ left: 10, right: 30 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${v}%`} />
+                        <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} className="fill-muted-foreground" width={130} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} />
+                        <Bar dataKey="ltr" name="LTR" fill="hsl(210, 70%, 55%)" radius={[0, 2, 2, 0]} label={{ position: 'right', fontSize: 10, formatter: (v: number) => `${v}%` }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </ChartLoadingShell>
                 </CardContent>
               </Card>
 
@@ -2314,44 +2467,46 @@ export default function Reports() {
                   <CardTitle className="text-base">Impressions share by campaigns</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {campaignImpressionShareSlices.length === 0 || campaignImpressionShareTotal === 0 ? (
-                    <p className="text-sm text-muted-foreground py-8 text-center">No impression share data for this period.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
-                      <ResponsiveContainer width="100%" height={240}>
-                        <PieChart>
-                          <Pie
-                            data={campaignImpressionShareSlices}
-                            cx="50%" cy="50%"
-                            innerRadius={60} outerRadius={95}
-                            paddingAngle={2}
-                            dataKey="value"
-                            label={(e: { value: number }) => `${((e.value / campaignImpressionShareTotal) * 100).toFixed(1)}%`}
-                            labelLine={false}
-                          >
-                            {campaignImpressionShareSlices.map((s, i) => <Cell key={i} fill={s.color} />)}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={tooltipStyle}
-                            formatter={(v: number) => `${v.toLocaleString()} (${((v / campaignImpressionShareTotal) * 100).toFixed(1)}%)`}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="w-full space-y-1.5 text-xs">
-                        {campaignImpressionShareSlices.map((s) => (
-                          <div key={s.name} className="flex items-center justify-between gap-3">
-                            <span className="inline-flex items-center gap-2 min-w-0">
-                              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                              <span className="text-foreground truncate">{s.name}</span>
-                            </span>
-                            <span className="tabular-nums text-muted-foreground shrink-0">
-                              {((s.value / campaignImpressionShareTotal) * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        ))}
+                  <ChartLoadingShell loading={reportLoading.impressionsShare} minHeight={240}>
+                    {!reportLoading.impressionsShare && (campaignImpressionShareSlices.length === 0 || campaignImpressionShareTotal === 0) ? (
+                      <p className="text-sm text-muted-foreground py-8 text-center">No impression share data for this period.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
+                        <ResponsiveContainer width="100%" height={240}>
+                          <PieChart>
+                            <Pie
+                              data={campaignImpressionShareSlices}
+                              cx="50%" cy="50%"
+                              innerRadius={60} outerRadius={95}
+                              paddingAngle={2}
+                              dataKey="value"
+                              label={(e: { value: number }) => `${((e.value / campaignImpressionShareTotal) * 100).toFixed(1)}%`}
+                              labelLine={false}
+                            >
+                              {campaignImpressionShareSlices.map((s, i) => <Cell key={i} fill={s.color} />)}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={tooltipStyle}
+                              formatter={(v: number) => `${v.toLocaleString()} (${((v / campaignImpressionShareTotal) * 100).toFixed(1)}%)`}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="w-full space-y-1.5 text-xs">
+                          {campaignImpressionShareSlices.map((s) => (
+                            <div key={s.name} className="flex items-center justify-between gap-3">
+                              <span className="inline-flex items-center gap-2 min-w-0">
+                                <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                                <span className="text-foreground truncate">{s.name}</span>
+                              </span>
+                              <span className="tabular-nums text-muted-foreground shrink-0">
+                                {((s.value / campaignImpressionShareTotal) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </ChartLoadingShell>
                 </CardContent>
               </Card>
             </div>
@@ -2366,6 +2521,7 @@ export default function Reports() {
                 selectedMetric={countryMetric}
                 onMetricChange={setCountryMetric}
                 extraKeys={['ltr']}
+                loading={reportLoading.countryCity}
               />
 
               {/* ─── Bar Chart 3: City ─── */}
@@ -2375,6 +2531,7 @@ export default function Reports() {
                 selectedMetric={cityMetric}
                 onMetricChange={setCityMetric}
                 extraKeys={['ltr']}
+                loading={reportLoading.countryCity}
               />
 
               {/* ─── Bar Chart 4: Podcast Show Name ─── */}
@@ -2384,15 +2541,16 @@ export default function Reports() {
                 selectedMetric={showMetric}
                 onMetricChange={setShowMetric}
                 extraKeys={['ltr']}
+                loading={reportLoading.impressionsFiltered}
               />
 
               {/* ─── Pie Charts: Content & Inventory ─── */}
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Content & Inventory</h2>
                 <div className="grid grid-cols-1 gap-4">
-                  {renderPieChart('Podcast Genre', podcastGenres)}
-                  {renderPieChart('Contextual Media Topics', mediaTopics)}
-                  {renderPieChart('Contextual Audience Insights', podcastAudiences)}
+                  {renderPieChart('Podcast Genre', podcastGenres, reportLoading.contentInventory)}
+                  {renderPieChart('Contextual Media Topics', mediaTopics, reportLoading.contentInventory)}
+                  {renderPieChart('Contextual Audience Insights', podcastAudiences, reportLoading.contentInventory)}
                 </div>
               </div>
 
@@ -2400,10 +2558,10 @@ export default function Reports() {
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Ad Delivery</h2>
                 <div className="grid grid-cols-1 gap-4">
-                  {renderPieChart('Ad Position', adPositions)}
-                  {renderPieChart('Content Language', contentLanguages)}
-                  {renderPieChart('Device OS', deviceOS)}
-                  {renderPieChart('Device Type', deviceTypes)}
+                  {renderPieChart('Ad Position', adPositions, reportLoading.adDelivery)}
+                  {renderPieChart('Content Language', contentLanguages, reportLoading.adDelivery)}
+                  {renderPieChart('Device OS', deviceOS, reportLoading.adDelivery)}
+                  {renderPieChart('Device Type', deviceTypes, reportLoading.impressionsFiltered)}
                 </div>
               </div>
 
@@ -2411,8 +2569,8 @@ export default function Reports() {
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Demographics</h2>
                 <div className="grid grid-cols-1 gap-4">
-                  {renderPieChart('Age', ageGroups)}
-                  {renderPieChart('Gender', genders)}
+                  {renderPieChart('Age', ageGroups, reportLoading.impressionsFiltered)}
+                  {renderPieChart('Gender', genders, reportLoading.impressionsFiltered)}
                 </div>
               </div>
             </>
@@ -2485,42 +2643,44 @@ export default function Reports() {
               </div>
             </CardHeader>
             <CardContent>
-              {isMobile ? (
-                <MobileDataCards
-                  data={performanceGridData.slice(0, 30)}
-                  emptyMessage="No performance data"
-                  renderCard={(row) => (
-                    <div key={`${row.date}-${row.campaignName}`} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-foreground text-sm">{row.date}</p>
-                        <Badge variant="secondary" className={statusColors[row.campaignStatus] || ''}>
-                          {formatStatus(row.campaignStatus)}
-                        </Badge>
+              <ChartLoadingShell loading={reportLoading.campaignPerformance} minHeight={350}>
+                {isMobile ? (
+                  <MobileDataCards
+                    data={performanceGridData.slice(0, 30)}
+                    emptyMessage="No performance data"
+                    renderCard={(row) => (
+                      <div key={`${row.date}-${row.campaignName}`} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-foreground text-sm">{row.date}</p>
+                          <Badge variant="secondary" className={statusColors[row.campaignStatus] || ''}>
+                            {formatStatus(row.campaignStatus)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{row.campaignName || row.campaignDB}</p>
+                        <div className="space-y-1.5">
+                          <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
+                          <MobileStatRow label="Spend" value={`$${row.spent.toFixed(0)}`} />
+                          <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
+                          <MobileStatRow label="LTR" value={`${row.ltr}%`} />
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{row.campaignName || row.campaignDB}</p>
-                      <div className="space-y-1.5">
-                        <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
-                        <MobileStatRow label="Spend" value={`$${row.spent.toFixed(0)}`} />
-                        <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
-                        <MobileStatRow label="LTR" value={`${row.ltr}%`} />
-                      </div>
-                    </div>
-                  )}
-                />
-              ) : (
-                <div style={{ height: 350 }}>
-                  <AgGridReact
-                    theme={appGridTheme}
-                    modules={[AllCommunityModule]}
-                    rowData={performanceGridData}
-                    columnDefs={gridColDefs}
-                    suppressCellFocus
-                    animateRows
-                    pagination
-                    paginationPageSize={30}
+                    )}
                   />
-                </div>
-              )}
+                ) : (
+                  <div style={{ height: 350 }}>
+                    <AgGridReact
+                      theme={appGridTheme}
+                      modules={[AllCommunityModule]}
+                      rowData={performanceGridData}
+                      columnDefs={gridColDefs}
+                      suppressCellFocus
+                      animateRows
+                      pagination
+                      paginationPageSize={30}
+                    />
+                  </div>
+                )}
+              </ChartLoadingShell>
             </CardContent>
           </Card>
         </>
