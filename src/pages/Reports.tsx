@@ -57,6 +57,7 @@ import {
 } from '@/services/reports';
 import { appNotifications } from '@/services/appNotifications';
 import { Helmet } from 'react-helmet-async';
+import { toast } from '@/hooks/use-toast';
 
 
 
@@ -332,10 +333,23 @@ type ChartDailyPoint = {
   ltr: number;
 };
 
+/** Normalize date from getCampaignReports rows (shape varies by dateRange: DAY vs WEEK/MONTH). */
+function getCampaignReportRowDate(row: CampaignReportDailyRow): string {
+  const time = row.__time;
+  if (time && typeof time === 'object') {
+    const start = time.start ?? time.end;
+    if (typeof start === 'string' && start.length >= 10) return start.substring(0, 10);
+  }
+  if (typeof time === 'string' && time.length >= 10) return time.substring(0, 10);
+  if (typeof row.start === 'string' && row.start.length >= 10) return row.start.substring(0, 10);
+  if (typeof row.date === 'string' && row.date.length >= 10) return row.date.substring(0, 10);
+  if (typeof row.end === 'string' && row.end.length >= 10) return row.end.substring(0, 10);
+  return '';
+}
+
 function campaignReportRowToChartPoint(row: CampaignReportDailyRow): ChartDailyPoint {
-  console.log('row?__time?.start?.substring(0, 10)', row?.__time?.start?.substring(0, 10));
   return {
-    date: row.__time?.start?.substring(0, 10) ?? '',
+    date: getCampaignReportRowDate(row),
     impressions: row.impressions ?? 0,
     reach: row.demandAudioReachUniqueUsers ?? 0,
     conversions: row.objectiveCountableSum ?? 0,
@@ -376,16 +390,67 @@ function aggregateCardTotalsFromDailyRows(rows: CampaignReportDailyRow[]): Campa
   };
 }
 
+function isCampaignReportTreeNode(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.key === 'string' && row.total != null && typeof row.total === 'object';
+}
+
+function isFlatCampaignReportRow(value: unknown): value is CampaignReportDailyRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return row.impressions != null && !('key' in row && 'total' in row);
+}
+
+/** Flatten nested getCampaignReports tree: __time buckets → optional campaignName breakdown. */
+function flattenCampaignReportTree(nodes: unknown[]): CampaignReportDailyRow[] {
+  const rows: CampaignReportDailyRow[] = [];
+
+  for (const node of nodes) {
+    if (!isCampaignReportTreeNode(node)) continue;
+
+    const timeTotal = node.total as CampaignReportDailyRow;
+    const children = Array.isArray(node.data) ? node.data : [];
+    let hasCampaignBreakdown = false;
+
+    for (const child of children) {
+      if (!isCampaignReportTreeNode(child)) continue;
+      if (child.key !== 'campaignName') continue;
+
+      hasCampaignBreakdown = true;
+      rows.push({
+        ...(child.total as CampaignReportDailyRow),
+        __time: timeTotal.__time ?? (child.total as CampaignReportDailyRow).__time,
+      });
+    }
+
+    if (!hasCampaignBreakdown) {
+      rows.push(timeTotal);
+    }
+  }
+
+  return rows.sort((a, b) => getCampaignReportRowDate(a).localeCompare(getCampaignReportRowDate(b)));
+}
+
+function normalizeCampaignReportDailyRows(data: unknown[]): CampaignReportDailyRow[] {
+  if (data.length === 0) return [];
+  if (isCampaignReportTreeNode(data[0])) {
+    return flattenCampaignReportTree(data);
+  }
+  return data.filter(isFlatCampaignReportRow);
+}
+
 function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
   if (!payload || typeof payload !== 'object') return null;
 
   if (Array.isArray(payload)) {
     if (payload.length === 0) return null;
-    const dailyRows = payload as CampaignReportDailyRow[];
+    const dailyRows = normalizeCampaignReportDailyRows(payload);
+    if (dailyRows.length === 0) return null;
     return {
       cardTotals: aggregateCardTotalsFromDailyRows(dailyRows),
       PerformanceTotals: dailyRows,
-      data: [],
+      data: dailyRows,
     };
   }
 
@@ -397,19 +462,34 @@ function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
     if (nested) return nested;
   }
 
-  const dailyRows = Array.isArray(record.data)
-    ? (record.data as CampaignReportDailyRow[])
+  const rawData = Array.isArray(record.data)
+    ? record.data
     : Array.isArray(record.PerformanceTotals)
-      ? (record.PerformanceTotals as CampaignReportDailyRow[])
+      ? record.PerformanceTotals
       : null;
 
-  if (!dailyRows || dailyRows.length === 0) return null;
+  if (!rawData || rawData.length === 0) {
+    const cardTotals = record.cardTotals as CampaignReportCardTotals | undefined;
+    if (cardTotals) {
+      return { cardTotals, PerformanceTotals: [], data: [] };
+    }
+    return null;
+  }
+
+  const dailyRows = normalizeCampaignReportDailyRows(rawData);
+  if (dailyRows.length === 0) {
+    const cardTotals = record.cardTotals as CampaignReportCardTotals | undefined;
+    if (cardTotals) {
+      return { cardTotals, PerformanceTotals: [], data: [] };
+    }
+    return null;
+  }
 
   const cardTotals =
     (record.cardTotals as CampaignReportCardTotals | undefined) ??
     aggregateCardTotalsFromDailyRows(dailyRows);
 
-  return { cardTotals, PerformanceTotals: dailyRows, data: record.data as CampaignReportDailyRow[] };
+  return { cardTotals, PerformanceTotals: dailyRows, data: dailyRows };
 }
 
 type LocationChartRow = {
@@ -614,11 +694,9 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
 
 function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint[] {
   const map = new Map<string, ChartDailyPoint & { _ltrSum: number; _ltrN: number }>();
-  console.log('rows', rows);
 
   rows.forEach((row) => {
     const point = campaignReportRowToChartPoint(row);
-    console.log('point', point);
     const existing = map.get(point.date) ?? {
       ...point,
       impressions: 0,
@@ -629,7 +707,6 @@ function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint
       _ltrSum: 0,
       _ltrN: 0,
     };
-    console.log('existing', existing);
     existing.impressions += point.impressions;
     existing.reach += point.reach;
     existing.conversions += point.conversions;
@@ -1524,6 +1601,9 @@ export default function Reports() {
       });
       if (status !== 200 || error) {
         console.error(error);
+        toast({ title:'Error', description: error?.message ?? 'Unable to load campaigns', variant: 'destructive' });
+        //setAllCampaigns([]);
+        setLoading(false);
         return;
       }
 
