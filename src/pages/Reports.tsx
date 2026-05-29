@@ -613,9 +613,11 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
 
 function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint[] {
   const map = new Map<string, ChartDailyPoint & { _ltrSum: number; _ltrN: number }>();
+  console.log('rows', rows);
 
   rows.forEach((row) => {
     const point = campaignReportRowToChartPoint(row);
+    console.log('point', point);
     const existing = map.get(point.date) ?? {
       ...point,
       impressions: 0,
@@ -626,6 +628,7 @@ function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint
       _ltrSum: 0,
       _ltrN: 0,
     };
+    console.log('existing', existing);
     existing.impressions += point.impressions;
     existing.reach += point.reach;
     existing.conversions += point.conversions;
