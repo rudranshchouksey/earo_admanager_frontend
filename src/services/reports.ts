@@ -57,10 +57,14 @@ export interface CampaignReportCardTotals {
 
 /** One day (or bucket) row from getCampaignReports */
 export interface CampaignReportDailyRow {
-    __time: {
-        start: string;
-        end: string;
-    };
+    __time?: {
+        start?: string;
+        end?: string;
+    } | string;
+    /** Present on some API bucket shapes instead of __time */
+    start?: string;
+    end?: string;
+    date?: string;
     attributionCPAInUSD: number;
     campaignBudget?: string;
     totalSpend: number;
@@ -82,11 +86,22 @@ export interface CampaignReport {
     data: CampaignReportDailyRow[];
 }
 
+/** Nested tree node from getCampaignReports (time bucket with optional campaign breakdown). */
+export interface CampaignReportTreeNode {
+    key: string;
+    total: CampaignReportDailyRow;
+    data?: CampaignReportTreeNode[];
+    attributes?: {
+        granularity?: string;
+        valueType?: string;
+    };
+}
+
 /** getCampaignReports response body */
 export interface CampaignReportsData {
     cardTotals: CampaignReportCardTotals;
     campaignDetails?: Record<string, unknown>;
-    data: CampaignReportDailyRow[];
+    data: CampaignReportDailyRow[] | CampaignReportTreeNode[];
 }
 
 export interface CampaignReportsResponse {

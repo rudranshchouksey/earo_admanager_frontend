@@ -6,6 +6,7 @@ import path from "path";
 export default defineConfig({
   server: {
     host: "::",
+    allowedHosts: ["staging-app.earo.ai", "app.earo.ai"],
     port: 8080,
   },
   plugins: [react()],
