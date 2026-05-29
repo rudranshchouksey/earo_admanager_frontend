@@ -196,7 +196,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(adv)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          {adv.status === 'ACTIVE' && (
+          {/* {adv.status === 'ACTIVE' && (
             <Button
               variant="ghost"
               size="icon"
@@ -206,7 +206,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
             >
               <PauseCircle className="h-3.5 w-3.5" />
             </Button>
-          )}
+          )} */}
         </div>
       );
     },
@@ -222,7 +222,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
       {
         headerName: '',
         field: 'actions',
-        width: role === "ADMIN" || role === "EDITOR" ? 90 : 0,
+        width: role === "ADMIN" ? 90 : role === "EDITOR" ? 45 : 0,
         cellRenderer: role === "ADMIN" || role === "EDITOR" ? ActionsRenderer : undefined,
         sortable: false,
         filter: false,
@@ -240,7 +240,7 @@ export default function AdvertisersTab({ advertisers, createAdvertiser, updateAd
             <CardDescription>{t('account.manage_advertisers')}</CardDescription>
           </div>
           {
-            (role === "ADMIN" || role === "EDITOR" ) && (
+            role === "ADMIN" && (
               <Button size="sm" onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-1" />
                 {t('account.new_advertiser')}
