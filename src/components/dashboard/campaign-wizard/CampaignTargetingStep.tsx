@@ -608,7 +608,6 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
       {isPro && (
         <div className="space-y-3">
           <Label>Device Type</Label>
-          <p className="text-sm text-muted-foreground -mt-1">Target listeners by the type of device they are listening to.</p>
           <SearchableList
             items={deviceTypes.filter(device => device.code === 'MOBILE_AND_TABLETS' || device.code === 'DESKTOPS_AND_LAPTOPS')}
             columns={deviceColumns}

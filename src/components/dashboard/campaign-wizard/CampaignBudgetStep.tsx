@@ -105,8 +105,8 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7 }:
 
       {/* Total + duration summary */}
       
-      <p className="text-sm text-muted-foreground flex items-center ">
-        Total spend: <span className="font-semibold text-foreground">${totalBudget.toLocaleString()}</span> over {durationDays} day{durationDays !== 1 ? 's' : ''}, <span className="font-semibold text-foreground flex items-center gap-2">${dailyValue.toLocaleString()} per day  </span>
+      <p className="text-sm text-muted-foreground flex items-center gap-1 ">
+        Total spend: {" "} <span className="font-semibold text-foreground">${totalBudget.toLocaleString()}</span> over {durationDays} day{durationDays !== 1 ? 's' : ''}, <span className="font-semibold text-foreground flex items-center gap-2">${dailyValue.toLocaleString()} per day  </span>
       </p>
       {/* <h6 className='text-sm text-muted-foreground'>Minimum daily budget: ${MIN_BUDGET.toLocaleString()}</h6> */}
       

@@ -1,13 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format } from 'date-fns';
 
 export type KpiTone = 'green' | 'amber' | 'red' | 'blue' | 'muted';
 
 interface CampaignKpiSummaryProps {
+  loading?: boolean;
   status: { label: string; tone: KpiTone };
   asOfDate: Date;
   timezone?: string;
@@ -112,6 +113,7 @@ function Tile({ label, value, children, visual }: TileProps) {
 export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
   const {
     status = { label: '—', tone: 'muted' as KpiTone },
+    loading = false,
     asOfDate,
     timezone,
     impressions = { actual: 0, goal: 0 },
@@ -179,8 +181,18 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
             value={formatNum(impressions.actual)}
             visual={<Donut pct={imprPct} color={colorImpr} />}
           >
-            <div>of {formatNum(impressions.goal)} goal</div>
-            <Progress value={Math.min(100, imprPct)} className="h-1" />
+            {
+              loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <div>of {formatNum(impressions.goal)} goal</div>
+                  <Progress value={Math.min(100, imprPct)} className="h-1" />
+                </>
+
+              )
+
+            }
           </Tile>
 
           {/* Budget */}
@@ -189,13 +201,16 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
             value={formatMoney(budget.spent)}
             visual={<Donut pct={budgetPct} color={colorBudget} />}
           >
-            <div>of {formatMoney(budget.total)} used</div>
-            <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${Math.min(100, budgetPct)}%`, backgroundColor: colorBudget }}
-              />
-            </div>
+            {
+              loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <div>of {formatMoney(budget.total)} used</div>
+                  <Progress value={Math.min(100, budgetPct)} className="h-1" />
+                </>
+              )
+            }
           </Tile>
 
           {/* Reach */}
@@ -204,7 +219,16 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
             value={formatNum(reach.value)}
             visual={<Sparkline series={reach.series} color={colorReach} />}
           >
-            <div>{reachPctOfImpr}% of impressions</div>
+            {
+              loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <div>{reachPctOfImpr}% of impressions</div>
+                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" />
+                </>
+              )
+            }
             <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', reachTrendCls.bg, reachTrendCls.text)}>
               {reachTrendIcon}
               {reachTrendLabel}
@@ -217,12 +241,16 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
             value={`${Math.round(ltr.value)}%`}
             visual={<Donut pct={ltr.value} color={colorLtr} />}
           >
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', ltrToneCls.bg, ltrToneCls.text)}>
-                {ltrLabel}
-              </span>
-              <span className="text-[10px] text-muted-foreground">Industry avg: {ltr.industryAvg}%</span>
-            </div>
+            {
+              loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <div>{reachPctOfImpr}% of impressions</div>
+                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" />
+                </>
+              )
+            }
           </Tile>
 
           {/* CPA / CPM */}
@@ -246,7 +274,7 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
           })() : (
             <Tile
               label="CPA"
-              value={`$${cpa.value.toFixed(2)}`}
+              value={`-`}
               visual={<Sparkline series={cpa.series} color={colorCpa} />}
             >
               <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cpaToneCls.bg, cpaToneCls.text)}>

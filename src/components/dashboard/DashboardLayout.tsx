@@ -378,7 +378,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   </SelectItem>
                 ))}
                 {
-                  (role === "ADMIN" || role === "EDITOR" ) && (
+                  (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
                     <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account?page=advertisers')}>
                       Add Advertiser                 
                     </SelectItem>  
@@ -389,7 +389,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
 
           {/* Persistent CTAs — hidden on dashboard home for new users, always shown elsewhere */}
-          {(location.pathname !== '/dashboard' || !isNewUser) && (role === "ADMIN" || role === "EDITOR") && (
+          {(location.pathname !== '/dashboard' || !isNewUser) && (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
             <div className="flex items-center gap-3">
               <Button size="sm" variant="outline" className="h-9 gap-2" onClick={() => navigate('/dashboard/ads/new')}>
                 <Volume2 className="h-4 w-4 shrink-0" />

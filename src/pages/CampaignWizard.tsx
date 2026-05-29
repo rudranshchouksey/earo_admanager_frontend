@@ -959,7 +959,7 @@ export default function CampaignWizard() {
       const { data: { session } } = await auth.getSession();
       if(!session) return;
 
-      const { data, error, status } = await campaignApi.applyCoupon( Number(budget.dailyBudget) * durationDays, couponCode, session.currentAdvertiserId);
+      const { data, error, status } = await campaignApi.applyCoupon( Number(budget.totalBudget) || 0, couponCode, session.currentAdvertiserId);
 
 
       console.log({data, error, status});
@@ -969,6 +969,14 @@ export default function CampaignWizard() {
           description: data?.message || error?.message || "Invalid coupon code",
           variant: "destructive",
         });
+        setPayment((prev) => ({ ...prev, 
+          couponCode: "",
+          discountValue: 0,
+          discountType: "",
+          originalAmount: Number(budget.totalBudget),
+          discountApplied: 0,
+          finalAmount: Number(budget.totalBudget),
+         }));
       }
 
       // if(status === 200 && d)

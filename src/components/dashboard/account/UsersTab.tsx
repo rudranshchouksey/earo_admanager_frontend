@@ -55,6 +55,12 @@ const statusColors: Record<string, string> = {
   ended: "destructive",
 };
 
+const ROLE_META: Record<'ADMIN' | 'EDITOR' | 'VIEWER', { label: string; description: string }> = {
+  ADMIN: { label: 'Admin', description: 'Has full access to all advertisers, can add and edit users and view all account settings' },
+  EDITOR: { label: 'Editor', description: 'Can create and manage shared advertiser campaigns and audio ads' },
+  VIEWER: { label: 'Viewer', description: 'Can view shared advertiser campaigns, audio ads and reports' },
+};
+
 export default function UsersTab() {
   const isMobile = useIsMobile();
   const { isPro, isAgency, role } = useSessionFlags();
@@ -149,8 +155,30 @@ export default function UsersTab() {
       return;
     }
 
+
+    if(form.AdvertiserAccounts === "SPECIFIC" && !form.advertiserId) {
+      toast({ title: "Please select at least one advertiser account", variant: "destructive" });
+      return;
+    }
+
+    let newRole = form.role;
+
+    if(form.AdvertiserAccounts === "SPECIFIC") {
+      newRole = form.role === "EDITOR" ? "EDITOR_RESTRICTED" : form.role === "VIEWER" ? "VIEWER_RESTRICTED" : form.role;
+    } else if(form.AdvertiserAccounts === "ALL") {
+      newRole = form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role;
+    }
+    
+
     if (editingUser) {
-      const { status, error, message } = await teamApi.updateTeamUser({...form, advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : "SPECIFIC"}, session.currentOrganizationId);
+      const { status, error, message } = await teamApi.updateTeamUser({
+        ...form, 
+        role: newRole,
+        advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], 
+        AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : form.AdvertiserAccounts
+      }, 
+      session.currentOrganizationId
+    );
       setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
@@ -174,7 +202,7 @@ export default function UsersTab() {
       return;
     }
 
-    if(!form.advertiserId) {
+    if(form.role !== "ADMIN" &&  form.AdvertiserAccounts === "SPECIFIC" && !form.advertiserId) {
       toast({ title: "Please select at least one advertiser account", variant: "destructive" });
       return;
     }
@@ -204,7 +232,15 @@ export default function UsersTab() {
       // };
       // setUsers((prev) => [...prev, newUser]);
       setSendingInvite(true);
-      const { status, error, message } = await teamApi.createTeamUser({...form, advertiserId: form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [], AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : "SPECIFIC"}, session.currentOrganizationId);
+      const adIds = form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : [];
+      const { status, error, message } = await teamApi.createTeamUser({
+          ...form, 
+          advertiserId: adIds, 
+          role: form.role === "ADMIN" ? "ADMIN" : form.role === "EDITOR" ? form.AdvertiserAccounts === "SPECIFIC" ? "EDITOR_RESTRICTED" : "EDITOR" : form.role === "VIEWER" ? "VIEWER" : "VIEWER_RESTRICTED",
+          AdvertiserAccounts: form.role === "ADMIN" ? "ALL" : form.AdvertiserAccounts
+        }, 
+        session.currentOrganizationId
+      );
       setSendingInvite(false);
       if(status !== 200 || error){
         toast({ title: message, variant: "destructive" });
@@ -369,14 +405,14 @@ export default function UsersTab() {
             <CardTitle>{t("account.team_users")}</CardTitle>
             <CardDescription>{t("account.manage_team")}</CardDescription>
           </div>
-          {/* {
-            (role === "ADMIN" || role === "EDITOR" ) && (
+          {
+            role === "ADMIN" && (
               <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
               {t("account.new_user")}
             </Button>                
             )
-          } */}
+          }
         </CardHeader>
         <CardContent>
           {isMobile ? (
@@ -517,96 +553,100 @@ export default function UsersTab() {
 
             <div className="space-y-3">
               <Label>{t("account.rights")}</Label>
-              <RadioGroup
-                value={form.role}
-                onValueChange={(v) => updateForm("role", v)}
-                className="space-y-2"
-              >
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="ADMIN" id="rights-admin" />
-                  <Label
-                    htmlFor="rights-admin"
-                    className="font-normal cursor-pointer"
-                  >
-                    {t("account.rights_admin")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="EDITOR" id="rights-edit" />
-                  <Label
-                    htmlFor="rights-edit"
-                    className="font-normal cursor-pointer"
-                  >
-                    {t("account.rights_edit")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="VIEWER" id="rights-view" />
-                  <Label
-                    htmlFor="rights-view"
-                    className="font-normal cursor-pointer"
-                  >
-                    {t("account.rights_view")}
-                  </Label>
-                </div>
-              </RadioGroup>
+
+              <Select value={form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role} onValueChange={(v) => updateForm('role', v as TeamUser['role'])}>
+                <SelectTrigger className="h-auto py-2 items-start">
+                  <SelectValue placeholder="Select a role">
+                    {form.role && ROLE_META[form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role as 'ADMIN' | 'EDITOR' | 'VIEWER'] && (
+                      <div className="flex flex-col text-left">
+                        <span className="font-medium">{ROLE_META[form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role].label}</span>
+                        <span className="text-xs text-muted-foreground whitespace-normal">
+                          {ROLE_META[form.role === "EDITOR_RESTRICTED" ? "EDITOR" : form.role === "VIEWER_RESTRICTED" ? "VIEWER" : form.role].description}
+                        </span>
+                      </div>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                  {(Object.keys(ROLE_META) as Array<'admin' | 'edit' | 'view'>).map((key) => (
+                    <SelectItem key={key} value={key} className="group">
+                      <div className="flex flex-col py-1">
+                        <span className="font-medium">{ROLE_META[key].label}</span>
+                        <span className="text-xs text-muted-foreground whitespace-normal group-focus:text-accent-foreground/90 group-data-[highlighted]:text-accent-foreground/90">
+                          {ROLE_META[key].description}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
 
             {isAgency && (form.role !== "ADMIN") && (
               <div className="space-y-4">
+
                 <div className="space-y-2">
-                  <Label>Advertiser Accounts </Label>
-                  <SearchableList
-                    items={advertisers}
-                    columns={[
-                      { key: "advertiserName", label: "Advertiser Name", sortable: true },
-                      {
-                        key: "industry",
-                        label: "Industry",
-                        hideOnMobile: true,
-                      },
-                    ]}
-                    selectionMode="multi"
-                    selectedIds={form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : []}
-                    onSelectionChange={(ids) => updateForm("advertiserId", typeof form.advertiserId === "string" ? ids.join(",") : ids)}
-                    selectAllFiltered
-                    idKey="id"
-                    searchPlaceholder="Search advertisers..."
-                    collapsible
-                    collapsibleLabel="Select advertiser accounts..."
-                    defaultOpen={false}
-                    maxHeight="200px"
-                    pageSize={50}
-                    emptyMessage="No advertisers found"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Label>All Advertisers</Label>
+                    <Switch
+                      checked={form.AdvertiserAccounts === "ALL"}
+                      onCheckedChange={(checked) =>
+                        updateForm("AdvertiserAccounts", checked ? "ALL" : "SPECIFIC")
+                      }
+                      size="sm"
+                    />
+                  </div>
+                                  {
+                  form.AdvertiserAccounts === "ALL" ? (
+                    <p className="text-xs text-muted-foreground">This user will automatically get access to all the advertiser accounts including the ones created in the future.</p>
+                  )
+                  : (
+                    <p className="text-xs text-muted-foreground">This user will get access to specific advertiser accounts</p>
+                  )
+                }
                 </div>
-                {/* <div className="flex items-center gap-3">
-                  <Switch
-                    id="future-accounts"
-                    checked={form.includesFutureAccounts}
-                    onCheckedChange={(checked) =>
-                      updateForm("includesFutureAccounts", checked)
-                    }
-                  />
-                  <Label
-                    htmlFor="future-accounts"
-                    className="font-normal cursor-pointer text-sm"
-                  >
-                    Include all future accounts automatically
-                  </Label>
-                </div> */}
-                {/* {form.includesFutureAccounts && (
-                  <p className="text-xs text-muted-foreground -mt-2 ml-12">
-                    This user will automatically get access to any new
-                    advertiser accounts created in the future.
-                  </p>
-                )} */}
+
+
+
+                {
+                  form.AdvertiserAccounts === "SPECIFIC" && (
+                    <div className="space-y-2">
+                    <Label>Specific Advertiser Accounts </Label>
+                    <SearchableList
+                      items={advertisers}
+                      columns={[
+                        { key: "advertiserName", label: "Advertiser Name", sortable: true },
+                        {
+                          key: "industry",
+                          label: "Industry",
+                          hideOnMobile: true,
+                        },
+                      ]}
+                      selectionMode="multi"
+                      selectedIds={form.advertiserId ? typeof form.advertiserId === "string" ? form.advertiserId.split(",") : form.advertiserId : []}
+                      onSelectionChange={(ids) => updateForm("advertiserId", typeof form.advertiserId === "string" ? ids.join(",") : ids)}
+                      selectAllFiltered
+                      idKey="id"
+                      searchPlaceholder="Search advertisers..."
+                      collapsible
+                      collapsibleLabel="Select advertiser accounts..."
+                      defaultOpen={false}
+                      maxHeight="200px"
+                      pageSize={50}
+                      emptyMessage="No advertisers found"
+                    />
+                  </div>
+                      
+                  )
+                }
+
+               
               </div>
             )}
 
 
-            {editingUser && (
+            {/* {editingUser && (
               <div className="space-y-2">
                 <Label>{t("account.user_status")}</Label>
                 <Select
@@ -626,7 +666,7 @@ export default function UsersTab() {
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            )} */}
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
