@@ -60,9 +60,10 @@ interface Props {
   onCityChange: (ids: string[]) => void;
   isLoading?: boolean;
   countryRef: React.RefObject<HTMLDivElement>;
+  disabled: boolean;
 }
 
-export default function CampaignInventoryStep({ countries, cities, data, onCountryChange, onCityChange, isLoading, countryRef }: Props) {
+export default function CampaignInventoryStep({ countries, cities, data, onCountryChange, onCityChange, isLoading, countryRef, disabled }: Props) {
   const [openListId, setOpenListId] = useState<string | null>(null);
 
   const handleOpenChange = (listId: string) => (open: boolean) => {
@@ -162,6 +163,7 @@ export default function CampaignInventoryStep({ countries, cities, data, onCount
           onOpenChange={handleOpenChange('country')}
           collapsibleIcon={<MapPin className="h-4 w-4" />}
           collapsibleLabel="Select country..."
+          disabled={disabled}
         />
       </div>
 
@@ -193,6 +195,7 @@ export default function CampaignInventoryStep({ countries, cities, data, onCount
             onOpenChange={handleOpenChange('city')}
             collapsibleIcon={<MapPin className="h-4 w-4" />}
             collapsibleLabel="Select cities..."
+            disabled={disabled}
           />
         </div>
       )}

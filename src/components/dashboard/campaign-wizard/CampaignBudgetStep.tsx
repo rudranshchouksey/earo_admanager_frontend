@@ -19,6 +19,7 @@ interface Props {
   durationDays?: number;
   inventoryCount?: number;
   campaignStatus: string;
+  disabled: boolean;
 }
 
 const MIN_BUDGET = 25;
@@ -26,12 +27,12 @@ const MAX_BUDGET = 10000;
 const STEP = 25;
 const BUDGET_PRESETS = [25, 50, 100, 250, 500];
 
-export default function CampaignBudgetStep({ data, onChange, durationDays = 7, campaignStatus }: Props) {
+export default function CampaignBudgetStep({ data, onChange, durationDays = 7, campaignStatus, disabled }: Props) {
   const dailyValue = Number(data.dailyBudget);
   const totalBudget = Number(data.totalBudget);
   const [tab, settab] = useState('daily')
 
-  const shouldDisable = !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+  const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
 
   const handleTabChange = (value: string) => {
     settab(value);

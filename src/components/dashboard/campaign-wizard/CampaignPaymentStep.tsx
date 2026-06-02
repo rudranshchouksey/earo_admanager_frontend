@@ -31,6 +31,7 @@ interface Props {
   creditsDetails: CreditDetails;
   cards: Cards[];
   totalBudget: number;
+  disabled: boolean;
 }
 
 interface Cards {
@@ -53,12 +54,13 @@ export default function CampaignPaymentStep({
   dailyBudget,
   totalBudget,
   durationDays,
+  disabled,
 }: Props) {
   const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [savedCards, setSavedCards] = useState([]);
 
-  const shouldDisable = !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+  const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
 
   const handleApplyCoupon = () => {
 

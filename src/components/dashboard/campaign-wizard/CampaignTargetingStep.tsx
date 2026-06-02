@@ -197,9 +197,10 @@ interface Props {
   streamingAudiences: StreamingAudience[];
   targetingSegments: TargetingSegment[];
   deviceTypes: TargetingSegment[];
+  disabled: boolean;
 }
 
-export default function CampaignTargetingStep({ data, onChange, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes }: Props) {
+export default function CampaignTargetingStep({ data, onChange, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled }: Props) {
   const { isPro } = useSessionFlags();
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
   const [openListId, setOpenListId] = useState<string | null>(null);
@@ -335,6 +336,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   collapsibleLabel="Search or select segment"
                   searchPlaceholder="Search topics..."
                   emptyMessage="No topics match your search"
+                  disabled={disabled}
                 />
               </div>
 
@@ -360,6 +362,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   onOpenChange={handleOpenChange('podcast-audiences')}
                   collapsibleLabel="Search or select segments"
                   emptyMessage="No audiences match your search"
+                  disabled={disabled}
                 />
               </div>
 
@@ -395,6 +398,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   isOpen={openListId === 'saved-audiences-podcast'}
                   onOpenChange={handleOpenChange('saved-audiences-podcast')}
                   collapsibleLabel="Select audiences..."
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -423,6 +427,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   onOpenChange={handleOpenChange('streaming-topics')}
                   collapsibleLabel="Search or select segments"
                   emptyMessage="No content matches your search"
+                  disabled={disabled}
                 />
               </div>
 
@@ -447,6 +452,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   onOpenChange={handleOpenChange('streaming-audiences')}
                   collapsibleLabel="Search or select segments"
                   emptyMessage="No segments match your search"
+                  disabled={disabled}
                 />
               </div>
 
@@ -510,6 +516,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
             onOpenChange={handleOpenChange('shows')}
             collapsibleIcon={<List className="h-4 w-4" />}
             collapsibleLabel="Select shows & interests..."
+            disabled={disabled}
           />
         </div>
       )}
@@ -525,12 +532,13 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               return (
                 <div
                   key={pos.value}
-                  onClick={() => toggleAdPosition(pos.value)}
+                  onClick={() => !disabled ? toggleAdPosition(pos.value) : undefined}
                   className={cn(
                     'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                     selected
                       ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                      : 'border-border hover:border-[#C8E6C9]'
+                      : 'border-border hover:border-[#C8E6C9]',
+                      disabled ? 'opacity-50 cursor-not-allowed' : ''
                   )}
                 >
                   {selected && (
@@ -555,12 +563,13 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
             return (
               <div
                 key={value}
-                onClick={() => onChange({ ...data, gender: value })}
+                onClick={() => !disabled ? onChange({ ...data, gender: value }) : undefined}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                   selected
                     ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                    : 'border-border hover:border-[#C8E6C9]'
+                    : 'border-border hover:border-[#C8E6C9]',
+                    disabled ? 'opacity-50 cursor-not-allowed' : ''
                 )}
               >
                 {selected && (
@@ -584,12 +593,13 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
             return (
               <div
                 key={age.value}
-                onClick={() => toggleAge(age.value)}
+                onClick={() => !disabled ? toggleAge(age.value) : undefined}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                   selected
                     ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                    : 'border-border hover:border-[#C8E6C9]'
+                    : 'border-border hover:border-[#C8E6C9]',
+                    disabled ? 'opacity-50 cursor-not-allowed' : ''
                 )}
               >
                 {selected && (
@@ -627,6 +637,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
             isOpen={openListId === 'devices'}
             onOpenChange={handleOpenChange('devices')}
             collapsibleLabel="Select device types..."
+            disabled={disabled}
           />
         </div>
       )}

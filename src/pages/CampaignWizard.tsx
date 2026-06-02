@@ -226,7 +226,8 @@ Confirm payment and activate your campaign. It will begin serving impressions on
 
 export default function CampaignWizard() {
   const navigate = useNavigate();
-  const { isPro } = useSessionFlags();
+  const { isPro, role } = useSessionFlags();
+  const isAdminOrEditor = role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED";
   const { id } = useParams<{ id: string }>();
   const [saving, setSaving] = useState(false);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
@@ -1867,6 +1868,7 @@ export default function CampaignWizard() {
             setupDone,
             <CampaignSetupStep data={setup} onChange={setSetup} searchInputRef={searchInputRef} campaignNameRef={campaignNameRef}
             audioAdRef={audioAdRef}
+            disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
             />,
           )}
 
@@ -1875,7 +1877,7 @@ export default function CampaignWizard() {
             "Schedule",
             scheduleTooltip,
             scheduleDone,
-            <CampaignScheduleStep data={schedule} onChange={setSchedule} campaignStatus={campaignStatus} />,
+            <CampaignScheduleStep data={schedule} onChange={setSchedule} campaignStatus={campaignStatus} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} />,
           )}
 
           {/* Budget */}
@@ -1889,6 +1891,7 @@ export default function CampaignWizard() {
               durationDays={durationDays || 7}
               inventoryCount={targeting.inventoryType === 'Podcast' ? 1 : 0}
               campaignStatus={campaignStatus}
+              disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
             />,
           )}
 
@@ -1905,6 +1908,7 @@ export default function CampaignWizard() {
               onCityChange={onCityChange}
               isLoading={geoLoading && !geoApplied}
               countryRef={countryRef}
+              disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
             />,
           )}
 
@@ -1922,6 +1926,7 @@ export default function CampaignWizard() {
               data={targeting}
               onChange={setTargeting}
               deviceTypes={deviceTypes}
+              disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
             />,
           )}
 
@@ -1943,6 +1948,7 @@ export default function CampaignWizard() {
                   data={audienceExtension}
                   onChange={setAudienceExtension}
                   dailyBudget={Number(budget.dailyBudget) || 0}
+                  disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
                 />
               </CardContent>
             </Card>
@@ -1963,7 +1969,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
+              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} />
             </CardContent>
           </Card>
 
@@ -1979,7 +1985,7 @@ export default function CampaignWizard() {
             </Button>
             <div className="flex gap-2">
               {
-                ((id && campaignStatus?.toLowerCase() === "draft") || !id) && <Button
+                ((id && campaignStatus?.toLowerCase() === "draft") || !id) && isAdminOrEditor && <Button
                 variant="outline"
                 onClick={saveDraftCampaign}
                 disabled={saving}
@@ -1989,7 +1995,7 @@ export default function CampaignWizard() {
 
               }
               {
-               ( (id && campaignStatus?.toLowerCase() === "draft") || !id) &&  <Button
+               ( (id && campaignStatus?.toLowerCase() === "draft") || !id) && isAdminOrEditor && <Button
                 onClick={saveCampaign}
                 disabled={saving}
               >
@@ -2000,7 +2006,7 @@ export default function CampaignWizard() {
               }
               
              {
-                (id && (campaignStatus?.toLowerCase() === "processing" || campaignStatus?.toLowerCase() === "scheduled") ) &&  <Button
+                (id && (campaignStatus?.toLowerCase() === "processing" || campaignStatus?.toLowerCase() === "scheduled") ) && isAdminOrEditor && <Button
                 onClick={updateCampaign}
                 disabled={saving}
               >

@@ -76,6 +76,7 @@ export interface SearchableListProps<T> {
   /** Controlled open state for accordion behavior */
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  disabled?: boolean;
 }
 
 // ──────────────────────────── Component ────────────────────────────
@@ -113,6 +114,7 @@ export function SearchableList<T extends Record<string, any>>({
   defaultOpen = false,
   isOpen: controlledIsOpen,
   onOpenChange,
+  disabled = false,
 }: SearchableListProps<T>) {
   const [internalIsOpen, setInternalIsOpen] = useState(defaultOpen);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -390,14 +392,14 @@ export function SearchableList<T extends Record<string, any>>({
       )}
       <div
         className="flex-1 min-w-0 cursor-pointer"
-        onClick={() => setIsOpen((o) => !o)}
+        onClick={() => !disabled ? setIsOpen((o) => !o) : undefined}
       >
         {selectedIds.length > 0 ? (
           <span className="flex flex-wrap gap-1.5">
             {selectedItemLabels.map(({ id, label }) => (
               <span
                 key={id}
-                className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1 py-1 rounded-full"
+                className={`inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1 py-1 rounded-full ${disabled ? 'opacity-80 cursor-not-allowed' : ''}`}
               >
                 <span className="truncate max-w-[160px]">{label}</span>
                 <button
@@ -407,6 +409,7 @@ export function SearchableList<T extends Record<string, any>>({
                     removeSelected(id);
                   }}
                   className="text-primary/60 hover:text-primary ml-0.5"
+                  disabled={disabled}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -421,7 +424,7 @@ export function SearchableList<T extends Record<string, any>>({
       </div>
       <button
         type="button"
-        onClick={() => setIsOpen((o) => !o)}
+        onClick={() => !disabled ? setIsOpen((o) => !o) : undefined}
         className="text-muted-foreground shrink-0"
       >
         {isOpen ? (
@@ -449,8 +452,9 @@ export function SearchableList<T extends Record<string, any>>({
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-9 pr-9 h-10"
+            className={`pl-9 pr-9 h-10 ${disabled ? 'opacity-80 cursor-not-allowed' : ''}`}
             placeholder={placeholder}
+            disabled={disabled}
           />
           {query.length > 0 && (
             <button
@@ -472,6 +476,7 @@ export function SearchableList<T extends Record<string, any>>({
             onValueChange={(v) =>
               setActiveFilters((prev) => ({ ...prev, [filter.key]: v === 'all' ? '' : v }))
             }
+            disabled={disabled}            
           >
             <SelectTrigger className="h-10 w-auto min-w-[130px]">
               <SelectValue placeholder={filter.label} />
@@ -502,6 +507,7 @@ export function SearchableList<T extends Record<string, any>>({
                 type="button"
                 onClick={() => removeSelected(id)}
                 className="ml-0.5 hover:text-destructive transition-colors"
+                disabled={disabled}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -524,6 +530,7 @@ export function SearchableList<T extends Record<string, any>>({
                           <Checkbox
                             checked={allFilteredSelected}
                             onCheckedChange={toggleSelectAllFiltered}
+                            disabled={disabled}
                           />
                         )}
                       </th>
