@@ -213,7 +213,7 @@ export const adsApi = {
     request<Ad>('/api/v1/creatives/updateAd', { method: 'POST', body: { id: jobId, ...payload } }),
 
   uploadAudioAd: (payload: Partial<Ad>) =>
-    request<Ad>('/api/v1/creatives/uploadAudioAd', { method: 'POST', body: payload }),
+    request<{status: number, message: string, data: Ad}>('/api/v1/creatives/uploadAudioAd', { method: 'POST', body: payload }),
 
   getVoices: (filter: voiceFilter) => request<VoicesResponse>('/api/v1/creatives/searchVoices', {method: "POST", body: filter}),
 
