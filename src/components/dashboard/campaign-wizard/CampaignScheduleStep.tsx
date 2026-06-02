@@ -14,12 +14,12 @@ import { MyTooltip } from '@/components/ui/MyTooltip';
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-function TimeDropdown({ value, onChange, className }: { value: string; onChange: (val: string) => void; className?: string }) {
+function TimeDropdown({ value, onChange, className, disabled=false }: { value: string; onChange: (val: string) => void; className?: string; disabled?: boolean }) {
   const [h, m] = (value || '00:00').split(':');
 
   return (
     <div className={cn('flex gap-1', className)}>
-      <Select value={h} onValueChange={(v) => onChange(`${v}:${m}`)}>
+      <Select value={h} onValueChange={(v) => onChange(`${v}:${m}`)} disabled={disabled}>
         <SelectTrigger className="w-[72px] h-10">
           <SelectValue />
         </SelectTrigger>
@@ -30,7 +30,7 @@ function TimeDropdown({ value, onChange, className }: { value: string; onChange:
         </SelectContent>
       </Select>
       <span className="self-center text-muted-foreground text-sm">:</span>
-      <Select value={m} onValueChange={(v) => onChange(`${h}:${v}`)}>
+      <Select value={m} onValueChange={(v) => onChange(`${h}:${v}`)} disabled={disabled}>
         <SelectTrigger className="w-[72px] h-10">
           <SelectValue />
         </SelectTrigger>
@@ -67,19 +67,20 @@ export const TIME_SLOTS = [
 interface ScheduleData {
   startDate: string;
   endDate: string;
-  startTime?: string;
-  endTime?: string;
-  daysOfWeek?: string[];
-  timeSlots?: string[];
+  startTime: string;
+  endTime: string;
+  daysOfWeek: string[];
+  timeSlots: string[];
   selectedHours?: number[];
 }
 
 interface Props {
   data: ScheduleData;
   onChange: (data: ScheduleData) => void;
+  campaignStatus: string;
 }
 
-export default function CampaignScheduleStep({ data, onChange }: Props) {
+export default function CampaignScheduleStep({ data, onChange, campaignStatus }: Props) {
   const { isPro } = useSessionFlags();
 
   const selectedDays = data.daysOfWeek || DAYS_OF_WEEK;
@@ -134,6 +135,9 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
 
+  const shouldDisable = !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+
+
   const formatDate = (date: Date) => {
     return `${date.getFullYear()}-${String(
       date.getMonth() + 1
@@ -153,6 +157,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                     "flex-1 h-10 justify-start text-left font-normal",
                     !data.startDate && "text-muted-foreground"
                   )}
+                  disabled={shouldDisable}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {data.startDate
@@ -180,6 +185,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
             <TimeDropdown
               value={data.startTime || '00:00'}
               onChange={(val) => onChange({ ...data, startTime: val })}
+              disabled={shouldDisable}
             />
           </div>
         </div>
@@ -194,6 +200,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                     "flex-1 h-10 justify-start text-left font-normal",
                     !data.endDate && "text-muted-foreground"
                   )}
+                  disabled={shouldDisable}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {data.endDate
@@ -222,6 +229,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
             <TimeDropdown
               value={data.endTime || '23:59'}
               onChange={(val) => onChange({ ...data, endTime: val })}
+              disabled={shouldDisable}
             />
           </div>
         </div>
@@ -232,7 +240,7 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
         const invalid = end <= start;
         return (
           <>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm">
               Duration: {Math.max(1, differenceInCalendarDays(new Date(data.endDate), new Date(data.startDate)) + 1)} days
             </p>
             {invalid && (
@@ -263,7 +271,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                   selected
                     ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                    : 'border-border hover:border-[#C8E6C9]'
+                    : 'border-border hover:border-[#C8E6C9]',
+                  shouldDisable && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 {selected && (
@@ -293,7 +302,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                       'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
                       selected
                         ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                        : 'border-border hover:border-[#C8E6C9]'
+                        : 'border-border hover:border-[#C8E6C9]',
+                      shouldDisable && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     {selected && (
@@ -326,7 +336,8 @@ export default function CampaignScheduleStep({ data, onChange }: Props) {
                       'border rounded-lg p-3 text-left cursor-pointer transition-all flex items-start gap-1.5',
                       selected
                         ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                        : 'border-border hover:border-[#C8E6C9]'
+                        : 'border-border hover:border-[#C8E6C9]',
+                      shouldDisable && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     {selected && (

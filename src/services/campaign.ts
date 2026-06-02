@@ -122,6 +122,10 @@ export const campaignApi = {
     request<CampaignResponse>('/api/v1/campaigns/getCampaign', {method: "POST", body: {campaignId: id, advertiserId}}),
 
   /** Creates a new distribution campaign linked to an Ad ID */
+  updateCampaign: (payload: Partial<Campaign>) => 
+    request<CreateCampaignResponse>('/api/v1/campaigns/updateCampaign', { method: 'POST', body: payload }),
+
+  /** Creates a new distribution campaign linked to an Ad ID */
   createCampaign: (payload: Partial<Campaign>) => 
     request<CreateCampaignResponse>('/api/v1/campaigns/launchCampaign', { method: 'POST', body: payload }),
 

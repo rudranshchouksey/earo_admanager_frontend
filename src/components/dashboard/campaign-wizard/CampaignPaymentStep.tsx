@@ -20,6 +20,7 @@ interface PaymentData {
 }
 
 interface Props {
+  campaignStatus: string;
   campaignName: string;
   data: PaymentData;
   onChange: (data: PaymentData) => void;
@@ -41,6 +42,7 @@ interface Cards {
 }
 
 export default function CampaignPaymentStep({
+  campaignStatus,
   creditsDetails,
   cards,
   campaignName,
@@ -55,6 +57,8 @@ export default function CampaignPaymentStep({
   const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [savedCards, setSavedCards] = useState([]);
+
+  const shouldDisable = !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
 
   const handleApplyCoupon = () => {
 
@@ -169,11 +173,12 @@ export default function CampaignPaymentStep({
                 handleApplyCoupon();
               }
             }}
+            disabled={shouldDisable}
           />
           <button
-            className="bg-primary text-white px-4 py-2 rounded-md"
+            className={`${shouldDisable ? ' cursor-not-allowed opacity-50 bg-primary/50' : 'bg-primary'} text-white px-4 py-2 rounded-md`}
             onClick={handleApplyCoupon}
-            disabled={isApplyingCoupon}
+            disabled={isApplyingCoupon || shouldDisable}
           >
             {isApplyingCoupon ? "Applying..." : "Apply"}
           </button>

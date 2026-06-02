@@ -315,6 +315,7 @@ export default function CampaignWizard() {
 
   const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
   const [campaignId, setCampaignId] = useState("");
+  const [campaignStatus, setCampaignStatus] = useState("")
 
 
   // Completion checks
@@ -625,6 +626,247 @@ export default function CampaignWizard() {
       setSaving(false);
     }
   }
+
+
+
+  const updateCampaign = async () => {
+
+    if(!setup.audioId){
+      toast({
+        title: "Error",
+        description: "Please select an audio ad",
+        variant: "destructive",
+      });
+      audioAdRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      return;
+    }
+
+    if(!setup.campaignName.trim()) {
+      toast({
+        title: "Error",
+        description: "Campaign name is required",
+        variant: "destructive",
+      });
+      campaignNameRef.current?.focus();
+      return;
+    }
+
+    if(!schedule.startDate || !schedule.endDate){
+      toast({
+        title: "Error",
+        description: "Please select a start and end date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if(!budget.totalBudget || !budget.dailyBudget){
+      toast({
+        title: "Error",
+        description: "Please set a budget",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if(!inventory.selectedCountries || inventory.selectedCountries.length === 0){
+      toast({
+        title: "Error",
+        description: "Please select a country",
+        variant: "destructive",
+      });
+      countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session || !session.user) throw new Error('Not authenticated');
+
+      if(!setup.campaignName.trim()) {
+        toast({
+          title: "Error",
+          description: "Campaign name is required",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      const campaignStartDate = schedule.startDate;
+      const campaignStartTime = schedule.startTime;
+      const campaignEndDate = schedule.endDate;
+      const campaignEndTime = schedule.endTime;
+
+
+      const completeStartDate = new Date(campaignStartDate);
+      completeStartDate.setHours(Number(campaignStartTime.split(":")[0]));
+      completeStartDate.setMinutes(Number(campaignStartTime.split(":")[1]));
+
+      const completeEndDate = new Date(campaignEndDate);
+      completeEndDate.setHours(Number(campaignEndTime.split(":")[0]));
+      completeEndDate.setMinutes(Number(campaignEndTime.split(":")[1]));
+
+
+      if(completeStartDate.getTime() < new Date().getTime()) {
+        toast({
+          title: "Error",
+          description: "Start date cannot be in the past",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // start time should be atleast 24 hour from now
+      if(completeStartDate.getTime() < new Date().getTime() + 86400000) {
+        toast({
+          title: "Error",
+          description: "Start date should be atleast 24 hours from now",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      if(completeEndDate.getTime() < completeStartDate.getTime()) {
+        toast({
+          title: "Error",
+          description: "End date cannot be before start date",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // end date should be atleast 1 day after start date
+      if(completeEndDate.getTime() - completeStartDate.getTime() < 86400000){
+        toast({
+          title: "Error",
+          description: "End date should be atleast 1 day after start date",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+
+      const geoCountries = [];
+
+      if(inventory.selectedCountries && inventory.selectedCountries.length > 0) {
+
+
+        const listOfCities = inventory?.selectedCities || [];
+        const countriesWithoutCities = listOfCities.length ? inventory.selectedCountries.filter(country => !listOfCities.some(city => city.country === country)) : inventory.selectedCountries;
+
+        if(countriesWithoutCities.length > 0) {
+          countriesWithoutCities.forEach(country => {
+            geoCountries.push("COUNTRY/" + country);
+          });
+        }
+        if(listOfCities.length >0 ){
+          listOfCities.forEach(city => {
+            geoCountries.push("CITY/" + city.name + "/" + city.country);
+          });
+        }
+      }
+
+
+
+      const campaignObj = {
+        id: id || campaignId,
+        campaignName: setup.campaignName,
+        externalReference: setup.externalCampaignId ? setup.externalCampaignId : null,
+        advertiserId: session.currentAdvertiserId,
+        startDate: campaignStartDate,
+        startTime: campaignStartTime,
+        endDate: campaignEndDate,
+        endTime: campaignEndTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        daysOfWeek: schedule.daysOfWeek,
+        timeOfDay: schedule.timeSlots,
+        budget: Number(budget.totalBudget),
+        perDayBudget: Number(budget.dailyBudget),
+        duration: durationDays,
+        zones: [],
+        audioId: setup.audioId,
+        monthlyBilling: false,
+        billingDuration: 1,
+        inventoryType: targeting.inventoryType === "Podcast" ? "Podcast" : "Streaming",
+        geoCountries: geoCountries,
+        gender: targeting.gender === "all" ? "" : targeting.gender,
+        age: targeting.ageRanges,
+        deviceType: targeting.deviceTypes,
+        podcastTopics: targeting.podcastTopics,
+        podcastAudiences: targeting.podcastAudiences,
+        streamingTopics: targeting.streamingTopics,
+        streamingAudiences: targeting.streamingAudiences,
+        bannerOne: null,
+        bannerTwo: null,
+        bannerThree: null,
+        impressionPixel: null,
+        isSavedCard: false,
+        discountCoupon: payment.couponCode ? payment.couponCode : null,
+        adPosition: targeting.adPositions ? targeting.adPositions : null,
+        cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
+      };
+
+
+      if(audienceExtension.enabled && audienceExtension.banners?.length === 0){
+        toast({
+          title: "Error",
+          description: "Please upload a banner for audience extension",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      if (audienceExtension.enabled && audienceExtension.banners.length > 0 && audienceExtension.banners[0].file) {
+        const shapeWidthHeight = {
+          rectangle: { width: 300, height: 250 },
+          square: { width: 300, height: 300 },
+          vertical: { width: 160, height: 600 },
+        };
+        const width = shapeWidthHeight[audienceExtension.banners[0].type].width;
+        const height = shapeWidthHeight[audienceExtension.banners[0].type].height;
+        const { data: bannerPayload, status: bannerStatus } = await targetingApi.uploadBanner(
+          audienceExtension.banners[0].file,
+          width,
+          height,
+        );
+        if (bannerStatus === 200 && bannerPayload != null) {
+          const url =
+            typeof bannerPayload === "string"
+              ? bannerPayload
+              : (bannerPayload as { url?: string }).url ??
+                (bannerPayload as { data?: string }).data;
+          if (url) campaignObj.bannerOne = url;
+        }
+      }
+      const {data, error, message, status} = await campaignApi.updateCampaign(campaignObj);
+
+      if(status === 200) {
+        toast({
+          title: "Success",
+          description: "Campaign updated successfully",
+          variant: "default",
+        });
+        navigate(`/dashboard/campaigns`);
+      }
+
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveCampaign = async () => {
 
@@ -1425,14 +1667,24 @@ export default function CampaignWizard() {
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
+  }, []);
 
-    if(id){
+
+  useEffect(() => {
+    
+    console.log("id here ", id);
+
+    if(id && id !== "new"){
       // Fetch existing campaign data and populate form for editing
       const getCampaignData = async () => {
       const { data: { session } } = await auth.getSession();
         const {status, data, message} = await campaignApi.getCampaign({id, advertiserId: session?.currentAdvertiserId});
 
         console.log("Existing campaign data:", {status, data, message});
+
+        if(data?.data?.status){
+          setCampaignStatus(data?.data?.status);
+        }
 
         if(status === 200 && data?.data) {
 
@@ -1562,8 +1814,12 @@ export default function CampaignWizard() {
         }
       }
       getCampaignData();
+    } else {
+      setCampaignStatus("");
     }
-  }, []);
+  
+  }, [id])
+  
 
   const cancelPayment = () => {
     setPaymentUrl("");
@@ -1619,7 +1875,7 @@ export default function CampaignWizard() {
             "Schedule",
             scheduleTooltip,
             scheduleDone,
-            <CampaignScheduleStep data={schedule} onChange={setSchedule} />,
+            <CampaignScheduleStep data={schedule} onChange={setSchedule} campaignStatus={campaignStatus} />,
           )}
 
           {/* Budget */}
@@ -1632,6 +1888,7 @@ export default function CampaignWizard() {
               onChange={setBudget}
               durationDays={durationDays || 7}
               inventoryCount={targeting.inventoryType === 'Podcast' ? 1 : 0}
+              campaignStatus={campaignStatus}
             />,
           )}
 
@@ -1706,7 +1963,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
+              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} />
             </CardContent>
           </Card>
 
@@ -1721,14 +1978,18 @@ export default function CampaignWizard() {
               Cancel
             </Button>
             <div className="flex gap-2">
-              <Button
+              {
+                ((id && campaignStatus?.toLowerCase() === "draft") || !id) && <Button
                 variant="outline"
                 onClick={saveDraftCampaign}
                 disabled={saving}
               >
                 Save Draft
               </Button>
-              <Button
+
+              }
+              {
+               ( (id && campaignStatus?.toLowerCase() === "draft") || !id) &&  <Button
                 onClick={saveCampaign}
                 disabled={saving}
               >
@@ -1736,6 +1997,21 @@ export default function CampaignWizard() {
                   ? "Launching..."
                   : "Pay & Launch"}
               </Button>
+              }
+              
+             {
+                (id && (campaignStatus?.toLowerCase() === "processing" || campaignStatus?.toLowerCase() === "scheduled") ) &&  <Button
+                onClick={updateCampaign}
+                disabled={saving}
+              >
+                {saving
+                  ? "Updating..."
+                  : "Update Campaign"}
+              </Button>
+              }
+             
+
+
             </div>
           </div>
         </div>

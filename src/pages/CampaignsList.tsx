@@ -462,7 +462,7 @@ export default function CampaignsList() {
                   columnDefs={colDefs}
                   defaultColDef={{ comparator: () => 0 }}
                   suppressMultiSort
-                  //onRowClicked={onRowClicked}
+                  onRowClicked={onRowClicked}
                   onSortChanged={onSortChanged}
                   suppressCellFocus
                   animateRows

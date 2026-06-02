@@ -233,6 +233,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setShowAgencySignup(false);
   }
 
+  const navigateToCampaignNew = () => {
+    // navigate('/dashboard/campaigns/new');
+    window.location.href = '/dashboard/campaigns/new';
+  }
+
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
@@ -395,7 +400,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Volume2 className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_ad')}</span>
               </Button>
-              <Button size="sm" className="h-9 gap-2" onClick={() => navigate('/dashboard/campaigns/new')}>
+              <Button size="sm" className="h-9 gap-2" onClick={navigateToCampaignNew}>
                 <Megaphone className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_campaign')}</span>
               </Button>
