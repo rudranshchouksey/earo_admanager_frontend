@@ -654,66 +654,6 @@ export default function AdsLibrary() {
             )}
 
             <CardContent>
-              {isMobile ? (
-                <MobileDataCards
-                  data={ads.filter(a => !search || a.adName.toLowerCase().includes(search.toLowerCase()))}
-                  emptyMessage={t('ads.no_ads_search')}
-                  renderCard={(ad) => {
-                    return (
-                      <div key={ad.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full shrink-0"
-                              onClick={() => togglePlay(ad)}
-                              disabled={!ad.sourceUrl}
-                            >
-                              {playingId === ad.id ? <Pause className="h-4 w-4 text-primary" /> : <Play className="h-4 w-4 text-primary ml-0.5" />}
-                            </Button>
-                            <div className="min-w-0">
-                              <p className="font-medium text-foreground truncate">{ad.adName}</p>
-                              {/* <p className="text-xs text-muted-foreground">{ad.tone ?? '—'}</p> */}
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className={statusColors[ad.status ?? ''] || ''}>
-                            {ad.status ?? 'DRAFT'}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1.5">
-                          <MobileStatRow label={t('reports.impressions')} value={(ad.impressions ?? 0).toLocaleString()} />
-                          <MobileStatRow label={t('campaigns.spend')} value={`$${(ad.spend ?? 0).toLocaleString()}`} />
-                          <MobileStatRow label="eCPM" value={ad.eCPM ? String(ad.eCPM) : '—'} />
-                        </div>
-                        <div className="flex justify-end">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                {t('common.delete')}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t('modal.delete_confirm_title')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t('modal.delete_confirm_desc', { name: ad.adName })}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(ad.id)}>{t('common.delete')}</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              ) : (
-                <>
                   <AgGridReact
                     theme={appGridTheme}
                     modules={[AllCommunityModule]}
@@ -768,8 +708,6 @@ export default function AdsLibrary() {
                       </Button>
                     </div>
                   </div>
-                </>
-              )}
             </CardContent>
           </Card>
         )}
