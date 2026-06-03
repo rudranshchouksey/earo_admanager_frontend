@@ -290,7 +290,7 @@ export default function AdsLibrary() {
   useEffect(() => {
     
     const supportedActions = {
-      canShare: false,
+      canShare: selectedIds.length > 0 && selectedIds.length <= 5,
       canEdit: false,
       canDelete: selectedIds.length === 1,
     }
@@ -301,13 +301,6 @@ export default function AdsLibrary() {
         supportedActions.canEdit = ad.jobId !== null;
       }
     }
-    
-    if(selectedIds.length > 0 && selectedIds.length <= 5) {
-      const isAnyUploaded = ads.some((ad) => !ad.jobId && selectedIds.includes(ad.id));
-      console.log("isAnyUploaded here ", {isAnyUploaded});
-      supportedActions.canShare = !isAnyUploaded;
-    }
-
 
 
     setSupportedActions(supportedActions);
