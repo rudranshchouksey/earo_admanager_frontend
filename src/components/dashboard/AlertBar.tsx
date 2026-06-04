@@ -242,7 +242,7 @@ export default function AlertBar() {
             setSubIndustry(org.subIndustry);
           }
         }
-        setShowCompleteProfileModal(true);
+        setShowCompleteProfileModal(userProfile.data.organizations.length < 2);
         allAlerts.push(
           {
             id: "complete-profile",
