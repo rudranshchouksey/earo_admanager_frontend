@@ -47,6 +47,13 @@ const BREADCRUMB_KEYS: Record<string, string> = {
   account: 'layout.nav_account',
 };
 
+type Organization = {
+  orgId: string;
+  name: string;
+  role: string;
+  orgType: string;
+}
+
 function getBreadcrumbs(pathname: string, t: (key: string) => string) {
   const parts = pathname.replace(/^\//, '').split('/').filter(Boolean);
   const crumbs: { label: string; path: string }[] = [];
@@ -81,6 +88,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [accountType, setAccountType] = useState<string>('');
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<string>('');
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -174,6 +183,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [selectedAdvertiser])
 
+  useEffect(() => {
+    
+    if(selectedOrganization && organizations.length > 1){
+      console.log("selectedOrganization", selectedOrganization);
+      auth.setCurrentOrganizationId(selectedOrganization);
+    }
+  
+  }, [selectedOrganization])
+  
 
 
   useEffect(() => {
@@ -187,6 +205,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const proFlagFromAdvertisers = organization.orgType === "SME" ? advertisers.some((a) => a.isPro) : true;
         console.log({proFlagFromAdvertisers})
         setAccountType(organization.orgType === "SME" ? (isPro || proFlagFromAdvertisers) ? "Pro" : "Express" : "Agency");
+        setOrganizations(data.data.organizations);
       }
 
       setUserEmail(data.data.email ?? null);
@@ -204,6 +223,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         getAdvertisers(session?.currentOrganizationId ?? '', session?.currentAdvertiserId ?? '');
       }
       setSelectedAdvertiser(session?.currentAdvertiserId ?? '');
+      setSelectedOrganization(session?.currentOrganizationId ?? '');
     });
   }, [getAdvertisers]);
 
@@ -364,8 +384,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex-1" />
           <div className="flex items-center gap-3">
 
+            {
+              organizations?.length > 1 && (
+                <Select value={selectedOrganization} onValueChange={(value) => {
+                  setSelectedOrganization(value);
+                }}>
+                  <SelectTrigger className="h-9 w-[180px] text-xs border-border">
+                    <SelectValue placeholder={'Organization'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.orgId} value={org.orgId} className="text-xs">
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            }
+            
+
           {/* Advertiser selector — Pro mode, always visible */}
-          {isAgency && (
+          {(isAgency || organizations?.length > 1) && (
             <Select value={selectedAdvertiser} onValueChange={(value) => {
               if(value === "add-advertiser") {
                 navigate('/dashboard/account?page=advertisers');

@@ -140,7 +140,7 @@ export default function Account() {
   const [country, setCountry] = useState("");
   // const [countries, setCountries] = useState<Country[]>([]);
   const { isPro, isAgency, role } = useSessionFlags();
-  
+  const [organizationCount, setorganizationCount] = useState(0);
   const countries:Country[] = countryList;
 
   const { geoData, isLoading: geoLoading } = useGeoLocation();
@@ -196,6 +196,7 @@ export default function Account() {
       console.log({ session: initialSession });
 
       if (userProfile && userProfile.data) {
+        setorganizationCount(userProfile.data.organizations?.length ?? 0);
         setProfile((p) => ({
           ...p,
           ...userProfile.data,
@@ -624,7 +625,7 @@ export default function Account() {
               {t("account.tab_profile")} 
             </TabsTrigger>
           )}
-          {isPro && role === "ADMIN" && (
+          {(isPro || organizationCount > 1) && role === "ADMIN" && (
             <TabsTrigger value="users" className=" min-w-[200px]">{t("account.tab_users")}</TabsTrigger>
           )}
           {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
@@ -768,7 +769,7 @@ export default function Account() {
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {isPro && role === "ADMIN" && (
+        {(isPro || organizationCount > 1) && role === "ADMIN" && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>

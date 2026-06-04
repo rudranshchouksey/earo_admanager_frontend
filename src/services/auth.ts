@@ -94,6 +94,8 @@ export function createSessionAndNotify(data: any) {
 
   console.log({ currentOrganizationId });
 
+  const role = data.data.organizations ? data.data.organizations[0].role : 'VIEWER';
+
   const session: AuthSession = {
     user: {
       id: data.data.id,
@@ -105,7 +107,8 @@ export function createSessionAndNotify(data: any) {
         status: data.data.status,
         mfaEnabled: data.data.mfaEnabled,
         mfaSkipUntil: data.data.mfaSkipUntil,
-        organizations: data.data.organizations ?? []
+        organizations: data.data.organizations ?? [],
+        role
       }
     },
     currentOrganizationId: currentOrganizationId,
