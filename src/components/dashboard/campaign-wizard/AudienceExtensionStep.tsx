@@ -36,9 +36,10 @@ interface Props {
   data: AudienceExtensionData;
   onChange: (data: AudienceExtensionData) => void;
   dailyBudget: number;
+  disabled: boolean;
 }
 
-export default function AudienceExtensionStep({ data, onChange, dailyBudget }: Props) {
+export default function AudienceExtensionStep({ data, onChange, dailyBudget, disabled }: Props) {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<BannerType | null>(null);
   const [isDragging, setIsDragging] = useState(false);

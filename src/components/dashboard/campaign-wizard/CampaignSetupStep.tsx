@@ -26,6 +26,7 @@ interface Props {
   searchInputRef: React.RefObject<HTMLInputElement>;
   campaignNameRef: React.RefObject<HTMLInputElement>;
   audioAdRef: React.RefObject<HTMLDivElement>;
+  disabled: boolean;
 }
 
 let activeAudioEl: HTMLAudioElement | null = null;
@@ -145,7 +146,7 @@ Link this campaign to an ID used in an external platform (e.g. a Google Analytic
   </div>
 `;
 
-export default function CampaignSetupStep({ data, onChange, searchInputRef, campaignNameRef, audioAdRef }: Props) {
+export default function CampaignSetupStep({ data, onChange, searchInputRef, campaignNameRef, audioAdRef, disabled }: Props) {
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
   const [ads, setAds] = useState<AdData[]>([]);
@@ -288,6 +289,7 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
             'w-full flex items-center justify-between gap-3 h-10 px-3 rounded-md border border-input bg-background text-sm',
             'hover:bg-accent/30 transition-colors',
           )}
+          disabled={disabled}
         >
           <span className={cn('truncate', data.audioId ? 'text-foreground' : 'text-muted-foreground')}>
             {data.audioId ? (data.adName || 'Selected ad') : 'Select audio ad...'}
@@ -307,6 +309,7 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-9 h-10"
                   placeholder="Search ads by name or goal..."                  
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -417,6 +420,7 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
           onChange={(e) => onChange({ ...data, campaignName: e.target.value })}
           maxLength={200}
           ref={campaignNameRef}
+          disabled={disabled}
         />
         <div className='flex justify-end'>
           <span className='text-xs text-slate-900'>{data.campaignName.length}/200</span>
@@ -432,6 +436,7 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
             value={data.externalCampaignId || ''}
             onChange={(e) => onChange({ ...data, externalCampaignId: e.target.value })}
             maxLength={50}
+            disabled={disabled}
           />
           <div className='flex justify-end'>
             <span className='text-xs text-slate-900'>{(data.externalCampaignId || '').length}/50</span>

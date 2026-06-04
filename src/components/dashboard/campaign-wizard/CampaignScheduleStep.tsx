@@ -78,9 +78,10 @@ interface Props {
   data: ScheduleData;
   onChange: (data: ScheduleData) => void;
   campaignStatus: string;
+  disabled: boolean;
 }
 
-export default function CampaignScheduleStep({ data, onChange, campaignStatus }: Props) {
+export default function CampaignScheduleStep({ data, onChange, campaignStatus, disabled }: Props) {
   const { isPro } = useSessionFlags();
 
   const selectedDays = data.daysOfWeek || DAYS_OF_WEEK;
@@ -135,7 +136,7 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus }:
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
 
-  const shouldDisable = !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+  const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
 
 
   const formatDate = (date: Date) => {
