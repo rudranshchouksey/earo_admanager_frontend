@@ -20,6 +20,7 @@ interface UploadAdFormProps {
 export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
   const { t } = useTranslation();
   const [adName, setAdName] = useState('');
+  const [adNameError, setAdNameError] = useState<string | null>(null);
   const [goal, setGoal] = useState('sales');
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -29,6 +30,9 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const sanitizeAdName = (value: string) => value.replace(/[^A-Za-z0-9 &_\-]/g, '');
+  const isValidAdName = (value: string) => /^[A-Za-z0-9 &_\-]+$/.test(value);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -63,7 +67,10 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       setFile(selected);
       setAudioUrl(url);
       setDuration(Math.round(tempAudio.duration));
-      if (!adName) setAdName(selected.name.replace(/\.[^.]+$/, ''));
+      if (!adName) {
+        const sanitizedName = sanitizeAdName(selected.name.replace(/\.[^.]+$/, ''));
+        setAdName(sanitizedName);
+      }
     });
     tempAudio.addEventListener('error', () => {
       setError('Could not read audio file.');
@@ -90,6 +97,15 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
   const handleSave = async () => {
     if (!file || !adName.trim()) return;
 
+    const trimmedAdName = adName.trim();
+    if (!isValidAdName(trimmedAdName)) {
+      toast({
+        title: t('Invalid Ad Name'),
+        description: t('Ad name can only contain letters, numbers, spaces, -, _ and &'),
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if(adName.length > 100){
       toast({ title: t('Ad Name must be less than 100 characters'), variant: 'destructive' });
@@ -117,14 +133,17 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       }
       const finalAudioUrl = data.data.url;
 
-      const { error: dbError } = await adsApi.uploadAudioAd({
-        adName: adName.trim(),
+      const { error: dbError, message: uploadAdMessage } = await adsApi.uploadAudioAd({
+        adName: trimmedAdName,
         advertiserId: session.currentAdvertiserId,
         fileUrl: finalAudioUrl,
         duration: duration,
         campaignGoal: goal,
       });
-      if (dbError) throw dbError;
+      if (dbError){
+        toast({ title: 'Error uploading ad', description: uploadAdMessage, variant: 'destructive' });
+        return;
+      }
 
       toast({ title: t('ad_creator.ad_saved_success') });
       onSaved();
@@ -145,14 +164,24 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
 
       {/* Ad Name */}
       <div className="space-y-2">
-        <Label>{t('ad_creator.upload.ad_name')}</Label>
+        <Label>{t('ad_creator.upload.ad_name')}<sup>*</sup> </Label>
         <Input
           value={adName}
-          onChange={(e) => setAdName(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const sanitized = sanitizeAdName(raw);
+            setAdName(sanitized);
+            setAdNameError(
+              raw !== sanitized ? t('Only letters, numbers, spaces, -, _ and & are allowed.') : null
+            );
+          }}
           placeholder={t('ad_creator.upload.ad_name_placeholder')}
           maxLength={100}
+          aria-invalid={Boolean(adName.trim()) && !isValidAdName(adName.trim())}
         />
-        <div className="w-full flex items-center justify-end">
+        {adNameError && <p className="text-sm text-destructive">{adNameError}</p>}
+        <div className="w-full flex items-center justify-between">
+          <p className='text-xs text-muted-foreground'>Ad name can only contain letters, numbers, spaces, -, _ and &amp;</p>
         <span className="text-xs text-muted-foreground">{adName.length}/100</span>
         </div>
       </div>
@@ -240,7 +269,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       <Button
         className="w-full h-12"
         onClick={handleSave}
-        disabled={!file || !adName.trim() || isSaving}
+        disabled={!file || !adName.trim() || !isValidAdName(adName.trim()) || isSaving}
       >
         {isSaving ? t('ad_creator.upload.saving') : t('ad_creator.upload.save_ad')}
       </Button>
