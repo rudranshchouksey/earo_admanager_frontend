@@ -625,7 +625,7 @@ export default function AdsLibrary() {
                     <Share className="h-3.5 w-3.5 mr-1.5" />
                     Share
                   </Button>
-                  <Button variant="outline" size="sm" className="h-8" onClick={() => console.log("edit")} disabled={!supportedActions.canEdit}>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => navigate(`/dashboard/ads/${selectedIds[0]}`)  } disabled={!supportedActions.canEdit}>
                     <Pencil className="h-3.5 w-3.5 mr-1.5" />
                     Edit
                   </Button>
