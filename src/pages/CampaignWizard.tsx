@@ -1323,18 +1323,32 @@ export default function CampaignWizard() {
 
 
       if(targeting.inventoryType === "Podcast"){
+        
+        let genreGroups = [];
+        const segmentValues = {
+          podcast: ["podcast"],
+          streaming: ["Aggregator", "CTV", "Gaming", "OTA/Broadcast", "On-Demand", "Pure Player"]
+        }
         if(targeting.podcastTopics && targeting.podcastTopics.length > 0){
-          audienceTargeting["groups"][0].rules.push({
-            type: "PUBLISHER_ATTRIBUTES_SEGMENTS",
-            comparison: "IS_ANY_OF",
-            groups: [
-              {
-                segmentCode: "genre",
-                segmentValues: targeting.podcastTopics,
-              }
-            ],
+          genreGroups.push({
+            segmentCode: "genre",
+            segmentValues: targeting.podcastTopics,
           });
         }
+
+
+        audienceTargeting["groups"][0].rules.push({
+          type: "PUBLISHER_ATTRIBUTES_SEGMENTS",
+          comparison: "IS_ANY_OF",
+          groups: [
+           ...genreGroups,
+           {
+            "segmentCode": "type",
+            "segmentValues": segmentValues[targeting.inventoryType?.toLowerCase()] || segmentValues.podcast
+           }
+          ],
+        });
+
 
 
         if(targeting.podcastAudiences && targeting.podcastAudiences.length > 0){
