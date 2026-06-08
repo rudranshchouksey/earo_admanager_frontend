@@ -221,6 +221,7 @@ export default function AdCreator() {
       //setIsGenerating(false);
     }
   }
+
   const fetchMusicsPage = async (opts: {
     mood: string;
     genre: string;

@@ -140,10 +140,37 @@ export default function Account() {
   const [country, setCountry] = useState("");
   // const [countries, setCountries] = useState<Country[]>([]);
   const { isPro, isAgency, role } = useSessionFlags();
-  
+  const [organizationCount, setorganizationCount] = useState(0);
   const countries:Country[] = countryList;
 
   const { geoData, isLoading: geoLoading } = useGeoLocation();
+
+  const getPaymentHistory = async () => {
+    const {data: {session: sessionData}} = await auth.getSession();
+    if (!sessionData) {
+      console.error("Not authenticated");
+      return;
+    }
+    setLoadingPaymentHistory(true);
+    console.log({ advertisers });
+    const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserIds: advertisers.map((advertiser) => advertiser.id)});
+
+    console.log({ data, error, status });
+
+    if (error || status !== 200) {
+      console.error(error);
+      setLoadingPaymentHistory(false);
+      toast({
+        title: t("common.error"),
+        description: error?.message || "Failed to load payment history",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingPaymentHistory(false);
+    setPaymentHistory(data.data || []);
+  }
 
   useEffect(() => {
     if(organizationDetails?.country) setCountry(organizationDetails.country);
@@ -167,6 +194,13 @@ export default function Account() {
     }
     setAdvertisers(advertisers.data ?? []);
   }
+
+  useEffect(() => {
+    if(advertisers.length > 0) {
+      getPaymentHistory();
+    }
+  }, [advertisers])
+  
 
   useEffect(() => {
     const load = async () => {
@@ -196,6 +230,7 @@ export default function Account() {
       console.log({ session: initialSession });
 
       if (userProfile && userProfile.data) {
+        setorganizationCount(userProfile.data.organizations?.length ?? 0);
         setProfile((p) => ({
           ...p,
           ...userProfile.data,
@@ -235,40 +270,8 @@ export default function Account() {
       setCards(data?.data || []);
     }
 
-    const paymentHistory = async () => {
-      const {data: {session: sessionData}} = await auth.getSession();
-      if (!sessionData) {
-        console.error("Not authenticated");
-        return;
-      }
-      setLoadingPaymentHistory(true);
-      const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserId: sessionData.currentAdvertiserId});
-      if (error || status !== 200) {
-        console.error(error);
-        setLoadingPaymentHistory(false);
-        toast({
-          title: t("common.error"),
-          description: error?.message || "Failed to load payment history",
-          variant: "destructive",
-        });
-        return;
-      }
-
-
-      const ids = data?.data?.map((item: PaymentHistory) => item.campaignId);
-      const { data: campaigns, error: campaignsError, status: campaignsStatus } = await campaignApi.getCampaigns({ ids});
-
-
-
-
-
-      setLoadingPaymentHistory(false);
-      setPaymentHistory(data.data || []);
-    }
-
 
     if(role === 'ADMIN') {
-      paymentHistory();
       fetchCards();
     }
     load();
@@ -624,7 +627,7 @@ export default function Account() {
               {t("account.tab_profile")} 
             </TabsTrigger>
           )}
-          {isPro && role === "ADMIN" && (
+          {(isPro || organizationCount > 1) && role === "ADMIN" && (
             <TabsTrigger value="users" className=" min-w-[200px]">{t("account.tab_users")}</TabsTrigger>
           )}
           {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
@@ -768,7 +771,7 @@ export default function Account() {
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {isPro && role === "ADMIN" && (
+        {(isPro || organizationCount > 1) && role === "ADMIN" && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>

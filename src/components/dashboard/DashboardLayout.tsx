@@ -47,6 +47,13 @@ const BREADCRUMB_KEYS: Record<string, string> = {
   account: 'layout.nav_account',
 };
 
+type Organization = {
+  orgId: string;
+  name: string;
+  role: string;
+  orgType: string;
+}
+
 function getBreadcrumbs(pathname: string, t: (key: string) => string) {
   const parts = pathname.replace(/^\//, '').split('/').filter(Boolean);
   const crumbs: { label: string; path: string }[] = [];
@@ -71,7 +78,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
-  const { isPro, isAgency, role } = useSessionFlags();
+  const { isPro, isAgency, role, isSuperAdmin } = useSessionFlags();
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
   const localeValue = (language || 'en').split('-')[0] === 'ar' ? 'ar' : 'en';
@@ -81,6 +88,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [accountType, setAccountType] = useState<string>('');
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<string>('');
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -130,7 +139,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         return list[0]?.id ?? '';
       });
     }
-  }, [t]);
+  }, [t, selectedOrganization]);
 
   useEffect(() => {
     if (selectedAdvertiser) {
@@ -174,6 +183,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [selectedAdvertiser])
 
+  useEffect(() => {
+    
+    if(selectedOrganization && organizations.length > 1){
+      console.log("selectedOrganization", selectedOrganization);
+      auth.setCurrentOrganizationId(selectedOrganization);
+    }
+  
+  }, [selectedOrganization])
+  
 
 
   useEffect(() => {
@@ -187,6 +205,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const proFlagFromAdvertisers = organization.orgType === "SME" ? advertisers.some((a) => a.isPro) : true;
         console.log({proFlagFromAdvertisers})
         setAccountType(organization.orgType === "SME" ? (isPro || proFlagFromAdvertisers) ? "Pro" : "Express" : "Agency");
+        setOrganizations(data.data.organizations);
       }
 
       setUserEmail(data.data.email ?? null);
@@ -199,13 +218,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
       setSession(session);
-      if(session.user.app_metadata.isAgency) {
+      if(session.user.app_metadata.isAgency || session.user.app_metadata.isSuperAdmin) {
         // Prefer the stored advertiserId (from last selection) on reload.
         getAdvertisers(session?.currentOrganizationId ?? '', session?.currentAdvertiserId ?? '');
       }
       setSelectedAdvertiser(session?.currentAdvertiserId ?? '');
+      setSelectedOrganization(session?.currentOrganizationId ?? '');
     });
-  }, [getAdvertisers]);
+  }, [getAdvertisers, selectedOrganization]);
 
   useEffect(() => {
     return appNotifications.subscribe('advertisers:changed', (payload) => {      const orgId = payload?.organizationId ?? session?.currentOrganizationId;
@@ -364,8 +384,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex-1" />
           <div className="flex items-center gap-3">
 
+            {
+              organizations?.length > 1 && (
+                <Select value={selectedOrganization} onValueChange={(value) => {
+                  setSelectedOrganization(value);
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 200);
+                }}>
+                  <SelectTrigger className="h-9 w-[180px] text-xs border-border">
+                    <SelectValue placeholder={'Organization'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.orgId} value={org.orgId} className="text-xs">
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            }
+            
+
           {/* Advertiser selector — Pro mode, always visible */}
-          {isAgency && (
+          {(isAgency || organizations?.length > 1 || isSuperAdmin) && (
             <Select value={selectedAdvertiser} onValueChange={(value) => {
               if(value === "add-advertiser") {
                 navigate('/dashboard/account?page=advertisers');
@@ -394,7 +437,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
 
           {/* Persistent CTAs — hidden on dashboard home for new users, always shown elsewhere */}
-          {(location.pathname !== '/dashboard' || !isNewUser) && (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
+          {(location.pathname !== '/dashboard' || !isNewUser) && (isSuperAdmin || role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
             <div className="flex items-center gap-3">
               <Button size="sm" variant="outline" className="h-9 gap-2" onClick={() => navigate('/dashboard/ads/new')}>
                 <Volume2 className="h-4 w-4 shrink-0" />

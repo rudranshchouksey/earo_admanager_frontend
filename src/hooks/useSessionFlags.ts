@@ -7,6 +7,7 @@ export interface SessionFlags {
   isPro: boolean;
   isNewUser: boolean;
   isAgency: boolean;
+  isSuperAdmin: boolean;
   role: 'ADMIN' | 'EDITOR' | 'VIEWER' | 'EDITOR_RESTRICTED' | 'VIEWER_RESTRICTED';
 }
 
@@ -19,11 +20,12 @@ function loadFallbackFlags(): SessionFlags {
         isPro: parsed.dashboardMode === 'pro',
         isNewUser: parsed.userState === 'new',
         isAgency: parsed.proSubType === 'agency',
+        isSuperAdmin: false,
         role: parsed.role as 'ADMIN' | 'EDITOR' | 'VIEWER' | 'EDITOR_RESTRICTED' | 'VIEWER_RESTRICTED'
       };
     }
   } catch {}
-  return { isPro: false, isNewUser: false, isAgency: false, role: 'VIEWER_RESTRICTED' };
+  return { isPro: false, isNewUser: false, isAgency: false, isSuperAdmin: false, role: 'VIEWER_RESTRICTED' };
 }
 
 /**
@@ -40,10 +42,12 @@ export function useSessionFlags(): SessionFlags {
       const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
 
       if (meta) {
-        const isAgency = Boolean(meta.isAgency ?? (organization?.orgType === 'AGENCY'));
+        const isAgency = Boolean(organization?.orgType === 'AGENCY');
+        console.log("isAgency", {isAgency, meta, organization});
         setFlags({
           isPro: isAgency || meta.isPro,
           isNewUser: meta.userState === 'new',
+          isSuperAdmin: meta.isSuperAdmin,
           // Prefer canonical boolean; fall back to orgType match for older sessions.
           isAgency: isAgency,
           role: organization?.role as 'ADMIN' | 'EDITOR' | 'VIEWER' | 'EDITOR_RESTRICTED' | 'VIEWER_RESTRICTED' || 'VIEWER_RESTRICTED'
