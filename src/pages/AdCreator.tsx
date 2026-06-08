@@ -145,7 +145,7 @@ export default function AdCreator() {
     [jobId],
   );
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = async () => {
     console.log("handleGenerated here ", { selectedVoice });
     if (!selectedVoice) {
       toast({
@@ -220,17 +220,7 @@ export default function AdCreator() {
     } finally {
       //setIsGenerating(false);
     }
-  }, [
-    advertiserId,
-    description,
-    goal,
-    musics,
-    selectedMusic,
-    selectedVoice,
-    t,
-    tone,
-    proContent
-  ]);
+  }
 
   const fetchMusicsPage = async (opts: {
     mood: string;

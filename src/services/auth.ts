@@ -23,7 +23,8 @@ export interface AuthUser {
     mfaEnabled?: boolean;
     mfaSkipUntil?: string;
     organizations?: Organizations[];
-    role: "ADMIN" | "EDITOR" | "VIEWER";
+    role: "SUPERADMIN" | "ADMIN" | "EDITOR" | "VIEWER";
+    isSuperAdmin?: boolean;
   };
 }
 
@@ -108,6 +109,7 @@ export function createSessionAndNotify(data: any) {
         mfaEnabled: data.data.mfaEnabled,
         mfaSkipUntil: data.data.mfaSkipUntil,
         organizations: data.data.organizations ?? [],
+        isSuperAdmin: data.data.isSuperAdmin,
         role
       }
     },
@@ -182,6 +184,7 @@ export const auth = {
 
   /** Standard Login */
   signInWithPassword: async (email: string, password: string) => {
+    console.log("signInWithPassword", { email, password });
     const { data, error, status, message } = await request<any>('/api/v1/auth/login', {
       method: 'POST',
       body: { email: email.trim().toLowerCase(), password: password.trim() },
@@ -267,6 +270,8 @@ export const auth = {
           userState: 'new',
           isAgency: data.data.organizations[0].orgType === "AGENCY",
           status: data.data.status,
+          role: data.data.role,
+          isSuperAdmin: data.data.isSuperAdmin,
         }
       },
       currentOrganizationId: currentOrganizationId,

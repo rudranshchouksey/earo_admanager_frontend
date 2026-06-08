@@ -145,6 +145,33 @@ export default function Account() {
 
   const { geoData, isLoading: geoLoading } = useGeoLocation();
 
+  const getPaymentHistory = async () => {
+    const {data: {session: sessionData}} = await auth.getSession();
+    if (!sessionData) {
+      console.error("Not authenticated");
+      return;
+    }
+    setLoadingPaymentHistory(true);
+    console.log({ advertisers });
+    const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserIds: advertisers.map((advertiser) => advertiser.id)});
+
+    console.log({ data, error, status });
+
+    if (error || status !== 200) {
+      console.error(error);
+      setLoadingPaymentHistory(false);
+      toast({
+        title: t("common.error"),
+        description: error?.message || "Failed to load payment history",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingPaymentHistory(false);
+    setPaymentHistory(data.data || []);
+  }
+
   useEffect(() => {
     if(organizationDetails?.country) setCountry(organizationDetails.country);
     if (organizationDetails?.industry) setIndustry(organizationDetails.industry);
@@ -167,6 +194,13 @@ export default function Account() {
     }
     setAdvertisers(advertisers.data ?? []);
   }
+
+  useEffect(() => {
+    if(advertisers.length > 0) {
+      getPaymentHistory();
+    }
+  }, [advertisers])
+  
 
   useEffect(() => {
     const load = async () => {
@@ -236,40 +270,8 @@ export default function Account() {
       setCards(data?.data || []);
     }
 
-    const paymentHistory = async () => {
-      const {data: {session: sessionData}} = await auth.getSession();
-      if (!sessionData) {
-        console.error("Not authenticated");
-        return;
-      }
-      setLoadingPaymentHistory(true);
-      const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserId: sessionData.currentAdvertiserId});
-      if (error || status !== 200) {
-        console.error(error);
-        setLoadingPaymentHistory(false);
-        toast({
-          title: t("common.error"),
-          description: error?.message || "Failed to load payment history",
-          variant: "destructive",
-        });
-        return;
-      }
-
-
-      const ids = data?.data?.map((item: PaymentHistory) => item.campaignId);
-      const { data: campaigns, error: campaignsError, status: campaignsStatus } = await campaignApi.getCampaigns({ ids});
-
-
-
-
-
-      setLoadingPaymentHistory(false);
-      setPaymentHistory(data.data || []);
-    }
-
 
     if(role === 'ADMIN') {
-      paymentHistory();
       fetchCards();
     }
     load();
