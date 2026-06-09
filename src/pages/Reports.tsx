@@ -245,11 +245,11 @@ function generateDailyData(campaign: Campaign): DailyData[] {
       reach: Math.round((totalReach / numDays) * weight * 0.8),
       conversions: Math.round((totalImpressions / numDays) * weight * 0.02),
       spent: Math.round((totalSpend / numDays) * weight * 100) / 100,
-      campaignName: campaign.name,
+      campaignName: campaign.campaignName,
       campaignStatus: campaign.status,
       campaignGoal: goal,
-      startDate: campaign.start_date,
-      endDate: campaign.end_date,
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
       dailyBudget: Math.round(dailyBudget * 100) / 100,
       totalBudget: campaign.budget,
       ltr: campaign.ltr ?? Math.round(70 + rand() * 20),
@@ -2392,9 +2392,6 @@ export default function Reports() {
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground mt-1">
-            {selectedCampaignName ? 'Campaign performance details' : 'Performance analytics across all campaigns'}
-          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <DateRangePicker value={dateRange} onChange={setDateRange} isMobile={isMobile} tzLabel={tzLabel} />
@@ -2446,7 +2443,8 @@ export default function Reports() {
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
                 cpa={{ value: kpis.cpa, deltaPct: cpaDeltaPct, series: cpaSeries }}
-                cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
+                // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
+                cpm={undefined}
                 loading={reportLoading.campaignReport}
                 />
             );
@@ -2620,7 +2618,7 @@ export default function Reports() {
 
               {/* ─── Bar Chart 4: Podcast Show Name ─── */}
               <HorizontalBarChartCard
-                title="Podcast Show Name"
+                title="Behavioural Segment"
                 data={topShows}
                 selectedMetric={showMetric}
                 onMetricChange={setShowMetric}
@@ -2634,7 +2632,7 @@ export default function Reports() {
                 <div className="grid grid-cols-1 gap-4">
                   {renderPieChart('Podcast Genre', podcastGenres, reportLoading.contentInventory)}
                   {renderPieChart('Contextual Media Topics', mediaTopics, reportLoading.contentInventory)}
-                  {renderPieChart('Contextual Audience Insights', podcastAudiences, reportLoading.contentInventory)}
+                  {/* {renderPieChart('Contextual Audience Insights', podcastAudiences, reportLoading.contentInventory)} */}
                 </div>
               </div>
 
