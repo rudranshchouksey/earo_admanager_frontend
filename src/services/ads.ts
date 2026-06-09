@@ -164,6 +164,8 @@ export interface AdData {
     eCPM: string;
     jobId?: string;
     pixelUrl?: string;
+    campaignBudget?: number;
+    totalBudget?: number;
 }
 
 export interface AdsResponse {
