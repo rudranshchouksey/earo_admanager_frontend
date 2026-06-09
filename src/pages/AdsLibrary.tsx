@@ -26,7 +26,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type ICellRendererParams } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { adsApi, AdData } from '@/services/ads';
-import { campaignApi } from '@/services/campaign';
+import { Campaign, campaignApi } from '@/services/campaign';
 import { appNotifications } from '@/services/appNotifications';
 import { advertiserApi } from '@/services/advertiser';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
@@ -480,7 +480,18 @@ export default function AdsLibrary() {
     },
     {
       field: 'eCPM', headerName: 'eCPM', width: 100,
-      valueFormatter: (p) => p.value ? String(p.value) : '—',
+      valueGetter: (p) => {
+        try{
+          const c = p.data as AdData;
+          const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');
+          const impressions = Number(cleanString);
+          return impressions > 0 ? ((c.totalBudget/impressions) * 1000) : null;
+        }catch(err){
+          return null;
+        }
+      },
+      valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
+      sortable: false,
     },
     {
       field: 'pixelUrl', headerName: 'Pixel URL', width: 100,
