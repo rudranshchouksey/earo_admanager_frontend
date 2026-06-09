@@ -33,12 +33,11 @@ const toneClasses = (tone: KpiTone) => {
 const formatNum = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   //if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return Math.round(n).toString();
+  return Math.round(n).toLocaleString();
 };
 const formatMoney = (n: number): string =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M`
-  : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K`
-  : `$${n.toFixed(2)}`;
+  : `$${n.toFixed(0).toLocaleString()}`;
 
 function Donut({ pct, color, size = 64 }: { pct: number; color: string; size?: number }) {
   const v = Math.max(0, Math.min(100, pct));
@@ -224,8 +223,8 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <div>{reachPctOfImpr}% of impressions</div>
-                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" />
+                  {/* <div>{reachPctOfImpr}% of impressions</div>
+                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" /> */}
                 </>
               )
             }
@@ -246,8 +245,8 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <div>{reachPctOfImpr}% of impressions</div>
-                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" />
+                  {/* <div>{reachPctOfImpr}% of impressions</div>
+                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" /> */}
                 </>
               )
             }
