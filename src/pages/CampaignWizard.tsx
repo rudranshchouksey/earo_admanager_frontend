@@ -1647,7 +1647,7 @@ export default function CampaignWizard() {
     const getCreditsDetails = async () => {
       const { data: { session } } = await auth.getSession();
       if(!session) return;
-      const { data, error, status } = await walletApi.getCreditsDetails(session.currentAdvertiserId || "");
+      const { data, error, status } = await walletApi.getCreditsDetails(session.currentAdvertiserId || "", session.currentOrganizationId || "");
       console.log("getCreditsDetails here ", {data, error, status});
 
       if (error || status !== 200) {
