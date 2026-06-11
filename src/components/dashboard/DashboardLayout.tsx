@@ -13,6 +13,10 @@ import {
   Headphones,
   Download,
   Globe,
+  Mail,
+  CircleHelp,
+  ChevronDown,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -90,6 +94,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [accountType, setAccountType] = useState<string>('');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<string>('');
+
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -308,8 +314,95 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
          {showAgencySignupBtn && !collapsed && (
-          <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
+          // <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
+          <div className="mt-2 mx-1 rounded-lg bg-muted/60 p-3 space-y-2">
+          <Button
+            size="sm"
+            className="h-7 w-full text-[11px] font-semibold"
+            onClick={() => setShowAgencySignup(true)}
+          >
+            Upgrade to Agency
+          </Button>
+        </div>
         )} 
+
+
+        {collapsed ? (
+          <>
+            <Link
+              to="/dashboard/help"
+              onClick={() => setSidebarOpen(false)}
+              title="Help Center"
+              className={`flex items-center justify-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/dashboard/help')
+                  ? 'bg-sidebar-accent text-sidebar-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+              }`}
+            >
+              <CircleHelp className="h-5 w-5 shrink-0" />
+            </Link>
+            <Link
+              to="/dashboard/support"
+              onClick={() => setSidebarOpen(false)}
+              title="Contact Support"
+              className={`flex items-center justify-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/dashboard/support')
+                  ? 'bg-sidebar-accent text-sidebar-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+              }`}
+            >
+              <Mail className="h-5 w-5 shrink-0" />
+            </Link>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setHelpOpen((v) => !v)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/dashboard/help') || isActive('/dashboard/support')
+                  ? 'bg-sidebar-accent text-sidebar-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+              }`}
+              aria-expanded={helpOpen}
+            >
+              <CircleHelp className="h-5 w-5 shrink-0" />
+              <span className="flex-1 text-left">Help & Support</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${helpOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {helpOpen && (
+              <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
+                <Link
+                  to="https://help.earo.ai"
+                  target="_blank"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive('/dashboard/help')
+                      ? 'bg-sidebar-accent text-sidebar-foreground'
+                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                  }`}
+                >
+                  <BookOpen className="h-4 w-4 shrink-0" />
+                  <span>Help Center</span>
+                </Link>
+                <Link
+                  to="/dashboard/support"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive('/dashboard/support')
+                      ? 'bg-sidebar-accent text-sidebar-foreground'
+                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                  }`}
+                >
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span>Contact Support</span>
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+
+
 
         <button
           onClick={handleSignOut}

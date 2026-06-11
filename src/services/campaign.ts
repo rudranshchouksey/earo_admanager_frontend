@@ -114,8 +114,8 @@ export const campaignApi = {
     request<any>('/api/v1/wallet-billing/applyCoupon', { method: 'POST', body: { amount, couponCode, advertiserId } }),
 
   /** Fetches all campaigns for the dashboard */
-  getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = '', sortBy = 'createdAt', sortOrder = 'desc'}) => 
-    request<CampaignsResponse>('/api/v1/campaigns/getCampaigns', {method: "POST", body: {page, limit, search, status, advertiserId, sortBy, sortOrder}}),
+  getCampaigns: ({page = 1, limit = 10, search = '', status = '', advertiserId = '', sortBy = 'createdAt', sortOrder = 'desc', adswizzSync = true}) => 
+    request<CampaignsResponse>('/api/v1/campaigns/getCampaigns', {method: "POST", body: {page, limit, search, status, advertiserId, sortBy, sortOrder, adswizzSync}}),
 
   /** Fetches all campaigns for the dashboard */
   getCampaign: ({id, advertiserId = ''}) => 

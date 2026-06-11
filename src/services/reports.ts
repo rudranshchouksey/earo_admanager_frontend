@@ -53,6 +53,7 @@ export interface CampaignReportCardTotals {
     objectiveCountableSum: number;
     demandAudioImp: number;
     totalBudget?: number;
+    totalImpressions?: number;
 }
 
 /** One day (or bucket) row from getCampaignReports */
