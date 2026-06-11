@@ -113,6 +113,7 @@ const METRIC_LABELS: Record<MetricKey, string> = {
 };
 
 const METRIC_KEYS: MetricKey[] = ['impressions', 'reach', 'conversions', 'spent'];
+const METRIC_DROPDOWN_KEYS: MetricKey[] = ['impressions', 'reach', 'spent'];
 
 const formatMetric = (key: MetricKey, v: number) => {
   if (v == null || isNaN(v)) return '—';
@@ -632,26 +633,6 @@ function aggregatePerformanceGridRows(rows: DailyData[], gridGranularity: Granul
     }));
 }
 
-function mapPodcastTopicsToBarRows(
-  rows: PodcastTopicFilterRow[],
-  totals: { totalReach: number; totalConversions: number; totalSpent: number },
-): LocationChartRow[] {
-  const totalImpressions = rows.reduce((sum, row) => sum + (row.impressions ?? 0), 0);
-
-  return rows
-    .map((row) => {
-      const share = totalImpressions > 0 ? (row.impressions ?? 0) / totalImpressions : 0;
-      return {
-        name: row.podcastTopicLabel,
-        impressions: row.impressions ?? 0,
-        reach: Math.round(totals.totalReach * share),
-        conversions: Math.round(totals.totalConversions * share),
-        spent: totals.totalSpent * share,
-      };
-    })
-    .sort((a, b) => b.impressions - a.impressions);
-}
-
 function mapAdDeliveryToPieSlices<T extends AdDeliveryMetricRow>(
   rows: T[],
   getName: (row: T) => string,
@@ -928,7 +909,7 @@ function MetricDropdown({
   onChange: (v: MetricKey) => void;
   extraKeys?: MetricKey[];
 }) {
-  const keys = extraKeys && extraKeys.length ? [...METRIC_KEYS, ...extraKeys] : METRIC_KEYS;
+  const keys = extraKeys && extraKeys.length ? [...METRIC_DROPDOWN_KEYS, ...extraKeys] : METRIC_DROPDOWN_KEYS;
   return (
     <Select value={value} onValueChange={(v) => onChange(v as MetricKey)}>
       <SelectTrigger className="w-52 h-9 focus:ring-0 focus:ring-offset-0">
@@ -1202,7 +1183,12 @@ export default function Reports() {
   
   const [countryMetric, setCountryMetric] = useState<MetricKey>('impressions');
   const [cityMetric, setCityMetric] = useState<MetricKey>('impressions');
-  const [showMetric, setShowMetric] = useState<MetricKey>('impressions');
+
+  useEffect(() => {
+    if (reportMetric === 'conversions') setReportMetric('impressions');
+    if (countryMetric === 'conversions') setCountryMetric('impressions');
+    if (cityMetric === 'conversions') setCityMetric('impressions');
+  }, [reportMetric, countryMetric, cityMetric]);
 
   // Granularity for the Campaign Performance grid
   const [gridGranularity, setGridGranularity] = useState<Granularity>('daily');
@@ -1216,11 +1202,15 @@ export default function Reports() {
     setImpressionsByFiltered(null);
     setImpressionsShareByCampaigns(null);
     setCampaignPerformanceRows(null);
-    setReportLoading(ALL_REPORT_LOADING);
-  }, [selectedCampaignId, dateRange.from, dateRange.to]);
+    setReportLoading(allCampaigns.length > 0 ? ALL_REPORT_LOADING : NO_REPORT_LOADING);
+  }, [selectedCampaignId, dateRange.from, dateRange.to, allCampaigns.length]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setCampaignsReport(undefined);
+      setReportLoading((prev) => ({ ...prev, campaignReport: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, campaignReport: true }));
@@ -1275,7 +1265,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to, granularity]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setCountryCityReport(null);
+      setReportLoading((prev) => ({ ...prev, countryCity: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, countryCity: true }));
@@ -1318,7 +1312,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setContentInventoryReport(null);
+      setReportLoading((prev) => ({ ...prev, contentInventory: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, contentInventory: true }));
@@ -1361,7 +1359,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setAdDeliveryReport(null);
+      setReportLoading((prev) => ({ ...prev, adDelivery: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, adDelivery: true }));
@@ -1404,7 +1406,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setImpressionsByFiltered(null);
+      setReportLoading((prev) => ({ ...prev, impressionsFiltered: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, impressionsFiltered: true }));
@@ -1446,7 +1452,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setImpressionsShareByCampaigns(null);
+      setReportLoading((prev) => ({ ...prev, impressionsShare: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, impressionsShare: true }));
@@ -1489,7 +1499,11 @@ export default function Reports() {
   }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
+    if (allCampaigns.length === 0){
+      setCampaignPerformanceRows(null);
+      setReportLoading((prev) => ({ ...prev, campaignPerformance: false }));
+      return;
+    }
 
     let cancelled = false;
     setReportLoading((prev) => ({ ...prev, campaignPerformance: true }));
@@ -1533,6 +1547,11 @@ export default function Reports() {
 
   useEffect(() => {
     const loadAllReports = async () => {
+      if (allCampaigns.length === 0){
+        setCampaignPerformanceRows(null);
+        return;
+      }
+
       const {data: {session: sessionData}} = await auth.getSession();
       if (!sessionData) {
         console.error("Not authenticated");
@@ -1587,29 +1606,36 @@ export default function Reports() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const {data: {session: sessionData}} = await auth.getSession();
-      if (!sessionData) {
-        console.error("Not authenticated");
-        return;
-      }
-      const { data, status, error } = await campaignApi.getCampaigns({
-        page: 1,
-        limit: 1000,
-        advertiserId: sessionData.currentAdvertiserId || "",
-        sortBy: "createdAt",
-        sortOrder: "asc",
-      });
-      if (status !== 200 || error) {
-        console.error(error);
-        toast({ title:'Error', description: error?.message ?? 'Unable to load campaigns', variant: 'destructive' });
-        //setAllCampaigns([]);
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
+      try {
+        const {data: {session: sessionData}} = await auth.getSession();
+        if (!sessionData) {
+          console.error("Not authenticated");
+          setAllCampaigns([]);
+          return;
+        }
+        const { data, status, error } = await campaignApi.getCampaigns({
+          page: 1,
+          limit: 1000,
+          advertiserId: sessionData.currentAdvertiserId || "",
+          sortBy: "createdAt",
+          sortOrder: "asc",
+          adswizzSync: false
+        });
+        if (status !== 200 || error) {
+          console.error(error);
+          toast({ title:'Error', description: error?.message ?? 'Unable to load campaigns', variant: 'destructive' });
+          setAllCampaigns([]);
+          return;
+        }
 
-      const excludeDrafts = data.data.filter((c: Campaign) => c.status.toLowerCase() !== 'draft' && c.status.toLowerCase() !== 'rejected');
-      setAllCampaigns(excludeDrafts || []);      
-      setLoading(false);
+        const excludeDrafts = (data?.data ?? []).filter(
+          (c: Campaign) => c.status.toLowerCase() !== 'draft' && c.status.toLowerCase() !== 'rejected',
+        );
+        setAllCampaigns(excludeDrafts);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
 
@@ -1677,7 +1703,7 @@ export default function Reports() {
   };
 
   const kpis = useMemo(() => {
-    if(!campaignsReport) return { totalImpressions: 0, totalReach: 0, totalSpent: 0, avgLtr: 0, totalConversions: 0, budgetUtil: 0, cpa: 0, totalBudget: 0, impressionsGoal: 0, avgCpm: 0 };
+    if(!campaignsReport) return { bookedImpressions: 0, totalImpressions: 0, totalReach: 0, totalSpent: 0, avgLtr: 0, totalConversions: 0, budgetUtil: 0, cpa: 0, totalBudget: 0, impressionsGoal: 0, avgCpm: 0 };
     //const rand = seededRandom(campaigns.reduce((a, c) => a + c.id.split('').reduce((x, ch) => x + ch.charCodeAt(0), 0), 0));
     const totalImpressions =  campaignsReport.cardTotals.impressions; //  campaigns.reduce((a, c) => a + (c.actual_impressions || Math.round(c.budget * (30 + rand() * 20))), 0);
     const totalReach =  campaignsReport.cardTotals.demandAudioReachUniqueUsers;  //campaigns.reduce((a, c) => a + (c.reach || Math.round((c.actual_impressions || c.budget * 35) * 0.25)), 0);
@@ -1687,6 +1713,7 @@ export default function Reports() {
     const totalConversions = campaignsReport.cardTotals.objectiveCountableSum ?? 0;
     const budgetUtil = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
     let campaignGoal = 0;
+    const bookedImpressions = campaignsReport.cardTotals.totalImpressions ?? 0;
 
     try{
 
@@ -1714,7 +1741,7 @@ export default function Reports() {
     const cpa = ((totalBudget/impressionsGoal)*1000);
 
     const avgCpm = campaignsReport.cardTotals.demandECPM ?? 0;
-    return { totalImpressions, totalReach, totalSpent, avgLtr, totalConversions, budgetUtil, cpa, totalBudget, impressionsGoal, avgCpm };
+    return { bookedImpressions, totalImpressions, totalReach, totalSpent, avgLtr, totalConversions, budgetUtil, cpa, totalBudget, impressionsGoal, avgCpm };
   }, [campaignsReport]);
 
   const pacing = useMemo(() => {
@@ -1901,31 +1928,16 @@ export default function Reports() {
     [campaignImpressionShareSlices],
   );
 
-  // Bar chart data
-  const topShows = useMemo(() => {
+  const behaviouralSegments = useMemo(() => {
     if (impressionsByFiltered?.podcastTopicsResult?.length) {
-      return mapPodcastTopicsToBarRows(impressionsByFiltered.podcastTopicsResult, {
-        totalReach: kpis.totalReach,
-        totalConversions: kpis.totalConversions,
-        totalSpent: kpis.totalSpent,
-      });
+      return mapImpressionsFilteredToPieSlices<PodcastTopicFilterRow>(
+        impressionsByFiltered.podcastTopicsResult,
+        (row) => row.podcastTopicLabel,
+      );
     }
     if (impressionsByFiltered === null) return [];
-
-    const impressions = generateDemographic(SHOW_NAMES, totalImpr, seed + 1);
-    const reaches = generateDemographic(SHOW_NAMES, kpis.totalReach, seed + 10);
-    const convs = generateDemographic(SHOW_NAMES, kpis.totalConversions, seed + 11);
-    const spents = generateDemographic(SHOW_NAMES, Math.round(kpis.totalSpent), seed + 12);
-    const ltrRand = seededRandom(seed + 41);
-    return impressions.map((item, i) => ({
-      name: item.name,
-      impressions: item.value,
-      reach: reaches[i].value,
-      conversions: convs[i].value,
-      spent: spents[i].value,
-      ltr: 70 + Math.round(ltrRand() * 25),
-    })).sort((a, b) => b.impressions - a.impressions);
-  }, [impressionsByFiltered, totalImpr, kpis.totalReach, kpis.totalConversions, kpis.totalSpent, seed]);
+    return generateDemographic(SHOW_NAMES, totalImpr, seed + 1);
+  }, [impressionsByFiltered, totalImpr, seed]);
 
   // Pie chart data
   const deviceTypes = useMemo(() => {
@@ -2335,7 +2347,7 @@ export default function Reports() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="w-full overflow-x-auto">
+                <div className="w-full overflow-x-auto max-h-[400px] overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
@@ -2411,6 +2423,16 @@ export default function Reports() {
 
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
+      ) : allCampaigns.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <BarChart3 className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-base font-medium text-foreground">No campaigns available</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              Launch a campaign to start viewing performance reports here.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* KPI Summary */}
@@ -2442,7 +2464,8 @@ export default function Reports() {
                 budget={{ spent: kpis.totalSpent, total: kpis.totalBudget }}
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
-                cpa={{ value: kpis.cpa, deltaPct: cpaDeltaPct, series: cpaSeries }}
+                cpa={{ value:( isAll ? null : kpis.totalBudget/kpis.bookedImpressions)*1000, deltaPct: cpaDeltaPct, series: cpaSeries }}
+                
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
                 cpm={undefined}
                 loading={reportLoading.campaignReport}
@@ -2616,16 +2639,6 @@ export default function Reports() {
                 loading={reportLoading.countryCity}
               />
 
-              {/* ─── Bar Chart 4: Podcast Show Name ─── */}
-              <HorizontalBarChartCard
-                title="Behavioural Segment"
-                data={topShows}
-                selectedMetric={showMetric}
-                onMetricChange={setShowMetric}
-                extraKeys={['ltr']}
-                loading={reportLoading.impressionsFiltered}
-              />
-
               {/* ─── Pie Charts: Content & Inventory ─── */}
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Content & Inventory</h2>
@@ -2651,6 +2664,7 @@ export default function Reports() {
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Demographics</h2>
                 <div className="grid grid-cols-1 gap-4">
+                  {renderPieChart('Behavioural Segment', behaviouralSegments, reportLoading.impressionsFiltered)}
                   {renderPieChart('Age', ageGroups, reportLoading.impressionsFiltered)}
                   {renderPieChart('Gender', genders, reportLoading.impressionsFiltered)}
                 </div>
@@ -2664,41 +2678,15 @@ export default function Reports() {
                 <CardTitle>All campaigns overview</CardTitle>
               </CardHeader>
               <CardContent>
-                {isMobile ? (
-                  <MobileDataCards
-                    data={campaignOverviewRows}
-                    emptyMessage="No campaigns"
-                    renderCard={(row) => (
-                      <div key={row.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-foreground text-sm truncate">{row.campaignName}</p>
-                          <Badge variant="secondary" className={statusColors[row.status] || ''}>
-                            {formatStatus(row.status)}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{row.startDate} → {row.endDate}</p>
-                        <div className="space-y-1.5">
-                          <MobileStatRow label="Budget" value={`$${row.totalBudget.toLocaleString()}`} />
-                          <MobileStatRow label="Spend" value={`$${Math.round(row.spend).toLocaleString()}`} />
-                          <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
-                          <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
-                          <MobileStatRow label="LTR" value={`${row.ltr}%`} />
-                          <MobileStatRow label="eCPM" value={`$${row.ecpm.toFixed(2)}`} />
-                        </div>
-                      </div>
-                    )}
-                  />
-                ) : (
-                  <AgGridReact
-                    theme={appGridTheme}
-                    modules={[AllCommunityModule]}
-                    rowData={campaignOverviewRows}
-                    columnDefs={overviewColDefs}
-                    domLayout="autoHeight"
-                    suppressCellFocus
-                    animateRows
-                  />
-                )}
+                <AgGridReact
+                  theme={appGridTheme}
+                  modules={[AllCommunityModule]}
+                  rowData={campaignOverviewRows}
+                  columnDefs={overviewColDefs}
+                  domLayout="autoHeight"
+                  suppressCellFocus
+                  animateRows
+                />
               </CardContent>
             </Card>
           )}

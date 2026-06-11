@@ -37,7 +37,7 @@ const formatNum = (n: number): string => {
 };
 const formatMoney = (n: number): string =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M`
-  : `$${n.toFixed(0).toLocaleString()}`;
+  : `$${Math.round(n).toLocaleString()}`;
 
 function Donut({ pct, color, size = 64 }: { pct: number; color: string; size?: number }) {
   const v = Math.max(0, Math.min(100, pct));
@@ -262,18 +262,18 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
             return (
               <Tile
                 label="CPM"
-                value={`$${cpm.value.toFixed(2)}`}
+                value={Number.isFinite(cpm.value) ? `$${cpm.value.toFixed(2)}` : '—'}
                 visual={<Sparkline series={cpm.series} color={color} />}
               >
-                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cls.bg, cls.text)}>
+                {/* <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cls.bg, cls.text)}>
                   {arrow} {Math.abs(cpm.deltaPct).toFixed(0)}% vs last period
-                </span>
+                </span> */}
               </Tile>
             );
           })() : (
             <Tile
               label="CPA"
-              value={`-`}
+              value={Number.isFinite(cpa.value) && cpa.value !== null && cpa.value > 0 ? `$${cpa.value.toFixed(2)}` : '—'}
               visual={<Sparkline series={cpa.series} color={colorCpa} />}
             >
               <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cpaToneCls.bg, cpaToneCls.text)}>

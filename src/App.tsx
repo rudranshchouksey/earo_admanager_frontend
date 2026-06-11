@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
 import VerifyEmail from "./pages/VerifyEmail";
+import Support from "./components/dashboard/Support";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
                   <Route path="campaigns/:id" element={<CampaignWizard />} />
                   <Route path="reports" element={<Reports />} />
                  <Route path="account" element={<Account />} />
+                 <Route path="support" element={<Support />} />
                </Route>
                <Route path="paymentSuccess" element={<PaymentSuccess />} />
                <Route path="paymentFailed" element={<PaymentFailed />} />

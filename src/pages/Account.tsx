@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -42,7 +42,11 @@ import {
   Eye,
   EyeOff,
   Trash,
+  ChevronDown,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { auth, AuthSession } from "@/services/auth";
 import { userApi, UserProfile } from "@/services/user";
 import { toast } from "@/hooks/use-toast";
@@ -132,8 +136,15 @@ export default function Account() {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [paymentHistoryPage, setPaymentHistoryPage] = useState(1);
   const [paymentHistoryLimit, setPaymentHistoryLimit] = useState(10);
+  const [paymentHistoryMeta, setPaymentHistoryMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
   const [deletePaymentMethodAlertOpen, setDeletePaymentMethodAlertOpen] = useState(false);
-
+  const [allAdvertisersSelected, setAllAdvertisersSelected] = useState(true);
+  const [selectedAdvertisers, setSelectedAdvertisers] = useState<string[]>([]);
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
   const [industry, setIndustry] = useState<string>("RETAIL");
   const [subIndustry, setSubIndustry] = useState<string>("Fashion & Apparel");
@@ -151,11 +162,29 @@ export default function Account() {
       console.error("Not authenticated");
       return;
     }
-    setLoadingPaymentHistory(true);
-    console.log({ advertisers });
-    const { data, error, status } = await paymentApi.getPaymentHistory({page: 1, limit: 10, advertiserIds: advertisers.map((advertiser) => advertiser.id)});
+    const advertiserIds = allAdvertisersSelected
+      ? advertisers.map((advertiser) => advertiser.id)
+      : selectedAdvertisers;
 
-    console.log({ data, error, status });
+    if (advertiserIds.length === 0) {
+      setPaymentHistory([]);
+      setPaymentHistoryMeta({
+        total: 0,
+        page: 1,
+        limit: paymentHistoryLimit,
+        totalPages: 1,
+      });
+      setLoadingPaymentHistory(false);
+      return;
+    }
+
+    setLoadingPaymentHistory(true);
+
+    const { data, error, status } = await paymentApi.getPaymentHistory({
+      page: paymentHistoryPage,
+      limit: paymentHistoryLimit,
+      advertiserIds,
+    });
 
     if (error || status !== 200) {
       console.error(error);
@@ -168,8 +197,29 @@ export default function Account() {
       return;
     }
 
+    const rows = data?.data ?? [];
+    const responseMeta = data?.meta;
+    const total = responseMeta?.total ?? 0;
+    const apiPage = responseMeta?.page ?? paymentHistoryPage;
+    const apiLimit = responseMeta?.limit ?? paymentHistoryLimit;
+    const apiTotalPages = responseMeta?.totalPages;
+    const totalPages =
+      typeof apiTotalPages === "number" && apiTotalPages > 0
+        ? apiTotalPages
+        : total > 0
+          ? Math.max(1, Math.ceil(total / apiLimit))
+          : rows.length < apiLimit
+            ? Math.max(1, apiPage)
+            : apiPage + 1;
+
+    setPaymentHistoryMeta({
+      total,
+      page: apiPage,
+      limit: apiLimit,
+      totalPages,
+    });
     setLoadingPaymentHistory(false);
-    setPaymentHistory(data.data || []);
+    setPaymentHistory(rows);
   }
 
   useEffect(() => {
@@ -195,11 +245,59 @@ export default function Account() {
     setAdvertisers(advertisers.data ?? []);
   }
 
+  useLayoutEffect(() => {
+    setPaymentHistoryPage(1);
+  }, [allAdvertisersSelected, selectedAdvertisers, paymentHistoryLimit]);
+
   useEffect(() => {
-    if(advertisers.length > 0) {
+    if (advertisers.length > 0) {
       getPaymentHistory();
     }
-  }, [advertisers])
+  }, [advertisers, allAdvertisersSelected, selectedAdvertisers, paymentHistoryPage, paymentHistoryLimit]);
+
+  const advertiserFilterLabel = allAdvertisersSelected
+    ? "All Advertisers"
+    : selectedAdvertisers.length === 0
+      ? "Select advertisers"
+      : selectedAdvertisers.length === 1
+        ? advertisers.find((advertiser) => advertiser.id === selectedAdvertisers[0])?.advertiserName ??
+          "1 advertiser"
+        : `${selectedAdvertisers.length} advertisers`;
+
+  const toggleAllAdvertisers = (checked: boolean) => {
+    if (checked) {
+      setAllAdvertisersSelected(true);
+      setSelectedAdvertisers([]);
+      return;
+    }
+    setAllAdvertisersSelected(false);
+    setSelectedAdvertisers([]);
+  };
+
+  const toggleAdvertiser = (advertiserId: string, checked: boolean) => {
+    const allIds = advertisers.map((advertiser) => advertiser.id);
+
+    if (allAdvertisersSelected) {
+      if (!checked) {
+        setAllAdvertisersSelected(false);
+        setSelectedAdvertisers(allIds.filter((id) => id !== advertiserId));
+      }
+      return;
+    }
+
+    if (checked) {
+      const next = [...selectedAdvertisers, advertiserId];
+      if (next.length === allIds.length) {
+        setAllAdvertisersSelected(true);
+        setSelectedAdvertisers([]);
+      } else {
+        setSelectedAdvertisers(next);
+      }
+      return;
+    }
+
+    setSelectedAdvertisers(selectedAdvertisers.filter((id) => id !== advertiserId));
+  };
   
 
   useEffect(() => {
@@ -1156,7 +1254,54 @@ export default function Account() {
   
                 <Card>
                   <CardHeader>
-                    <CardTitle>{t("account.payment_history")}</CardTitle>
+                    <CardTitle>
+                      <div className="flex items-center justify-between">
+                      {t("account.payment_history")}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 min-w-[180px] justify-between gap-2 font-normal"
+                          >
+                            <span className="truncate">{advertiserFilterLabel}</span>
+                            <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-[260px] p-2">
+                          <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-accent">
+                            <Checkbox
+                              checked={allAdvertisersSelected}
+                              onCheckedChange={(checked) => toggleAllAdvertisers(checked === true)}
+                            />
+                            <span className="text-sm">All Advertisers</span>
+                          </label>
+                          <div className="my-1 h-px bg-border" />
+                          <div className="max-h-[240px] space-y-0.5 overflow-y-auto">
+                            {advertisers.map((advertiser) => (
+                              <label
+                                key={advertiser.id}
+                                className={cn(
+                                  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-accent",
+                                )}
+                              >
+                                <Checkbox
+                                  checked={
+                                    allAdvertisersSelected ||
+                                    selectedAdvertisers.includes(advertiser.id)
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    toggleAdvertiser(advertiser.id, checked === true)
+                                  }
+                                />
+                                <span className="truncate text-sm">{advertiser.advertiserName}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      </div>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -1181,7 +1326,19 @@ export default function Account() {
                           ) : ( paymentHistory.map((row, i) => (
                           <TableRow key={i}>
                             <TableCell className="text-sm">{row.createdAt}</TableCell>
-                            <TableCell className="text-sm">{row.description}</TableCell>
+                            <TableCell className="text-sm">{
+                            
+                            row.campaign?.campaignName ? <p>
+
+                              <p>Campaign: {row.campaign.campaignName}</p>
+                              <p>Period: {row.campaign.startDate} - {row.campaign.endDate}</p>
+                              <p>Budget: ${row.campaign.totalBudget.toLocaleString()}</p>
+                              <p>
+                                Advertiser: {advertisers.find((advertiser) => advertiser.id === row.campaign?.advertiserId)?.advertiserName}
+                              </p>
+
+                            </p> : row.description
+                            }</TableCell>
                             <TableCell className="text-sm font-medium">
                               ${row.amount.toLocaleString()}
                             </TableCell>
@@ -1196,6 +1353,58 @@ export default function Account() {
                         }
                       </TableBody>
                     </Table>
+                    <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="text-sm text-muted-foreground">
+                        {paymentHistoryMeta.total > 0
+                          ? `Showing ${(paymentHistoryMeta.page - 1) * paymentHistoryMeta.limit + 1}-${Math.min(
+                              paymentHistoryMeta.page * paymentHistoryMeta.limit,
+                              paymentHistoryMeta.total,
+                            )} of ${paymentHistoryMeta.total}`
+                          : paymentHistory.length > 0
+                            ? `Showing ${paymentHistory.length}`
+                            : "Showing 0"}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={String(paymentHistoryLimit)}
+                          onValueChange={(value) => setPaymentHistoryLimit(Number(value))}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPaymentHistoryPage((page) => Math.max(1, page - 1))}
+                          disabled={loadingPaymentHistory || paymentHistoryPage <= 1}
+                        >
+                          Prev
+                        </Button>
+                        <div className="text-sm text-foreground px-2">
+                          {paymentHistoryMeta.page} / {paymentHistoryMeta.totalPages}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setPaymentHistoryPage((page) =>
+                              Math.min(paymentHistoryMeta.totalPages, page + 1),
+                            )
+                          }
+                          disabled={
+                            loadingPaymentHistory || paymentHistoryPage >= paymentHistoryMeta.totalPages
+                          }
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

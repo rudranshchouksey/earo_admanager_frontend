@@ -1,4 +1,5 @@
 import { request } from "./api";
+import { Campaign } from "./campaign";
 
 
 export interface AddCardResponse {
@@ -12,7 +13,13 @@ export interface AddCardResponse {
 export interface PaymentHistoryResponse {
     status: number;
     message: string;
-    data: PaymentHistory[]
+    data: PaymentHistory[];
+    meta?: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
 }
 
 export interface PaymentHistory {
@@ -24,6 +31,7 @@ export interface PaymentHistory {
     description: string;
     status: string;
     createdAt: string;
+    campaign?: Campaign;
 }
 
 export const paymentApi = {
