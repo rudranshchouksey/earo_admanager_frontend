@@ -120,7 +120,7 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
     reach = { value: 0, impressions: 0, trend: 'flat' as const, series: [] },
     ltr = { value: 0, industryAvg: 0, status: 'low' as const },
     cpa = { value: 0, deltaPct: 0, series: [] },
-    cpm,
+    cpm = { value: 0, deltaPct: 0, series: [] },
   } = props;
   const t = toneClasses(status.tone);
 
@@ -253,34 +253,22 @@ export default function CampaignKpiSummary(props: CampaignKpiSummaryProps) {
           </Tile>
 
           {/* CPA / CPM */}
-          {cpm ? (() => {
-            const improved = cpm.deltaPct < 0;
-            const tone: KpiTone = improved ? 'green' : cpm.deltaPct > 0 ? 'red' : 'muted';
-            const cls = toneClasses(tone);
-            const arrow = improved ? '↓' : cpm.deltaPct > 0 ? '↑' : '→';
-            const color = improved ? 'hsl(var(--primary))' : 'hsl(var(--destructive))';
-            return (
-              <Tile
-                label="CPM"
-                value={Number.isFinite(cpm.value) ? `$${cpm.value.toFixed(2)}` : '—'}
-                visual={<Sparkline series={cpm.series} color={color} />}
-              >
-                {/* <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cls.bg, cls.text)}>
-                  {arrow} {Math.abs(cpm.deltaPct).toFixed(0)}% vs last period
-                </span> */}
-              </Tile>
-            );
-          })() : (
             <Tile
-              label="CPA"
+              label="CPM"
               value={Number.isFinite(cpa.value) && cpa.value !== null && cpa.value > 0 ? `$${cpa.value.toFixed(2)}` : '—'}
-              visual={<Sparkline series={cpa.series} color={colorCpa} />}
+              visual={<Sparkline series={[]} color={""} />}
             >
-              <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium self-start', cpaToneCls.bg, cpaToneCls.text)}>
-                {cpaArrow} {Math.abs(cpa.deltaPct).toFixed(0)}% vs last period
-              </span>
+              { loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  {/* <div>{reachPctOfImpr}% of impressions</div>
+                  <Progress value={Math.min(100, reachPctOfImpr)} className="h-1" /> */}
+                </>
+              )
+            }
             </Tile>
-          )}
+        
         </div>
       </CardContent>
     </Card>

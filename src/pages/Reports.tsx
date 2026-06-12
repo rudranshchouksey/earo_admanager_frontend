@@ -81,7 +81,6 @@ interface DailyData {
   date: string;
   impressions: number;
   reach: number;
-  conversions: number;
   spent: number;
   campaignName: string;
   campaignStatus: string;
@@ -102,17 +101,16 @@ interface PieChartSlice extends DemographicSlice {
 }
 
 type MetricMode = 'bar' | 'line' | 'off';
-type MetricKey = 'impressions' | 'reach' | 'conversions' | 'spent' | 'ltr';
+type MetricKey = 'impressions' | 'reach' | 'spent' | 'ltr';
 
 const METRIC_LABELS: Record<MetricKey, string> = {
   impressions: 'Impressions',
   reach: 'Reach',
-  conversions: 'Conversions',
   spent: 'Spend ($)',
   ltr: 'LTR (%)',
 };
 
-const METRIC_KEYS: MetricKey[] = ['impressions', 'reach', 'conversions', 'spent'];
+const METRIC_KEYS: MetricKey[] = ['impressions', 'reach', 'spent'];
 const METRIC_DROPDOWN_KEYS: MetricKey[] = ['impressions', 'reach', 'spent'];
 
 const formatMetric = (key: MetricKey, v: number) => {
@@ -166,7 +164,7 @@ const formatStatus = (s: string) => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const GOALS = ['awareness', 'engagement', 'conversions', 'reach'];
+const GOALS = ['awareness', 'engagement', 'reach'];
 const SHOW_NAMES = [];
 const DEVICE_TYPES = [];
 const GENDERS = [];
@@ -231,8 +229,8 @@ function generateDailyData(campaign: Campaign): DailyData[] {
   const numDays = 30;
   const dailyBudget = campaign.budget / numDays;
 
-  const totalImpressions = campaign.actual_impressions || Math.round(campaign.budget * (30 + rand() * 20));
-  const totalSpend = campaign.actual_spend || Math.round(campaign.budget * (0.4 + rand() * 0.3) * 100) / 100;
+  const totalImpressions = campaign.impressions || Math.round(campaign.budget * (30 + rand() * 20));
+  const totalSpend = campaign.spend || Math.round(campaign.budget * (0.4 + rand() * 0.3) * 100) / 100;
   const totalReach = campaign.reach || Math.round(totalImpressions * (0.2 + rand() * 0.15));
 
   const days: DailyData[] = [];
@@ -244,7 +242,6 @@ function generateDailyData(campaign: Campaign): DailyData[] {
       date: date.toISOString().slice(0, 10),
       impressions: Math.round((totalImpressions / numDays) * weight),
       reach: Math.round((totalReach / numDays) * weight * 0.8),
-      conversions: Math.round((totalImpressions / numDays) * weight * 0.02),
       spent: Math.round((totalSpend / numDays) * weight * 100) / 100,
       campaignName: campaign.campaignName,
       campaignStatus: campaign.status,
@@ -285,7 +282,7 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
 
 // Aggregation helper with explicit granularity
 function aggregateWithGranularity(
-  data: { date: string; impressions: number; reach: number; conversions: number; spent: number; ltr?: number }[],
+  data: { date: string; impressions: number; reach: number; spent: number; ltr?: number }[],
   range: { from: Date; to: Date },
   granularity: Granularity,
 ) {
@@ -304,13 +301,12 @@ function aggregateWithGranularity(
     return format(startOfMonth(dt), 'MMM yyyy');
   };
 
-  const map = new Map<string, { label: string; impressions: number; reach: number; conversions: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number; _sortKey: string }>();
+  const map = new Map<string, { label: string; impressions: number; reach: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number; _sortKey: string }>();
   filtered.forEach(d => {
     const key = bucketKey(d.date);
-    const existing = map.get(key) || { label: key, impressions: 0, reach: 0, conversions: 0, spent: 0, ltr: 0, _ltrSum: 0, _ltrN: 0, _sortKey: d.date };
+    const existing = map.get(key) || { label: key, impressions: 0, reach: 0, spent: 0, ltr: 0, _ltrSum: 0, _ltrN: 0, _sortKey: d.date };
     existing.impressions += d.impressions;
     existing.reach += d.reach;
-    existing.conversions += d.conversions;
     existing.spent += d.spent;
     if (d.ltr != null) {
       existing._ltrSum += d.ltr;
@@ -329,7 +325,6 @@ type ChartDailyPoint = {
   date: string;
   impressions: number;
   reach: number;
-  conversions: number;
   spent: number;
   ltr: number;
 };
@@ -353,7 +348,6 @@ function campaignReportRowToChartPoint(row: CampaignReportDailyRow): ChartDailyP
     date: getCampaignReportRowDate(row),
     impressions: row.impressions ?? 0,
     reach: row.demandAudioReachUniqueUsers ?? 0,
-    conversions: row.objectiveCountableSum ?? 0,
     spent: row.totalSpend ?? 0,
     ltr: row.ltr ?? 0,
   };
@@ -498,7 +492,6 @@ type LocationChartRow = {
   country?: string;
   impressions: number;
   reach: number;
-  conversions: number;
   spent: number;
   ltr?: number;
 };
@@ -527,7 +520,6 @@ function mapCountryToChartRow(row: CountryReportRow): LocationChartRow {
     name: row.countryName,
     impressions: row.impressions ?? 0,
     reach: row.reach ?? 0,
-    conversions: 0,
     spent: row.totalSpend ?? 0,
   };
 }
@@ -578,7 +570,6 @@ function mapCampaignPerformanceToGridRow(row: CampaignActionData): DailyData {
     date: reportDate,
     impressions: row.impressions ?? 0,
     reach: row.demandAudioReachUniqueUsers ?? 0,
-    conversions: row.objectiveCountableSum ?? 0,
     spent: 0,
     campaignName: row.campaignName ?? '',
     campaignStatus: (row.status ?? '').toLowerCase(),
@@ -609,7 +600,6 @@ function aggregatePerformanceGridRows(rows: DailyData[], gridGranularity: Granul
     if (ex) {
       ex.impressions += d.impressions;
       ex.reach += d.reach;
-      ex.conversions += d.conversions;
       ex.spent += d.spent;
       ex._ltrSum += d.ltr;
       ex._n += 1;
@@ -668,7 +658,6 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
     name: formatLocationLabel(row.city),
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
-    conversions: 0,
     spent: row.totalSpend ?? 0,
   };
 }
@@ -682,7 +671,6 @@ function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint
       ...point,
       impressions: 0,
       reach: 0,
-      conversions: 0,
       spent: 0,
       ltr: 0,
       _ltrSum: 0,
@@ -690,7 +678,6 @@ function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint
     };
     existing.impressions += point.impressions;
     existing.reach += point.reach;
-    existing.conversions += point.conversions;
     existing.spent += point.spent;
     if (point.ltr != null) {
       existing._ltrSum += point.ltr;
@@ -1185,9 +1172,9 @@ export default function Reports() {
   const [cityMetric, setCityMetric] = useState<MetricKey>('impressions');
 
   useEffect(() => {
-    if (reportMetric === 'conversions') setReportMetric('impressions');
-    if (countryMetric === 'conversions') setCountryMetric('impressions');
-    if (cityMetric === 'conversions') setCityMetric('impressions');
+    if (reportMetric === 'impressions') setReportMetric('impressions');
+    if (countryMetric === 'impressions') setCountryMetric('impressions');
+    if (cityMetric === 'impressions') setCityMetric('impressions');
   }, [reportMetric, countryMetric, cityMetric]);
 
   // Granularity for the Campaign Performance grid
@@ -1802,12 +1789,11 @@ export default function Reports() {
     if (!campaignsReport) return [];
 
     const allDays = campaigns.flatMap(c => generateDailyData(c));
-    const map = new Map<string, { date: string; impressions: number; reach: number; conversions: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number }>();
+    const map = new Map<string, { date: string; impressions: number; reach: number; spent: number; ltr: number; _ltrSum: number; _ltrN: number }>();
     allDays.forEach(d => {
-      const existing = map.get(d.date) || { date: d.date, impressions: 0, reach: 0, conversions: 0, spent: 0, ltr: 0, _ltrSum: 0, _ltrN: 0 };
+      const existing = map.get(d.date) || { date: d.date, impressions: 0, reach: 0, spent: 0, ltr: 0, _ltrSum: 0, _ltrN: 0 };
       existing.impressions += d.impressions;
       existing.reach += d.reach;
-      existing.conversions += d.conversions;
       existing.spent += d.spent;
       if (d.ltr != null) {
         existing._ltrSum += d.ltr;
@@ -1855,7 +1841,6 @@ export default function Reports() {
                 date: d.date,
                 impressions: d.impressions,
                 reach: d.reach,
-                conversions: d.conversions,
                 spent: d.spent,
                 ltr: d.ltr,
               })),
@@ -2108,19 +2093,18 @@ export default function Reports() {
     }
     if (countryCityReport === null) return [];
 
-    const map = new Map<string, { name: string; impressions: number; reach: number; conversions: number; spent: number; _ltrSum: number; _ltrN: number; ltr: number }>();
+    const map = new Map<string, { name: string; impressions: number; reach: number; spent: number; _ltrSum: number; _ltrN: number; ltr: number }>();
     cityRows.forEach(r => {
       const country = r.country ?? 'Other';
       const existing = map.get(country);
       if (existing) {
         existing.impressions += r.impressions;
         existing.reach += r.reach;
-        existing.conversions += r.conversions;
         existing.spent += r.spent;
         existing._ltrSum += r.ltr ?? 0;
         existing._ltrN += 1;
       } else {
-        map.set(country, { name: country, impressions: r.impressions, reach: r.reach, conversions: r.conversions, spent: r.spent, _ltrSum: r.ltr ?? 0, _ltrN: 1, ltr: r.ltr ?? 0 });
+        map.set(country, { name: country, impressions: r.impressions, reach: r.reach, spent: r.spent, _ltrSum: r.ltr ?? 0, _ltrN: 1, ltr: r.ltr ?? 0 });
       }
     });
     return Array.from(map.values())
@@ -2289,7 +2273,6 @@ export default function Reports() {
       impressions: buildDelta(kpis.totalImpressions, 101),
       reach: buildDelta(kpis.totalReach, 211),
       spent: buildDelta(kpis.totalSpent, 307),
-      conversions: buildDelta(kpis.totalConversions, 419),
     };
   }, [dateRange, kpis, seed]);
 
@@ -2438,7 +2421,7 @@ export default function Reports() {
           {/* KPI Summary */}
           {(() => {
             const reachSeries = rawDailyData.map(d => d.reach);
-            const cpaSeries = rawDailyData.map(d => (d.conversions > 0 ? d.spent / d.conversions : 0));
+            //const cpaSeries = rawDailyData.map(d => (d.conversions > 0 ? d.spent / d.conversions : 0));
             const cpmSeries = rawDailyData.map(d => (d.impressions > 0 ? d.spent / (d.impressions / 1000) : 0));
             // Trend: compare first half avg to second half avg
             const half = Math.floor(reachSeries.length / 2);
@@ -2447,10 +2430,10 @@ export default function Reports() {
             const trendPct = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
             const reachTrend: 'up' | 'down' | 'flat' = trendPct > 5 ? 'up' : trendPct < -5 ? 'down' : 'flat';
             const ltrStatus: 'good' | 'average' | 'low' = kpis.avgLtr >= 75 ? 'good' : kpis.avgLtr >= 60 ? 'average' : 'low';
-            const prevCpa = periodComparison.conversions.previous > 0
-              ? periodComparison.spent.previous / periodComparison.conversions.previous
-              : kpis.cpa;
-            const cpaDeltaPct = prevCpa > 0 ? ((kpis.cpa - prevCpa) / prevCpa) * 100 : 0;
+            //const prevCpa = periodComparison.conversions.previous > 0
+            //  ? periodComparison.spent.previous / periodComparison.conversions.previous
+            //  : kpis.cpa;
+            //const cpaDeltaPct = prevCpa > 0 ? ((kpis.cpa - prevCpa) / prevCpa) * 100 : 0;
             const prevCpm = periodComparison.impressions.previous > 0
               ? periodComparison.spent.previous / (periodComparison.impressions.previous / 1000)
               : kpis.avgCpm;
@@ -2464,10 +2447,9 @@ export default function Reports() {
                 budget={{ spent: kpis.totalSpent, total: kpis.totalBudget }}
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
-                cpa={{ value:( isAll ? null : kpis.totalBudget/kpis.bookedImpressions)*1000, deltaPct: cpaDeltaPct, series: cpaSeries }}
-                
+                cpa={{ value:( isAll ? null : kpis.totalBudget/kpis.bookedImpressions)*1000, deltaPct: null, series: null }}
+                cpm={{ value:( isAll ? null : kpis.totalBudget/kpis.bookedImpressions)*1000, deltaPct: null, series: null }}
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
-                cpm={undefined}
                 loading={reportLoading.campaignReport}
                 />
             );

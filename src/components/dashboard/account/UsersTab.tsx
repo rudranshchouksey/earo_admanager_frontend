@@ -302,12 +302,14 @@ export default function UsersTab() {
   const RightsRenderer = useCallback((params: ICellRendererParams) => {
     const rights = params.value as string;
     const labels: Record<string, string> = {
-      admin: t("account.rights_admin_label"),
-      edit: t("account.rights_edit_label"),
-      view: t("account.rights_view_label"),
+      admin: "Admin",
+      editor: "Editor",
+      viewer: "Viewer",
+      editor_restricted: "Editor",
+      viewer_restricted: "Viewer",
     };
     return (
-      <span className="text-sm capitalize">{labels[rights] || rights}</span>
+      <span className="text-sm capitalize">{labels[rights?.toLowerCase()] || rights}</span>
     );
   }, []);
 
