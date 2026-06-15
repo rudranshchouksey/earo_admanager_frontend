@@ -200,7 +200,7 @@ export default function CampaignPaymentStep({
                   <p className="text-sm font-medium">After this campaign</p>
                   <h6 className="text-2xl font-bold text-right text-primary"> {
                   
-                  (finalAmountAfterCoupon < 0 ? '-$' + (finalAmountAfterCoupon * -1) : '$'+finalAmountAfterCoupon).toLocaleString()
+                  (finalAmountAfterCoupon < 0 ? '-$' + (finalAmountAfterCoupon * -1).toLocaleString() : '$'+finalAmountAfterCoupon.toLocaleString())
                   
                   }</h6>
                 </div>
