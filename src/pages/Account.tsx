@@ -725,7 +725,7 @@ export default function Account() {
               {t("account.tab_profile")} 
             </TabsTrigger>
           )}
-          {(isPro || organizationCount > 1) && role === "ADMIN" && (
+          {isPro && role === "ADMIN" && (
             <TabsTrigger value="users" className=" min-w-[200px]">{t("account.tab_users")}</TabsTrigger>
           )}
           {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
@@ -869,7 +869,7 @@ export default function Account() {
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {(isPro || organizationCount > 1) && role === "ADMIN" && (
+        {isPro && role === "ADMIN" && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>
