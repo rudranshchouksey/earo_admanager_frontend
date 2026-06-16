@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import logoFull from '@/assets/logo-full.png';
 import logo from '@/assets/logo.png';
 import { userApi } from '@/services/user';
+import UpgradePlanModal from './UpgradePlanModal';
 
 const BREADCRUMB_KEYS: Record<string, string> = {
   dashboard: 'layout.nav_dashboard',
@@ -91,10 +92,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
-  const [accountType, setAccountType] = useState<string>('');
+  const [accountType, setAccountType] = useState<"Pro" | "Express" | "Agency">('Express');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<string>('');
-
+  const [requestedForAgency, setRequestedForAgency] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const onSelectRole = async (role: OnboardingRole) => {
@@ -206,8 +207,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if(error || status !== 200) return;
       if(data.data?.organizations && data.data.organizations.length > 0) {
         const organization = data.data.organizations[0];
-        if(organization.orgType === "SME" && ! organization.requestedForAgency) setShowAgencySignupBtn(true);
-        console.log({organization, isPro})
+        if(organization.orgType === "SME" && !isPro) setShowAgencySignupBtn(true);
+        if(organization.orgType === "SME" && organization.requestedForAgency) setRequestedForAgency(true);
+        console.log({organization, isPro, requestedForAgency})
         const proFlagFromAdvertisers = organization.orgType === "SME" ? advertisers.some((a) => a.isPro) : true;
         console.log({proFlagFromAdvertisers})
         setAccountType(organization.orgType === "SME" ? (isPro || proFlagFromAdvertisers) ? "Pro" : "Express" : "Agency");
@@ -313,7 +315,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {!collapsed && userEmail && (
           <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
         )}
-         {showAgencySignupBtn && !collapsed && (
+         {showAgencySignupBtn && !collapsed &&  (accountType === "Express" || (accountType === "Pro" && !requestedForAgency) )  &&(
           // <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
           <div className="mt-2 mx-1 rounded-lg bg-muted/60 p-3 space-y-2">
           <Button
@@ -567,7 +569,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
 
-      {showAgencySignup && (
+      {/* {showAgencySignup && (
         <AgencySignup
           open={showAgencySignup}
           onOpenChange={(open) => {
@@ -575,7 +577,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }}
           onRequested={onRequested}
         />
+      )} */}
+
+
+      {showAgencySignup && (
+        <UpgradePlanModal
+          open={showAgencySignup}
+          onOpenChange={(open) => {
+            if (!open) setShowAgencySignup(false);
+          }}
+          currentPlan={accountType}
+          requestedForAgency={requestedForAgency}
+        />
       )}
+      
     </div>
   );
 }

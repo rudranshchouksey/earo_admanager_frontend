@@ -33,4 +33,5 @@ export const advertiserApi = {
 
   updateAdvertiser: ({advertiserId, advertiserName, industry, subIndustry, status, extId}: {advertiserId: string, advertiserName: string, industry: string, subIndustry: string, status: string, extId: string}) => request<AdvertiserResponse>('/api/v1/users/updateAdvertiser', {method:"POST", body: {advertiserId, advertiserName, industry, subIndustry, status, extId}}),
 
+  upgradeAdvertiserToPro: (advertiserId: string) => request<AdvertiserResponse>('/api/v1/users/upgradeAdvertiserToPro', {method:"POST", body: {advertiserId}}),
 };

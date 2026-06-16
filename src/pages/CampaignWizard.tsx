@@ -4,7 +4,6 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
 import type { LocationData } from "@/components/dashboard/campaign-wizard/CampaignInventoryStep";
-import { MOCK_CITIES_DATA } from "@/components/dashboard/campaign-wizard/CampaignInventoryStep";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +40,7 @@ import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wall
 import { adsApi } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import { Helmet } from "react-helmet-async";
+import { paymentApi } from "@/services/payment";
 
 interface Cards {
   id: string;
@@ -293,7 +293,7 @@ export default function CampaignWizard() {
   });
 
   const [paymentUrl, setPaymentUrl] = useState("");
-
+  const [paymentLinkId, setPaymentLinkId] = useState("");
   const [cards, setCards] = useState<Cards[]>([])
   const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
     availableCredit: 0,
@@ -1094,6 +1094,7 @@ export default function CampaignWizard() {
 
       if(status === 200 && data?.payment_url) {
         setPaymentUrl(data.payment_url);
+        setPaymentLinkId(data?.paymentLinkId);
       }else if( status === 200 && data?.paid){
         toast({
           title: "Success",
@@ -1836,8 +1837,12 @@ export default function CampaignWizard() {
   }, [id])
   
 
-  const cancelPayment = () => {
+  const cancelPayment = async () => {
     setPaymentUrl("");
+
+    const {data, error, status} = await paymentApi.cancelPayment(paymentLinkId);
+    console.log("cancelPayment here ", {data, error, status});
+    setPaymentLinkId("");
     navigate(`/dashboard/campaigns/${campaignId}`);
     window.location.reload();
 

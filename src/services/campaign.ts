@@ -107,6 +107,8 @@ interface CreateCampaignResponse {
     id: string;
   };
   payment_url: string;
+  paymentLinkId: string;
+  paid: boolean;
 }
 
 export const campaignApi = {
