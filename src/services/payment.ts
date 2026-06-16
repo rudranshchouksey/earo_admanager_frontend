@@ -38,4 +38,5 @@ export const paymentApi = {
     generatePaymentLink: (payload: { campaignId: string, amount: number }) => request<string>('/api/v1/payment/generatePaymentLink', { method: 'POST', body: payload }),
     addCard: () => request<AddCardResponse>('/api/v1/wallet-billing/addNewCard', { method: 'POST' }),
     getPaymentHistory: ({page, limit, advertiserIds}) => request<PaymentHistoryResponse>('/api/v1/wallet-billing/getPaymentsHistory', { method: 'POST', body: {page, limit, advertiserIds} }),
+    cancelPayment: (paymentLinkId: string) => request<{status: number, message: string}>('/api/v1/wallet-billing/invalidateActivePaymentLink', { method: 'POST', body: {paymentLinkId, status: "CANCELED"} }),
 }
