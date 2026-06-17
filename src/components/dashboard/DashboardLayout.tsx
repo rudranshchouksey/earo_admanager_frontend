@@ -323,7 +323,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             className="h-7 w-full text-[11px] font-semibold"
             onClick={() => setShowAgencySignup(true)}
           >
-            Upgrade to Agency
+            Upgrade
           </Button>
         </div>
         )} 
