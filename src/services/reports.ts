@@ -35,6 +35,7 @@ export interface CampaignActionData {
     clicks?: number;
     demandAudioImp?: number;
     spent?: number;
+    totalSpend?: number;
 }
 
 export interface CampaignPerformanceResponse {

@@ -67,7 +67,7 @@ import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { appNotifications } from "@/services/appNotifications";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
-import { CreditDetails, walletApi } from "@/services/wallet";
+import { CreditCycle, CreditDetails, CreditInvoice, walletApi } from "@/services/wallet";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { paymentApi, PaymentHistory } from "@/services/payment";
 import { useSearchParams } from "react-router-dom";
@@ -117,6 +117,7 @@ export default function Account() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [invoiceHistory, setInvoiceHistory] = useState<CreditInvoice[]>([]);
 
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
 
@@ -124,12 +125,7 @@ export default function Account() {
   const [mfaToken, setMFAToken] = useState("");
   const [session, setSession] = useState<AuthSession | null>(null);
   const [cards, setCards] = useState<Cards[]>([])
-  const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
-    availableCredit: 0,
-    creditUsed: 0,
-    totalCredits: 0,
-    utilizationPercentage: "0%",
-  });
+  const [creditsDetails, setCreditsDetails] = useState<CreditDetails | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<[]>([]);
   const [paymentUrl, setPaymentUrl] = useState<string>("");
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
@@ -650,6 +646,78 @@ export default function Account() {
   }, [message]);
 
 
+  useEffect(() => {
+    const getCreditDetails = async () => {
+
+      const organizationId = session?.currentOrganizationId;
+      const advertiserId = session?.currentAdvertiserId;
+      if(!organizationId || !advertiserId) return;
+
+      const { data, error, status } = await walletApi.getCreditsDetails(advertiserId, organizationId);
+      if(error || status !== 200) {
+        toast({
+          title: t("common.error"),
+          description: "Failed to load credit details",
+          variant: "destructive",
+        });
+      }
+      setCreditsDetails({
+        ...data,      
+      });
+    }
+
+    const getInvoiceHistory = async () => {
+
+      const organizationId = session?.currentOrganizationId;
+      const advertiserId = session?.currentAdvertiserId;
+      if(!organizationId || !advertiserId) return;
+
+      const { data, error, status } = await walletApi.getCreditInvoices({
+        organizationId: organizationId,
+        advertiserId: advertiserId,
+        page: String(1),
+        limit: String(100),
+      });
+      if(error || status !== 200) {
+        toast({
+          title: t("common.error"),
+          description: "Failed to load invoice history",
+          variant: "destructive",
+        });
+      }
+      setInvoiceHistory(data?.data || []);
+    }
+    setTimeout(() => {
+      getCreditDetails();
+      getInvoiceHistory();
+    }, 1000);
+  }, [session?.currentOrganizationId, session?.currentAdvertiserId]);
+
+
+  const downloadInvoice = async (invoiceId: string) => {
+    const { data, error, status, message } = await walletApi.downloadInvoice(invoiceId);
+    console.log({ data, error, status, message });
+
+    if (error || status !== 201 || !data) {
+      toast({
+        title: t("common.error"),
+        description: message || error?.message || "Failed to download invoice",
+        variant: "destructive",
+      });
+      return;
+    }
+
+
+    const url = URL.createObjectURL(data.blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = data.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const addPaymentMethod = async () => {
     console.log("add payment method");
     setGeneratingPaymentLink(true);
@@ -1134,7 +1202,7 @@ export default function Account() {
           role === 'ADMIN' && (
             <TabsContent value="billing" className="mt-4 space-y-4">
             <Tabs defaultValue="prepaid">
-              {/* <TabsList
+              <TabsList
                 className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
@@ -1143,7 +1211,7 @@ export default function Account() {
                     {t("account.postpaid")}
                   </TabsTrigger>
                 )}
-              </TabsList> */}
+              </TabsList>
   
               {/* PREPAID SUB-TAB */}
               <TabsContent value="prepaid" className="mt-4 space-y-4">
@@ -1410,7 +1478,7 @@ export default function Account() {
               </TabsContent>
   
               {/* POSTPAID SUB-TAB (Pro only) */}
-              {/* {isAgency && (
+               {isAgency && (
                 <TabsContent value="postpaid" className="mt-4 space-y-4">
                   <Card>
                     <CardHeader>
@@ -1421,14 +1489,14 @@ export default function Account() {
                         <CheckCircle className="h-6 w-6 text-green-600" />
                         <div>
                           <p className="text-sm font-medium text-foreground">
-                            {t("account.credit_check_passed")}
+                            Credit of ${Math.round(creditsDetails?.creditCycle?.amount).toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {t("account.approved_on")}
+                            Auto renews on 1st of every month
                           </p>
                         </div>
                         <Badge className="ml-auto bg-green-100 text-green-700 border-0">
-                          {t("account.approved")}
+                          {creditsDetails?.creditCycle?.status}
                         </Badge>
                       </div>
                     </CardContent>
@@ -1441,7 +1509,7 @@ export default function Account() {
                           {t("account.approved_credit_limit")}
                         </p>
                         <p className="text-2xl font-bold text-foreground">
-                          $50,000
+                          ${parseInt(creditsDetails?.creditCycle?.amount+"").toLocaleString()}
                         </p>
                       </CardContent>
                     </Card>
@@ -1451,7 +1519,7 @@ export default function Account() {
                           {t("account.credit_usage")}
                         </p>
                         <p className="text-2xl font-bold text-foreground">
-                          $18,750
+                          ${ (creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)?.toLocaleString()}
                         </p>
                       </CardContent>
                     </Card>
@@ -1461,9 +1529,9 @@ export default function Account() {
                           {t("account.credit_utilization")}
                         </p>
                         <p className="text-2xl font-bold text-foreground">
-                          37.5%
+                          { (((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100).toFixed(2)}%
                         </p>
-                        <Progress value={37.5} className="mt-2 h-2" />
+                        <Progress value={(((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100)} className="mt-2 h-2" />
                       </CardContent>
                     </Card>
                   </div>
@@ -1479,56 +1547,34 @@ export default function Account() {
                             <TableHead>{t("account.invoice")}</TableHead>
                             <TableHead>{t("account.date")}</TableHead>
                             <TableHead>{t("account.amount")}</TableHead>
-                            <TableHead>{t("account.due_date")}</TableHead>
+                            <TableHead>For Month</TableHead>
                             <TableHead>{t("account.status")}</TableHead>
                             <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {[
-                            {
-                              inv: "INV-2026-003",
-                              date: "Feb 01, 2026",
-                              amount: "$8,250.00",
-                              due: "Mar 03, 2026",
-                              status: "Pending",
-                            },
-                            {
-                              inv: "INV-2026-002",
-                              date: "Jan 01, 2026",
-                              amount: "$6,500.00",
-                              due: "Jan 31, 2026",
-                              status: "Paid",
-                            },
-                            {
-                              inv: "INV-2025-012",
-                              date: "Dec 01, 2025",
-                              amount: "$4,000.00",
-                              due: "Dec 31, 2025",
-                              status: "Paid",
-                            },
-                          ].map((row, i) => (
+                          { invoiceHistory.map((row, i) => (
                             <TableRow key={i}>
                               <TableCell className="text-sm font-medium text-primary">
-                                {row.inv}
+                                {row.invoiceId}
                               </TableCell>
                               <TableCell className="text-sm">
-                                {row.date}
+                                {row.createdAt.substring(0, 10)}
                               </TableCell>
                               <TableCell className="text-sm font-medium">
-                                {row.amount}
+                                ${row.amount.toLocaleString()}
                               </TableCell>
-                              <TableCell className="text-sm">{row.due}</TableCell>
+                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
                               <TableCell>
                                 <Badge
                                   variant={
-                                    row.status === "Paid"
+                                    row.paymentStatus === "paid"
                                       ? "secondary"
                                       : "outline"
                                   }
                                   className="text-xs"
                                 >
-                                  {row.status}
+                                  {row.paymentStatus}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -1536,6 +1582,7 @@ export default function Account() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
+                                  onClick={() => downloadInvoice(row.invoiceId)}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
@@ -1547,7 +1594,7 @@ export default function Account() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-              )} */}
+              )}
             </Tabs>
           </TabsContent>  
           )
