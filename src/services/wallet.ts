@@ -108,9 +108,56 @@ export interface CreditInvoiceResponse {
     data: CreditInvoice[];
 }
 
+export interface WalletTransactionCampaign {
+    id: string;
+    campaignName: string;
+}
+
+export interface WalletTransaction {
+    id: string;
+    orgId: string;
+    advertiserId: string;
+    campaignId: string | null;
+    couponCode: string | null;
+    amount: number;
+    originalAmount: number;
+    type: string;
+    remarks: string | null;
+    createdAt: string;
+    updatedAt: string;
+    campaign?: WalletTransactionCampaign | null;
+}
+
+export interface WalletTransactionsResponse {
+    status: number;
+    message: string;
+    data: WalletTransaction[];
+    meta?: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+}
+
+export interface GetWalletTransactionsParams {
+    page: number;
+    limit: number;
+    sortBy?: "createdAt" | "updatedAt" | "amount" | "originalAmount" | "type";
+    sortOrder?: "asc" | "desc";
+    orgId: string;
+    advertiserId?: string;
+    campaignId?: string;
+    couponCode?: string;
+    type?: string;
+    search?: string;
+}
+
 export const walletApi = {
     getCards: () => request<any>('/api/v1/wallet-billing/getCards', { method: 'GET' }),
     getCreditsDetails: (advertiserId: string, organizationId: string) => request<CreditDetailsResponse>('/api/v1/wallet-billing/getAvailableCredit', { method: 'POST', body: {advertiserId: advertiserId, orgId: organizationId} }),
     getCreditInvoices: ({organizationId, advertiserId, page, limit}: {organizationId: string, advertiserId: string, page: string, limit: string}) => request<CreditInvoiceResponse>('/api/v1/wallet-billing/getCreditInvoices', { method: 'POST', body: {orgId: organizationId, advertiserId: advertiserId, page: page, limit: limit} }),
+    getWalletTransactions: (params: GetWalletTransactionsParams) =>
+        request<WalletTransactionsResponse>('/api/v1/wallet-billing/getWalletTransactions', { method: 'POST', body: params }),
     downloadInvoice: (invoiceId: string) => downloadCreditInvoice(invoiceId),
 }
