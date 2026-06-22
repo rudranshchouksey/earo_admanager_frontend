@@ -1657,7 +1657,7 @@ export default function Account() {
                                 <Badge
                                   variant={
                                     row.paymentStatus === "paid"
-                                      ? "destructive"
+                                      ? "secondary"
                                       : "outline"
                                   }
                                   className="text-xs"
