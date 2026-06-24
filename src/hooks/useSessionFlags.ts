@@ -1,7 +1,22 @@
 import { useState, useEffect } from 'react';
-import { auth, AuthSession } from '@/services/auth';
+import { auth, AuthSession, getStoredSession } from '@/services/auth';
 
 const STORAGE_KEY = 'nextads_dev_flags';
+
+export type Plan = 'express' | 'pro' | 'agency';
+
+/**
+ * Synchronously derives the current plan from the stored session.
+ * Use for one-shot side effects (e.g. analytics) where the async
+ * `useSessionFlags` hook may not have resolved yet.
+ */
+export function getPlanFromSession(): Plan {
+  const session = getStoredSession();
+  const meta = session?.user?.app_metadata;
+  const org = meta?.organizations?.find((o) => o.orgId === session?.currentOrganizationId);
+  if (org?.orgType === 'AGENCY') return 'agency';
+  return meta?.isPro ? 'pro' : 'express';
+}
 
 export interface SessionFlags {
   isPro: boolean;
