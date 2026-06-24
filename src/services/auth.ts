@@ -4,6 +4,7 @@
  */
 import Cookies from "js-cookie";
 import { BASE_URL, request } from "./api";
+import { adsApi } from "./ads";
 
 export interface Organizations {
   orgId: string;
@@ -126,6 +127,118 @@ export function createSessionAndNotify(data: any) {
 const notify = (event: string, session: AuthSession | null) => 
   listeners.forEach(cb => cb(event, session));
 
+
+async function downloadAndUploadAudio(audioUrl: string, organizationId: string, accessToken: string) {
+  try {
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio (${audioResponse.status})`);
+    }
+
+    const audioBlob = await audioResponse.blob();
+    if (audioBlob.size === 0) {
+      throw new Error('Downloaded audio file is empty');
+    }
+    if (audioBlob.size > 5 * 1024 * 1024) {
+      throw new Error(`Audio file is too large (${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB)`);
+    }
+
+    const filename = audioUrl.split('/').pop()?.split('?')[0] || 'audio.mp3';
+    const file = new File([audioBlob], filename, { type: audioBlob.type || 'audio/mpeg' });
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/creatives/commonFileUpload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'x-org-id': organizationId,
+      },
+    });
+
+    const result = await uploadResponse.json().catch(() => null);
+    if (!uploadResponse.ok) {
+      throw new Error(result?.message || `Upload failed (${uploadResponse.status})`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error:', error);
+    return null;
+  }
+}
+
+export const handleLandingPageAudioAdDownload = async (jobId: string, recommendedVersion: string, advertiserId: string, organizationId: string, accessToken: string) => {
+  try {
+    const res = await fetch(
+      `${import.meta.env.VITE_APP_URL}/api/creative/v2/status?job_id=${encodeURIComponent(jobId)}`,
+      { method: "GET" },
+    );
+    const json = await res.json().catch(() => ({}));
+
+    if (json && json.recommendations && json.recommendations.length > 0) {
+      const recommendation = await fetch(
+        `${import.meta.env.VITE_APP_URL}/api/creative/v2/generate`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            composition_id:
+              json.recommendations[recommendedVersion].composition_id,
+            ad_script: json.recommendations[recommendedVersion].ad_script,
+          }),
+        },
+      );
+
+      const recommendationJson = await recommendation
+        .json()
+        .catch(() => ({}));
+
+      console.log("recommendationJson ", recommendationJson);
+      
+
+      if (
+        recommendationJson &&
+        recommendationJson.result &&
+        recommendationJson.result.audio_ad &&
+        recommendationJson.result.audio_ad.audio_url
+      ) {
+        console.log("audioUrl ", recommendationJson.result.audio_ad.audio_url);
+
+
+        const fileuploadResult = await downloadAndUploadAudio(recommendationJson.result.audio_ad.audio_url, organizationId, accessToken);
+        console.log("uploadResult ", fileuploadResult);
+
+        
+        
+        const result = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/creatives/uploadAudioAd`, {
+          method: 'POST',
+          body: JSON.stringify({
+            adName: 'Your Audio Ad',
+            advertiserId: advertiserId,
+            fileUrl: fileuploadResult?.data?.url || '',
+            duration: parseInt(fileuploadResult?.data?.duration || '0'),
+            campaignGoal: 'BRAND_AWARENESS',
+          }),
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'x-org-id': organizationId,
+          },
+        });
+        const resultJson = await result.json();
+        console.log("resultJson ", resultJson);
+      } else {
+        console.log("No audio url found");
+      }
+
+      //setAudioUrl(json?.data?.result?.delivery?.uri);
+      //setStatus("ready");
+    }
+  } catch {}
+}
+
 // --- Auth Exports ---
 
 export const auth = {
@@ -198,7 +311,7 @@ export const auth = {
   },
 
   /** Google OAuth */
-  signInWithGoogle: async (token: string) => {
+  signInWithGoogle: async (token: string, jobId: string, recommendedVersion: string) => {
     const { data, error, status, message } = await request<any>('/api/v1/auth/google', {
       method: 'POST',
       body: { token },
@@ -209,6 +322,14 @@ export const auth = {
 
     if (error || status !== 200 || !data?.tokens) return { data: data?.data, error, status, message };
 
+
+    if(jobId && recommendedVersion && data.isNewAccount){
+      const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
+      const organizationId = data?.data?.organizations[0]?.orgId;
+      console.log("advertiserId ", advertiserId);
+      handleLandingPageAudioAdDownload(jobId, recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
+    }
+
     createSessionAndNotify(data);
     return { data, error: null, status: 200, message };
   },
@@ -218,6 +339,8 @@ export const auth = {
     email: string;
     password: string;
     confirmPassword: string;
+    jobId: string;
+    recommendedVersion: string;
   }) => {
     const { data, error, status, message } = await request<any>('/api/v1/auth/signup', {
       method: 'POST',
@@ -225,9 +348,26 @@ export const auth = {
       skipAuth: true
     });
 
-    if (error || !data?.tokens) return { data: null, error, status, message };
+    if (error || !data?.tokens) return { data: null, error, status, message };   
+
+    console.log({
+      jobId: params.jobId,
+      recommendedVersion: params.recommendedVersion,
+      advertisers: data?.data?.organizations[0]?.advertisers,
+      advertisersLength: data?.data?.organizations[0]?.advertisers?.length,
+      accessToken: data.tokens.accessToken,
+      organizations: data?.data?.organizations,
+      organizationsLength: data?.data?.organizations?.length,
+    })
+    if(params.jobId && data?.data?.organizations[0]?.advertisers && data?.data?.organizations[0]?.advertisers?.length > 0){
+      const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
+      const organizationId = data?.data?.organizations[0]?.orgId;
+      console.log("advertiserId ", advertiserId);
+      handleLandingPageAudioAdDownload(params.jobId, params.recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
+    }
 
     createSessionAndNotify(data);
+
     return { data, error: null, status, message };
   },
 

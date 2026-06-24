@@ -67,7 +67,7 @@ import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { appNotifications } from "@/services/appNotifications";
 import { SetupMFAModal } from "@/components/auth/mfa-modal";
 import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, OrganizationIndustry } from "@/services/organization";
-import { CreditDetails, walletApi } from "@/services/wallet";
+import { CreditCycle, CreditDetails, CreditInvoice, WalletTransaction, walletApi } from "@/services/wallet";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { paymentApi, PaymentHistory } from "@/services/payment";
 import { useSearchParams } from "react-router-dom";
@@ -117,6 +117,17 @@ export default function Account() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [invoiceHistory, setInvoiceHistory] = useState<CreditInvoice[]>([]);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
+  const [walletTransactionsPage, setWalletTransactionsPage] = useState(1);
+  const [walletTransactionsLimit, setWalletTransactionsLimit] = useState(10);
+  const [walletTransactionsMeta, setWalletTransactionsMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+  const [loadingWalletTransactions, setLoadingWalletTransactions] = useState(false);
 
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
 
@@ -124,12 +135,7 @@ export default function Account() {
   const [mfaToken, setMFAToken] = useState("");
   const [session, setSession] = useState<AuthSession | null>(null);
   const [cards, setCards] = useState<Cards[]>([])
-  const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
-    availableCredit: 0,
-    creditUsed: 0,
-    totalCredits: 0,
-    utilizationPercentage: "0%",
-  });
+  const [creditsDetails, setCreditsDetails] = useState<CreditDetails | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<[]>([]);
   const [paymentUrl, setPaymentUrl] = useState<string>("");
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
@@ -650,6 +656,136 @@ export default function Account() {
   }, [message]);
 
 
+  useEffect(() => {
+    const getCreditDetails = async () => {
+
+      const organizationId = session?.currentOrganizationId;
+      const advertiserId = session?.currentAdvertiserId;
+      if(!organizationId || !advertiserId) return;
+
+      const { data, error, status } = await walletApi.getCreditsDetails(advertiserId, organizationId);
+      if(error || status !== 200) {
+        toast({
+          title: t("common.error"),
+          description: "Failed to load credit details",
+          variant: "destructive",
+        });
+      }
+      setCreditsDetails({
+        ...data,      
+      });
+    }
+
+    const getInvoiceHistory = async () => {
+
+      const organizationId = session?.currentOrganizationId;
+      const advertiserId = session?.currentAdvertiserId;
+      if(!organizationId || !advertiserId) return;
+
+      const { data, error, status } = await walletApi.getCreditInvoices({
+        organizationId: organizationId,
+        advertiserId: advertiserId,
+        page: String(1),
+        limit: String(100),
+      });
+      if(error || status !== 200) {
+        toast({
+          title: t("common.error"),
+          description: "Failed to load invoice history",
+          variant: "destructive",
+        });
+      }
+      setInvoiceHistory(data?.data || []);
+    }
+    setTimeout(() => {
+      getCreditDetails();
+      getInvoiceHistory();
+    }, 1000);
+  }, [session?.currentOrganizationId, session?.currentAdvertiserId]);
+
+
+  const getWalletTransactions = async () => {
+    const organizationId = session?.currentOrganizationId;
+    const advertiserId = session?.currentAdvertiserId;
+    if (!organizationId || !advertiserId) return;
+
+    setLoadingWalletTransactions(true);
+    const { data, error, status } = await walletApi.getWalletTransactions({
+      page: walletTransactionsPage,
+      limit: walletTransactionsLimit,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      orgId: organizationId
+    });
+
+    if (error || status !== 200) {
+      setLoadingWalletTransactions(false);
+      toast({
+        title: t("common.error"),
+        description: error?.message || "Failed to load wallet transactions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const rows = data?.data ?? [];
+    const responseMeta = data?.meta;
+    const total = responseMeta?.total ?? 0;
+    const apiPage = responseMeta?.page ?? walletTransactionsPage;
+    const apiLimit = responseMeta?.limit ?? walletTransactionsLimit;
+    const apiTotalPages = responseMeta?.totalPages;
+    const totalPages =
+      typeof apiTotalPages === "number" && apiTotalPages > 0
+        ? apiTotalPages
+        : total > 0
+          ? Math.max(1, Math.ceil(total / apiLimit))
+          : rows.length < apiLimit
+            ? Math.max(1, apiPage)
+            : apiPage + 1;
+
+    setWalletTransactionsMeta({
+      total,
+      page: apiPage,
+      limit: apiLimit,
+      totalPages,
+    });
+    setWalletTransactions(rows);
+    setLoadingWalletTransactions(false);
+  };
+
+  useLayoutEffect(() => {
+    setWalletTransactionsPage(1);
+  }, [session?.currentOrganizationId, session?.currentAdvertiserId, walletTransactionsLimit]);
+
+  useEffect(() => {
+    if (session?.currentOrganizationId && session?.currentAdvertiserId) {
+      getWalletTransactions();
+    }
+  }, [session?.currentOrganizationId, session?.currentAdvertiserId, walletTransactionsPage, walletTransactionsLimit]);
+
+  const downloadInvoice = async (invoiceId: string) => {
+    const { data, error, status, message } = await walletApi.downloadInvoice(invoiceId);
+
+    if (error || status !== 200 || !data) {
+      toast({
+        title: t("common.error"),
+        description: message || error?.message || "Failed to download invoice",
+        variant: "destructive",
+      });
+      return;
+    }
+
+
+    const url = URL.createObjectURL(data.blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = data.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const addPaymentMethod = async () => {
     console.log("add payment method");
     setGeneratingPaymentLink(true);
@@ -1134,7 +1270,7 @@ export default function Account() {
           role === 'ADMIN' && (
             <TabsContent value="billing" className="mt-4 space-y-4">
             <Tabs defaultValue="prepaid">
-              {/* <TabsList
+              <TabsList
                 className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
@@ -1143,7 +1279,7 @@ export default function Account() {
                     {t("account.postpaid")}
                   </TabsTrigger>
                 )}
-              </TabsList> */}
+              </TabsList>
   
               {/* PREPAID SUB-TAB */}
               <TabsContent value="prepaid" className="mt-4 space-y-4">
@@ -1410,10 +1546,13 @@ export default function Account() {
               </TabsContent>
   
               {/* POSTPAID SUB-TAB (Pro only) */}
-              {/* {isAgency && (
+               {isAgency && (
                 <TabsContent value="postpaid" className="mt-4 space-y-4">
                   <Card>
-                    <CardHeader>
+                    {
+                      creditsDetails?.creditCycle ? (
+                        <>
+                                            <CardHeader>
                       <CardTitle>{t("account.credit_approval")}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1421,53 +1560,70 @@ export default function Account() {
                         <CheckCircle className="h-6 w-6 text-green-600" />
                         <div>
                           <p className="text-sm font-medium text-foreground">
-                            {t("account.credit_check_passed")}
+                            Credit of ${Math.round(creditsDetails?.creditCycle?.amount).toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {t("account.approved_on")}
+                            Auto renews on 1st of every month
                           </p>
                         </div>
                         <Badge className="ml-auto bg-green-100 text-green-700 border-0">
-                          {t("account.approved")}
+                          {creditsDetails?.creditCycle?.status}
                         </Badge>
                       </div>
                     </CardContent>
+                        </>                        
+                      ) : <>
+                      
+                      <CardContent className="text-center p-4">
+                        <p className="text-sm text-muted-foreground">
+                          No credit cycle found
+                        </p>
+                      </CardContent>
+                      </>
+                    }
                   </Card>
-  
+
+                  {
+                    creditsDetails?.creditCycle ? (
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {t("account.approved_credit_limit")}
-                        </p>
-                        <p className="text-2xl font-bold text-foreground">
-                          $50,000
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {t("account.credit_usage")}
-                        </p>
-                        <p className="text-2xl font-bold text-foreground">
-                          $18,750
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {t("account.credit_utilization")}
-                        </p>
-                        <p className="text-2xl font-bold text-foreground">
-                          37.5%
-                        </p>
-                        <Progress value={37.5} className="mt-2 h-2" />
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.approved_credit_limit")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        ${parseInt(creditsDetails?.creditCycle?.amount+"").toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.credit_usage")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        ${ (creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)?.toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.credit_utilization")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        { (((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100).toFixed(2)}%
+                      </p>
+                      <Progress value={(((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100)} className="mt-2 h-2" />
+                    </CardContent>
+                  </Card>
+                </div>
+                    ) : <></>
+                  }
   
+  
+
                   <Card>
                     <CardHeader>
                       <CardTitle>{t("account.invoice_history")}</CardTitle>
@@ -1479,56 +1635,34 @@ export default function Account() {
                             <TableHead>{t("account.invoice")}</TableHead>
                             <TableHead>{t("account.date")}</TableHead>
                             <TableHead>{t("account.amount")}</TableHead>
-                            <TableHead>{t("account.due_date")}</TableHead>
+                            <TableHead>For Month</TableHead>
                             <TableHead>{t("account.status")}</TableHead>
                             <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {[
-                            {
-                              inv: "INV-2026-003",
-                              date: "Feb 01, 2026",
-                              amount: "$8,250.00",
-                              due: "Mar 03, 2026",
-                              status: "Pending",
-                            },
-                            {
-                              inv: "INV-2026-002",
-                              date: "Jan 01, 2026",
-                              amount: "$6,500.00",
-                              due: "Jan 31, 2026",
-                              status: "Paid",
-                            },
-                            {
-                              inv: "INV-2025-012",
-                              date: "Dec 01, 2025",
-                              amount: "$4,000.00",
-                              due: "Dec 31, 2025",
-                              status: "Paid",
-                            },
-                          ].map((row, i) => (
+                          { invoiceHistory.map((row, i) => (
                             <TableRow key={i}>
                               <TableCell className="text-sm font-medium text-primary">
-                                {row.inv}
+                                {row.invoiceId}
                               </TableCell>
                               <TableCell className="text-sm">
-                                {row.date}
+                                {row.createdAt.substring(0, 10)}
                               </TableCell>
                               <TableCell className="text-sm font-medium">
-                                {row.amount}
+                                ${row.amount.toLocaleString()}
                               </TableCell>
-                              <TableCell className="text-sm">{row.due}</TableCell>
+                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
                               <TableCell>
                                 <Badge
                                   variant={
-                                    row.status === "Paid"
+                                    row.paymentStatus === "paid"
                                       ? "secondary"
                                       : "outline"
                                   }
                                   className="text-xs"
                                 >
-                                  {row.status}
+                                  {row.paymentStatus?.toUpperCase()}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -1536,18 +1670,167 @@ export default function Account() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
+                                  onClick={() => downloadInvoice(row.invoiceId)}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
                               </TableCell>
                             </TableRow>
                           ))}
+
+                          {
+                            invoiceHistory.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <p className="text-xs text-muted-foreground py-4">
+                                    No invoice history found
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            ) : <></>
+                          }
                         </TableBody>
                       </Table>
                     </CardContent>
                   </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Wallet Transactions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("account.date")}</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Campaign</TableHead>
+                            <TableHead>{t("account.amount")}</TableHead>
+                            <TableHead>Original</TableHead>
+                            <TableHead>Coupon</TableHead>
+                            <TableHead>Remarks</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingWalletTransactions ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center">
+                                <p className="text-xs text-muted-foreground py-4">Loading...</p>
+                              </TableCell>
+                            </TableRow>
+                          ) : walletTransactions.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center">
+                                <p className="text-xs text-muted-foreground py-4">
+                                  No wallet transactions found
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            walletTransactions.map((row) => (
+                              <TableRow key={row.id}>
+                                <TableCell className="text-sm">
+                                  {row.createdAt.substring(0, 10)}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={row.type === "CREDIT" ? "secondary" : "outline"}
+                                    className="text-xs"                                    
+                                  >
+                                    {row.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {row.campaign?.campaignName || "—"}
+                                </TableCell>
+                                <TableCell
+                                  className={cn(
+                                    "text-sm font-medium",
+                                    row.amount < 0 ? "text-destructive" : "text-foreground",
+                                  )}
+                                >
+                                  ${Math.abs(row.amount).toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  ${row.originalAmount.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {row.couponCode || "—"}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground max-w-[220px] truncate">
+                                  {row.remarks || "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                      <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="text-sm text-muted-foreground">
+                          {walletTransactionsMeta.total > 0
+                            ? `Showing ${(walletTransactionsMeta.page - 1) * walletTransactionsMeta.limit + 1}-${Math.min(
+                                walletTransactionsMeta.page * walletTransactionsMeta.limit,
+                                walletTransactionsMeta.total,
+                              )} of ${walletTransactionsMeta.total}`
+                            : walletTransactions.length > 0
+                              ? `Showing ${walletTransactions.length}`
+                              : "Showing 0"}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={String(walletTransactionsLimit)}
+                            onValueChange={(value) => setWalletTransactionsLimit(Number(value))}
+                          >
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="20">20</SelectItem>
+                              <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setWalletTransactionsPage((page) => Math.max(1, page - 1))}
+                            disabled={loadingWalletTransactions || walletTransactionsPage <= 1}
+                          >
+                            Prev
+                          </Button>
+                          <div className="text-sm text-foreground px-2">
+                            {walletTransactionsMeta.page} / {walletTransactionsMeta.totalPages}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setWalletTransactionsPage((page) =>
+                                Math.min(walletTransactionsMeta.totalPages, page + 1),
+                              )
+                            }
+                            disabled={
+                              loadingWalletTransactions ||
+                              walletTransactionsPage >= walletTransactionsMeta.totalPages
+                            }
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+
+                  
                 </TabsContent>
-              )} */}
+              )}
             </Tabs>
           </TabsContent>  
           )

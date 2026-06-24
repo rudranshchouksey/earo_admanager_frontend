@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,6 +19,8 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -95,6 +97,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [accountType, setAccountType] = useState<"Pro" | "Express" | "Agency">('Express');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<string>('');
+  const [organizationSearchOpen, setOrganizationSearchOpen] = useState(false);
+  const [organizationSearch, setOrganizationSearch] = useState('');
   const [requestedForAgency, setRequestedForAgency] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -198,7 +202,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   
   }, [selectedOrganization])
-  
+
+  const sortedOrganizations = useMemo(
+    () => [...organizations].sort((a, b) => a.name.localeCompare(b.name)),
+    [organizations],
+  );
+
+  const filteredOrganizations = useMemo(() => {
+    const query = organizationSearch.trim().toLowerCase();
+    if (!query) return sortedOrganizations;
+    return sortedOrganizations.filter((org) => org.name.toLowerCase().includes(query));
+  }, [sortedOrganizations, organizationSearch]);
+
+  const selectedOrganizationName =
+    sortedOrganizations.find((org) => org.orgId === selectedOrganization)?.name || 'Organization';
+
+  const handleOrganizationChange = (orgId: string) => {
+    setSelectedOrganization(orgId);
+    setOrganizationSearchOpen(false);
+    setOrganizationSearch('');
+    setTimeout(() => {
+      window.location.reload();
+    }, 200);
+  };
+
 
 
   useEffect(() => {
@@ -481,23 +508,54 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {
               organizations?.length > 1 && (
-                <Select value={selectedOrganization} onValueChange={(value) => {
-                  setSelectedOrganization(value);
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 200);
-                }}>
-                  <SelectTrigger className="h-9 w-[180px] text-xs border-border">
-                    <SelectValue placeholder={'Organization'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.orgId} value={org.orgId} className="text-xs">
-                        {org.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover
+                  open={organizationSearchOpen}
+                  onOpenChange={(open) => {
+                    setOrganizationSearchOpen(open);
+                    if (!open) setOrganizationSearch('');
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-9 w-[180px] justify-between gap-2 px-3 text-xs font-normal border-border"
+                    >
+                      <span className="truncate">{selectedOrganizationName}</span>
+                      <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[220px] p-0">
+                    <div className="border-b border-border p-2">
+                      <Input
+                        value={organizationSearch}
+                        onChange={(e) => setOrganizationSearch(e.target.value)}
+                        placeholder="Search organizations..."
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="max-h-[240px] overflow-y-auto p-1">
+                      {filteredOrganizations.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-muted-foreground text-center">
+                          No organizations found
+                        </p>
+                      ) : (
+                        filteredOrganizations.map((org) => (
+                          <button
+                            key={org.orgId}
+                            type="button"
+                            onClick={() => handleOrganizationChange(org.orgId)}
+                            className={cn(
+                              'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground',
+                              org.orgId === selectedOrganization && 'bg-accent text-accent-foreground font-medium',
+                            )}
+                          >
+                            {org.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )
             }
             

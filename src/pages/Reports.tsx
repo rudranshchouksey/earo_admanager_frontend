@@ -90,6 +90,8 @@ interface DailyData {
   dailyBudget: number;
   totalBudget: number;
   ltr: number;
+  totalSpend?: number;
+  dailyCap?: number;
 }
 
 interface DemographicSlice { name: string; value: number; }
@@ -250,7 +252,9 @@ function generateDailyData(campaign: Campaign): DailyData[] {
       endDate: campaign.endDate,
       dailyBudget: Math.round(dailyBudget * 100) / 100,
       totalBudget: campaign.budget,
+      totalSpend: campaign.spend ?? 0,
       ltr: campaign.ltr ?? Math.round(70 + rand() * 20),
+      dailyCap: campaign.dailyCap ?? 0,
     });
   }
   return days;
@@ -269,9 +273,20 @@ const StatusRenderer = (params: ICellRendererParams) => (
   <Badge variant="secondary" className={statusColors[params.value?.toLowerCase()] || ''}>{formatStatus(params.value)}</Badge>
 );
 
+const DailyBudgetRenderer = (params: ICellRendererParams) => {
+  const row = params.data as DailyData;
+  if(row.dailyCap)
+      return <span className="text-xs text-muted-foreground">${(row.dailyCap ?? 0).toFixed(2)}</span>;
+
+  const startDate = new Date(row.startDate);
+  const endDate = new Date(row.endDate);
+  const noOfDays = endDate.getTime() - startDate.getTime();
+  return <span className="text-xs text-muted-foreground">${(row.totalBudget / (noOfDays / (1000 * 60 * 60 * 24))).toFixed(2)}</span>;
+}
+
 const UtilizationRenderer = (params: ICellRendererParams) => {
   const row = params.data as DailyData;
-  const util = row.totalBudget > 0 ? Math.min(100, Math.round((row.spent / row.dailyBudget) * 100)) : 0;
+  const util = row.totalBudget > 0 ? Math.min(100, Math.round((row.totalSpend / row.dailyBudget) * 100)) : 0;
   return (
     <div className="flex items-center gap-2">
       <Progress value={util} className="h-1.5 w-16" />
@@ -578,6 +593,7 @@ function mapCampaignPerformanceToGridRow(row: CampaignActionData): DailyData {
     endDate: flightEnd,
     dailyBudget: parseReportBudget(row.dailyCap),
     totalBudget: parseReportBudget(row.totalBudget),
+    totalSpend: row.totalSpend ?? 0,
     ltr: Math.round(row.ltr ?? 0),
   };
 }
@@ -1223,7 +1239,7 @@ export default function Reports() {
           dateRange: gridGranularityToApiDateRange(granularity),
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1275,7 +1291,7 @@ export default function Reports() {
           dateRange: 'CUSTOM',
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1322,7 +1338,7 @@ export default function Reports() {
           dateRange: 'CUSTOM',
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1369,7 +1385,7 @@ export default function Reports() {
           dateRange: 'CUSTOM',
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1462,7 +1478,7 @@ export default function Reports() {
           dateRange: 'CUSTOM',
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1509,7 +1525,7 @@ export default function Reports() {
           dateRange: gridGranularityToApiDateRange(gridGranularity),
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
 
         if (cancelled) return;
@@ -1557,7 +1573,7 @@ export default function Reports() {
           dateRange: "CUSTOM",
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
         if (status !== 200 || error) {
           console.error(error);
@@ -1571,7 +1587,7 @@ export default function Reports() {
           dateRange: "CUSTOM",
           from: dateRange.from.toISOString().substring(0, 10),
           to: dateRange.to.toISOString().substring(0, 10),
-          campaignType: selectedCampaignId === 'all' ? 'ALL' : 'SPECIFIC',
+          campaignType: 'SPECIFIC',
         });
         if (status !== 200 || error) {
           console.error(error);
@@ -2119,9 +2135,9 @@ export default function Reports() {
     { field: 'campaignGoal', headerName: 'Goal', width: 110 },
     { field: 'startDate', headerName: 'Start Date', width: 110 },
     { field: 'endDate', headerName: 'End Date', width: 110 },
-    { field: 'dailyBudget', headerName: 'Daily Budget', width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
+    { field: 'dailyBudget', headerName: 'Daily Budget', width: 115, type: 'numericColumn', cellRenderer: DailyBudgetRenderer },
     { field: 'totalBudget', headerName: 'Total Budget', width: 115, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toLocaleString()}` },
-    { field: 'spent', headerName: 'Spend', width: 100, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(0)}` },
+    { field: 'totalSpend', headerName: 'Spend', width: 100, type: 'numericColumn', valueFormatter: p => `$${(p.value ?? 0).toFixed(2)}` },
     { headerName: 'Utilization', width: 140, cellRenderer: UtilizationRenderer },
     { field: 'impressions', headerName: 'Impressions', width: 120, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
     { field: 'reach', headerName: 'Reach', width: 100, type: 'numericColumn', valueFormatter: p => (p.value ?? 0).toLocaleString() },
@@ -2324,7 +2340,7 @@ export default function Reports() {
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" labelLine={false}>
-                        {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        {data.filter((d,i) => i< 15).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => (v as number).toLocaleString()} />
                     </PieChart>
@@ -2696,42 +2712,18 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <ChartLoadingShell loading={reportLoading.campaignPerformance} minHeight={350}>
-                {isMobile ? (
-                  <MobileDataCards
-                    data={performanceGridData.slice(0, 30)}
-                    emptyMessage="No performance data"
-                    renderCard={(row) => (
-                      <div key={`${row.date}-${row.campaignName}`} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-foreground text-sm">{row.date}</p>
-                          <Badge variant="secondary" className={statusColors[row.campaignStatus] || ''}>
-                            {formatStatus(row.campaignStatus)}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">{row.campaignName || row.campaignDB}</p>
-                        <div className="space-y-1.5">
-                          <MobileStatRow label="Impressions" value={row.impressions.toLocaleString()} />
-                          <MobileStatRow label="Spend" value={`$${row.spent.toFixed(0)}`} />
-                          <MobileStatRow label="Reach" value={row.reach.toLocaleString()} />
-                          <MobileStatRow label="LTR" value={`${row.ltr}%`} />
-                        </div>
-                      </div>
-                    )}
+                <div style={{ height: 350 }}>
+                  <AgGridReact
+                    theme={appGridTheme}
+                    modules={[AllCommunityModule]}
+                    rowData={performanceGridData}
+                    columnDefs={gridColDefs}
+                    suppressCellFocus
+                    animateRows
+                    pagination
+                    paginationPageSize={30}
                   />
-                ) : (
-                  <div style={{ height: 350 }}>
-                    <AgGridReact
-                      theme={appGridTheme}
-                      modules={[AllCommunityModule]}
-                      rowData={performanceGridData}
-                      columnDefs={gridColDefs}
-                      suppressCellFocus
-                      animateRows
-                      pagination
-                      paginationPageSize={30}
-                    />
-                  </div>
-                )}
+                </div>
               </ChartLoadingShell>
             </CardContent>
           </Card>

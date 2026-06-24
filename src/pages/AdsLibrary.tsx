@@ -55,7 +55,12 @@ export default function AdsLibrary() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [ads, setAds] = useState<AdData[]>([]);
-  const [adStats, setAdStats] = useState<Record<string, AdStats>>({});
+  const [adStats, setAdStats] = useState<AdStats>({
+    impressions: 0,
+    spend: 0,
+    reach: 0,
+    campaignCount: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -133,6 +138,16 @@ export default function AdsLibrary() {
     }
 
     setAds(adsRes.data ?? []);
+
+    if(adsRes.adsData) {
+      
+      setAdStats({
+        ...adStats,
+        impressions: Number(adsRes.adsData.TotalImpressions ?? 0),
+        spend: Number(adsRes.adsData.TotalSpend ?? 0),
+      })
+    }
+
     if (adsRes.meta) {
       setMeta({
         total: adsRes.meta.total,
@@ -542,13 +557,13 @@ export default function AdsLibrary() {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{t('ads.total_impressions')}</p>
-              {/* <p className="text-2xl font-bold text-foreground">{totals.impressions.toLocaleString()}</p> */}
+              <p className="text-2xl font-bold text-foreground">{adStats.impressions.toLocaleString()}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{t('ads.total_spend')}</p>
-              {/* <p className="text-2xl font-bold text-foreground">${totals.spend.toLocaleString()}</p> */}
+              <p className="text-2xl font-bold text-foreground">${adStats.spend.toLocaleString()}</p>
             </CardContent>
           </Card>
           <Card>

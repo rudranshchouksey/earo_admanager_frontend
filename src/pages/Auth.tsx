@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { auth, createSessionAndNotify } from "@/services/auth";
+import { auth, createSessionAndNotify, handleLandingPageAudioAdDownload } from "@/services/auth";
 import { request } from "@/services/api";
 import type { AuthSession } from "@/services/auth";
 import { Headphones } from "lucide-react";
@@ -154,8 +154,18 @@ export default function Auth() {
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
     setIsLoading(true);
     try {
+
+
+      const url = new URL(window.location.href);
+      const jobId = url.searchParams.get("jobid");
+      const recommendedVersion = url.searchParams.get("recommendedVersion");
+
+      console.log("jobId ", jobId);
+      console.log("recommendedVersion ", recommendedVersion);
+
+      
       const { credential } = credentialResponse;
-      const { error, status, message, data } = await auth.signInWithGoogle(credential);
+      const { error, status, message, data } = await auth.signInWithGoogle(credential, jobId, recommendedVersion);
       console.log("handleGoogleLogin", { error, status, message, data });
       if (error || status !== 200) {
 
@@ -188,6 +198,14 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+
+
+    const url = new URL(window.location.href);
+    const jobId = url.searchParams.get("jobid");
+    const recommendedVersion = url.searchParams.get("recommendedVersion");
+
+    console.log("jobId ", jobId);
+    console.log("recommendedVersion ", recommendedVersion);
 
     const loginSchema = z.object({
       email: z.string().trim().email(t("auth.invalid_email")),
@@ -306,6 +324,8 @@ export default function Auth() {
           email: email.trim().toLowerCase(),
           password: password.trim(),
           confirmPassword: confirmPassword.trim(),
+          jobId: jobId,
+          recommendedVersion: recommendedVersion,
         });
 
         if (status !== 200) {

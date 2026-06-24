@@ -173,10 +173,10 @@ export interface AdsResponse {
   message: string;
   data: AdData[];
   adsData: {
-    totalAds: number;
-    totalImpressions: number;
-    totalSpend: number;
-    totalConversions: number;
+    TotalAds: number;
+    TotalImpressions: number;
+    TotalSpend: number;
+    TotalConversions: number;
   };
   meta: {
     total: number;
