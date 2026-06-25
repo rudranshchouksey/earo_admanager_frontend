@@ -1549,7 +1549,7 @@ export default function Account() {
               </TabsContent>
   
               {/* POSTPAID SUB-TAB (Pro only) */}
-               {isAgency && (
+               {creditsDetails?.creditCycle && (
                 <TabsContent value="postpaid" className="mt-4 space-y-4">
                   <Card>
                     {
