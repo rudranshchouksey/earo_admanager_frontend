@@ -449,12 +449,14 @@ export default function Auth() {
             <>
               <div className="space-y-3">
                 <GoogleOAuthProvider clientId="1085309377183-aclhjrmig48tsqgpecmv84tj4fgbv0jc.apps.googleusercontent.com">
+                <div className="[&>div]:w-full [&_iframe]:w-full">
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.log("Login Failed")}
                     shape="square"                    
-                    width="100%"
+                    width="400"
                   />
+                </div>
                 </GoogleOAuthProvider>
               </div>
               {/* Divider */}
