@@ -1274,7 +1274,7 @@ export default function Account() {
             <TabsContent value="billing" className="mt-4 space-y-4">
             <Tabs defaultValue="prepaid">
               <TabsList
-                className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
+                className={`grid w-full grid-cols-2`}
               >
                 <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
                   <TabsTrigger value="postpaid">
