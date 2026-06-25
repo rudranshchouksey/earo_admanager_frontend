@@ -7,6 +7,7 @@ const DAILY_BASELINES: Record<string, number> = { Streaming: 80000, Podcast: 300
 interface ForecastProps {
   isLoading: boolean;
   totalAvailableImpressions: number;
+  totalReach: number;
   totalBudget: number;
   dailyBudget: number;
   cpm?: number;
@@ -25,7 +26,7 @@ export function formatCompactNumber(value: number, locale: string = 'en-US'): st
 }
 
 
-export default function ForecastSidebar({ isLoading, totalAvailableImpressions, totalBudget, dailyBudget, cpm=18, noOfDays=1 }: ForecastProps) {
+export default function ForecastSidebar({ isLoading, totalAvailableImpressions, totalReach, totalBudget, dailyBudget, cpm=18, noOfDays=1 }: ForecastProps) {
   const [showGuide, setShowGuide] = useState(false);
 
   if(isLoading) {
@@ -79,9 +80,13 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
 
             <div>
               <p className="flex gap-2 items-center text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalAvailableImpressions)} {totalAvailableImpressions < estimatedAdsPlayed ? <span className='text-destructive text-xs' title='Low inventory'><TriangleAlert size={16} /> </span> : <></>} </p>
-              <p className="text-xs text-muted-foreground">Total Available Impressions</p>
+              <p className="text-xs text-muted-foreground">Estimated available impressions</p>
             </div>
 
+            <div>
+              <p className="flex gap-2 items-center text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(totalReach)}</p>
+              <p className="text-xs text-muted-foreground">Estimated available reach</p>
+            </div>
           <div className="border-b border-border" />
 
             <p className="text-xs text-foreground">
@@ -97,6 +102,11 @@ export default function ForecastSidebar({ isLoading, totalAvailableImpressions, 
             <div>
               <p className="text-lg font-semibold text-foreground leading-tight">{formatCompactNumber(uniqueListeners)}</p>
               <p className="text-xs text-muted-foreground">Estimated unique listeners</p>
+            </div>
+
+            <div>
+              <p className="text-lg font-semibold text-foreground leading-tight">${cpm.toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground">Estimated CPM</p>
             </div>
 
             <div>
