@@ -1277,11 +1277,9 @@ export default function Account() {
                 className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
-                {creditsDetails?.creditCycle && (
                   <TabsTrigger value="postpaid">
                     {t("account.postpaid")}
                   </TabsTrigger>
-                )}
               </TabsList>
   
               {/* PREPAID SUB-TAB */}
@@ -1549,7 +1547,6 @@ export default function Account() {
               </TabsContent>
   
               {/* POSTPAID SUB-TAB (Pro only) */}
-               {creditsDetails?.creditCycle && (
                 <TabsContent value="postpaid" className="mt-4 space-y-4">
                   <Card>
                     {
@@ -1833,7 +1830,6 @@ export default function Account() {
 
                   
                 </TabsContent>
-              )}
             </Tabs>
           </TabsContent>  
           )
