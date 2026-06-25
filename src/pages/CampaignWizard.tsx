@@ -290,6 +290,7 @@ export default function CampaignWizard() {
   const [isLoadingForecast, setIsLoadingForecast] = useState(true);
   const [forecastData, setForecastData] = useState({
     totalAvailableImpressions: 0,
+    totalReach: 0,
   });
 
   const [paymentUrl, setPaymentUrl] = useState("");
@@ -1542,6 +1543,7 @@ export default function CampaignWizard() {
 
         setForecastData({
           totalAvailableImpressions: _forecastData?.campaignAvails || 0,
+          totalReach: _forecastData?.reach || 0,
         });
       }catch(error) {
         console.error(error);
@@ -2048,6 +2050,7 @@ export default function CampaignWizard() {
         >
           <ForecastSidebar
             isLoading={isLoadingForecast}
+            totalReach={forecastData.totalReach || 0}
             totalBudget={Number(budget.totalBudget) || 0}
             dailyBudget={Number(budget.dailyBudget) || 0}
             cpm={CPM}
