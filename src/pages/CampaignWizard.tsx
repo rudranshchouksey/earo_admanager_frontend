@@ -21,7 +21,8 @@ import CampaignSummary from "@/components/dashboard/campaign-wizard/CampaignSumm
 import AudienceExtensionStep from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
 import type { AudienceExtensionData, BannerSlot } from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
 import CampaignLaunchModal from "@/components/dashboard/campaign-wizard/CampaignLaunchModal";
-import { useSessionFlags } from "@/hooks/useSessionFlags";
+import { useSessionFlags, getPlanFromSession } from "@/hooks/useSessionFlags";
+import { trackPurchase } from "@/lib/gtm";
 import {
   City,
   Country,
@@ -1097,6 +1098,19 @@ export default function CampaignWizard() {
         setPaymentUrl(data.payment_url);
         setPaymentLinkId(data?.paymentLinkId);
       }else if( status === 200 && data?.paid){
+        // Paid from credit/postpaid balance — no MamoPay redirect, so this is the
+        // purchase completion point (the card path fires from PaymentSuccess instead).
+        trackPurchase({
+          transactionId: data?.data?.id ?? campaignId,
+          // Net amount: post-coupon final when a coupon was applied, else full budget.
+          value: payment.couponCode ? Number(payment.finalAmount) || 0 : Number(budget.totalBudget) || 0,
+          campaignId: data?.data?.id ?? campaignId,
+          campaignName: setup.campaignName,
+          paymentMethod: "credit",
+          plan: getPlanFromSession(),
+          coupon: payment.couponCode || undefined,
+          discount: payment.couponCode ? Number(payment.discountApplied) || 0 : undefined,
+        });
         toast({
           title: "Success",
           description: "Campaign created successfully",
