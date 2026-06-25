@@ -307,6 +307,24 @@ export default function Account() {
   
 
   useEffect(() => {
+    const fetchCards = async () => {
+      const { data, error, status } = await walletApi.getCards();
+
+      if (error || status !== 200) {
+        console.error(error);
+        return;
+      }
+      setCards(data?.data || []);
+    }
+
+
+    if(role === 'ADMIN') {
+      fetchCards();
+    }
+
+  }, [role]);
+
+  useEffect(() => {
     const load = async () => {
       const {
         data: { session: initialSession },
@@ -363,25 +381,10 @@ export default function Account() {
 
 
     };
-
-    const fetchCards = async () => {
-      const { data, error, status } = await walletApi.getCards();
-
-      if (error || status !== 200) {
-        console.error(error);
-        return;
-      }
-      setCards(data?.data || []);
-    }
-
-
-    if(role === 'ADMIN') {
-      fetchCards();
-    }
+  
     load();
-
-  }, [role, isAgency, isPro]);
-
+    
+  }, []);
 
   // // Auto-fill country from geo-detect
   useEffect(() => {
@@ -1274,7 +1277,7 @@ export default function Account() {
                 className={`grid w-full ${isAgency ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
-                {isAgency && (
+                {creditsDetails?.creditCycle && (
                   <TabsTrigger value="postpaid">
                     {t("account.postpaid")}
                   </TabsTrigger>
