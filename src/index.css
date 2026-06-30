@@ -265,3 +265,8 @@
   min-height: 700px;
   height: 100%;
 }
+
+
+.ql-toolbar {
+  display: none;
+}

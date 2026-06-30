@@ -55,6 +55,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { MyTooltip } from "@/components/ui/MyTooltip";
+import CampaignGoal, { campaignGoalTooltip, goalPlaceholders } from "@/components/sdui/blocks/CampaignGoal";
 
 interface AdCreatorFormProps {
   type: "PROMPT" | "SCRIPT";
@@ -130,54 +131,6 @@ const LANGUAGES = [
 ];
 
 
-
-const campaignGoalTooltip = `<div class="p-2">
-Choose the primary outcome you want this ad to drive. The goal shapes the AI's script tone and the platform's default conversion tracking settings.
-<br />
-<br />
-<b>Sales</b><br />
-Drive listeners to make a purchase directly. The AI writes an urgent, offer-led script that names the deal clearly and pushes the listener to act right now.
-<br />
-<br />
-
-<b>Leads</b>
-<br />
-Encourage listeners to take a low-friction first step — request a quote, fill in a form, or book a call. The AI builds credibility and makes contacting you feel effortless and risk-free.
-<br />
-<br />
-
-<b>Website Traffic</b>
-<br />
-Drive listeners to visit a specific URL. The AI creates a curiosity-driven script that makes visiting your site feel like a natural next step — without a hard sell or pricing pressure.
-<br />
-<br />
-
-<b>Product & Brand Consideration</b>
-<br />
-Move listeners from awareness into active consideration. The AI builds preference through an informative, confident script — educating rather than selling, and ending with a soft invitation to find out more.
-<br />
-<br />
-
-<b>Brand Awareness & Reach</b>
-<br />
-Build recognition and emotional connection — no immediate action required. The AI writes a brand storytelling script that creates a feeling and a memory, not a sales pitch.
-<br />
-<br />
-
-<b>App Promotion</b>
-<br />
-Drive listeners to download or re-engage with your mobile app. The AI creates a scenario-driven script that puts the listener inside a real moment where the app solves a problem — then closes with a specific proof point and both app store names.
-<br />
-<br />
-
-<b>Local Store Visits & Promotions</b>
-<br />
-Drive foot traffic to a physical location. The AI creates an urgency-and-location script that makes the listener feel they will miss out if they do not visit — and tells them exactly where to go and when.
-<br />
-</div>
-
-
-`;
 
 
 /* ── Language search popover ── */
@@ -561,16 +514,7 @@ function ExpressMusicPreview({
   );
 }
 
-const goalPlaceholders: Record<string, string> = {
-  sales:
-    "Drive listeners to make a purchase directly. The AI writes a direct-response script with a strong offer and a clear call to action pointing to a website or online store.\n\nPrompt guidance: Include your product or offer name, the key benefit or discount, and a specific URL. Example: 'https://www.mybrand.com — Family pizza restaurant in The Mall. 20% off your first online order. Promote our new seafood menu — order tonight and use code SEAFOOD20.'",
-  leads: "Encourage listeners to register interest, request a quote, fill in a form, or call. Best for service businesses where the sale happens offline. The AI writes a script that builds credibility and guides the listener to take a low-friction first step. \n\nPrompt guidance: Describe the service, the problem it solves, and the lead action (e.g. 'get a free quote', 'book a call'). Example: 'https://www.mybrand.com — Flexible renewable-energy contracts for households. No lock-in. 24/7 support. Visit yellowdoorenergy.com to get your free quote in under two minutes.'",
-  traffic: "Drive listeners to visit a specific URL. The script focuses on curiosity and a single, memorable destination rather than a hard sell. Best when the website itself is the conversion point (e.g. a blog, landing page, or e-commerce homepage).\n\nPrompt guidance: Highlight what listeners will find when they visit and why it's worth their time. Example: 'https://www.mybrand.com/summer — Our summer collection is live. Discover 200+ new styles, all with free delivery this week. Visit mybrand.com/summer.'",
-  consideration: "Move listeners from awareness into active consideration of your product or service. The script is designed to educate and build preference rather than demand immediate action — ideal for considered purchases (cars, insurance, B2B software, real estate).\n\n Prompt guidance: Focus on key differentiators and what sets your product apart from alternatives. Example: 'https://www.mybrand.com — Flexible car leasing for consumers. No down payment, fully insured, swap your car every 12 months. Find out why 10,000 drivers have already switched at mybrand.com.'",
-  awareness: "Build recognition and top-of-mind recall without requiring any immediate listener action. The AI writes a brand storytelling script focused on who you are and what you stand for — ideal for new market entry, product launches, or brand repositioning.\n\nPrompt guidance: Describe your brand identity, mission, and target audience feeling rather than a specific offer or call to action. Example: 'My Brand — sustainability-first skincare, made in the world, inspired by the sun. We believe beauty should never cost the earth. My Brand — available at leading world pharmacies.'",
-  app: "Drive listeners to download or re-engage with your mobile app. The script leads with the app's value proposition and ends with a clear 'download now' call to action, naming the app stores where it is available.\n\nPrompt guidance: Include the app name, its core benefit, and where to download it. Example: 'The My Brand app — shop 20 million products with same-day delivery across the world. Exclusive app-only deals every day. Download My Brand now on the App Store and Google Play.'",
-  local: "Drive foot traffic to a physical location. The script creates urgency around a time-limited offer and gives clear location information so the listener knows exactly where to go.\n\nPrompt guidance: Include the store location, the specific promotion, and the time window. Example: 'My Brand, Main Street, London. This weekend only — buy any cake and get a free box of our signature pastries. Open Saturday and Sunday from 8am. Come in and treat yourself.'"
-};
+
 const voiceTooltip = `<div class="p-2">
 
 Select the voice that will read your ad script. Use the filters to narrow the library by gender, language, accent, tone, age, and use case. Click the play button on any voice to hear a sample.
@@ -1376,34 +1320,7 @@ export default function AdCreatorForm({
               <Label className="flex flex-row gap-2 justify-start items-center w-full">{t("ad_creator.campaign_goal")}
                 <MyTooltip html={campaignGoalTooltip} />
               </Label>
-              <Select value={goal} onValueChange={onGoalChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sales">
-                    {t("ad_creator.goal_sales")}
-                  </SelectItem>
-                  <SelectItem value="leads">
-                    {t("ad_creator.goal_leads")}
-                  </SelectItem>
-                  <SelectItem value="traffic">
-                    {t("ad_creator.goal_traffic")}
-                  </SelectItem>
-                  <SelectItem value="consideration">
-                    {t("ad_creator.goal_consideration")}
-                  </SelectItem>
-                  <SelectItem value="awareness">
-                    {t("ad_creator.goal_awareness")}
-                  </SelectItem>
-                  <SelectItem value="app">
-                    {t("ad_creator.goal_app")}
-                  </SelectItem>
-                  <SelectItem value="local">
-                    {t("ad_creator.goal_local")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <CampaignGoal goal={goal} onGoalChange={onGoalChange} />
             </div>
           )}
 

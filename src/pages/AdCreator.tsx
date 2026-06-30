@@ -17,13 +17,15 @@ import type {
 import { useSessionFlags } from "@/hooks/useSessionFlags";
 import { auth, AuthSession, getStoredSession } from "@/services/auth";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
-import { Ad, adsApi, AdStatusResponse, Music, Voice } from "@/services/ads";
+import { Ad, adsApi, AdStatusResponse, Music, Recommendation, Voice, VoxifyPollResponse, VoxifyVoice, VoxifyTrack } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import { Helmet } from "react-helmet-async";
+import VoxifyForm from "@/components/dashboard/ad-creator/VoxifyForm";
+import { goalPlaceholders, goalPlaceholdersHtml } from "@/components/sdui/blocks/CampaignGoal";
 
 const PAGE_SIZE = 5;
 
-type AdMode = "ai" | "upload";
+type AdMode = "ai" | "upload" | "script" | "legacy";
 
 const DEFAULT_PRO_VOICE: ProVoiceSettings = {
   language: "",
@@ -105,6 +107,21 @@ export default function AdCreator() {
   const [advertiserId, setAdvertiserId] = useState<string | null>(null);
   const [loadedExistingCampaign, setLoadedExistingCampaign] = useState(false);
 
+
+  // Voxify state
+  const [voxifyType, setVoxifyType] = useState<"PROMPT" | "SCRIPT">("PROMPT");
+  const [voxifyGoal, setVoxifyGoal] = useState("sales");
+  const [voxifyDescription, setVoxifyDescription] = useState("");
+  const [voxifyPlainText, setVoxifyPlainText] = useState("");
+  const [voxifyGenerating, setVoxifyGenerating] = useState(false);
+  // REMOVE the default job id 86814a13-c81c-4679-ba13-83a2a5c1fef1
+  const [voxifyJobId, setVoxifyJobId] = useState("");
+  const [voxifyAd, setVoxifyAd] = useState<VoxifyPollResponse["data"]["result"] | null>(null);
+
+
+  const [hideTopOptions, setHideTopOptions] = useState(false);
+
+
   const getAdStatus = async (jobId: string) => {
     const { status, error, message, data } = await adsApi.checkAdStatus(jobId);
     console.log("getAdStatus here ", { status, error, message, data });
@@ -156,6 +173,7 @@ export default function AdCreator() {
       return;
     }
     setIsGenerating(true);
+    setHideTopOptions(true);
     try {
       console.log("handleGenerated here ", {
         description,
@@ -406,6 +424,18 @@ export default function AdCreator() {
     navigate("/dashboard/ads");
   };
 
+
+  useEffect(() => {
+    
+    if(mode === "legacy" || mode === "ai"){
+      setType("PROMPT");
+    } else if(mode === "script"){
+      setType("SCRIPT");
+    }
+  
+  }, [mode])
+  
+
   useEffect(() => {
     if (gender && language && tone) {
       void fetchVoicesPage({
@@ -454,66 +484,73 @@ export default function AdCreator() {
         const { data } = await adsApi.getAd(adId, session.currentAdvertiserId);
         console.log("getAdFromParams here ", { data });
         if (data) {
-          setDescription(data.data.generatedScript);
-          setGoal(data.data.campaignGoal);
-          setType("SCRIPT");
+
+          if(data.data.source === "V0") {
+            setDescription(data.data.generatedScript);
+            setGoal(data.data.campaignGoal);
+            setType("SCRIPT");
 
 
-          setProContent({
-            ...proContent,
-            startMs: data.data.playbackStart || 0,
-            endMs: data.data.playbackEnd || 30000,
-            volume: data.data.volume || 50,
-            fadeIn: data.data.audioFadeIn || true,
-            fadeOut: data.data.audioFadeOut || true,
-          })
+            setProContent({
+              ...proContent,
+              startMs: data.data.playbackStart || 0,
+              endMs: data.data.playbackEnd || 30000,
+              volume: data.data.volume || 50,
+              fadeIn: data.data.audioFadeIn || true,
+              fadeOut: data.data.audioFadeOut || true,
+            })
 
-          const {
-            status: voiceStatus,
-            error: voiceError,
-            message: voiceMessage,
-            data: voiceData,
-          } = await adsApi.getVoice(data.data.voiceId);
-          console.log("getVoiceData here ", {
-            voiceStatus,
-            voiceError,
-            voiceMessage,
-            voiceData,
-          });
-          if (voiceStatus != 200) {
-            toast({
-              title: "Error loading current voice",
-              description: voiceMessage,
-              variant: "destructive",
-            });
-          } else {
-            setCurrentVoice(voiceData.data);
-            setSelectedVoice(voiceData.data.externalId);
-          }
-
-          if(data.data.musicId){
             const {
-              status: musicStatus,
-              error: musicError,
-              message: musicMessage,
-              data: musicData,
-            } = await adsApi.getMusic(data.data.musicId);
-            console.log("getMusicData here ", {
-              musicStatus,
-              musicError,
-              musicMessage,
-              musicData,
+              status: voiceStatus,
+              error: voiceError,
+              message: voiceMessage,
+              data: voiceData,
+            } = await adsApi.getVoice(data.data.voiceId);
+            console.log("getVoiceData here ", {
+              voiceStatus,
+              voiceError,
+              voiceMessage,
+              voiceData,
             });
-            if (musicStatus != 200) {
+            if (voiceStatus != 200) {
               toast({
-                title: "Error loading current music",
-                description: musicMessage,
+                title: "Error loading current voice",
+                description: voiceMessage,
                 variant: "destructive",
               });
             } else {
-              setCurrentMusic(musicData.data);
-              setSelectedMusic(musicData.data.externalId);
+              setCurrentVoice(voiceData.data);
+              setSelectedVoice(voiceData.data.externalId);
             }
+
+            if(data.data.musicId){
+              const {
+                status: musicStatus,
+                error: musicError,
+                message: musicMessage,
+                data: musicData,
+              } = await adsApi.getMusic(data.data.musicId);
+              console.log("getMusicData here ", {
+                musicStatus,
+                musicError,
+                musicMessage,
+                musicData,
+              });
+              if (musicStatus != 200) {
+                toast({
+                  title: "Error loading current music",
+                  description: musicMessage,
+                  variant: "destructive",
+                });
+              } else {
+                setCurrentMusic(musicData.data);
+                setSelectedMusic(musicData.data.externalId);
+              }
+            }
+          }else if (data.data.source === "V1") {
+            setJobId(data.data.jobId);
+            pollVoxifyJob(data.data.jobId, data.data.compositionId);
+
           }
         }
         setLoadedExistingCampaign(true);
@@ -550,11 +587,264 @@ export default function AdCreator() {
     load();
   }, []);
 
+
+  useEffect(() => {
+    
+    console.log("voxifyAd useEffect here ", { voxifyAd });
+    if(voxifyAd){
+      const isFirstTime = !voxifyAd.recommendations.some(recommendation => recommendation.generated);
+      const isGenerating = voxifyAd.recommendations.some(recommendation => recommendation.generating);
+      if(isFirstTime && !isGenerating){
+        generateVoxifyAd(0);
+      }
+    }
+  
+  }, [voxifyAd])
+  
+  const saveVoxifyAd = async (id: string, name: string) => {
+    const { status, error, message, data } = await adsApi.updateAdStatus(
+      id,
+      name
+    );
+    console.log("saveVoxifyAd here ", { status, error, message, data });
+    if(status !== 200){
+      toast({
+        title: "Error saving voxify ad",
+        description: message,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Voxify ad saved successfully",
+      description: "Voxify ad saved successfully",
+      variant: "default",
+    });
+    navigate("/dashboard/ads");
+  }
+
+  const updateScript = (recommendIndex: number, script: { text_plain: string, text: string }) => {
+    console.log("updateScript here ", { recommendIndex, script });
+    const _voxifyAd = voxifyAd;
+    _voxifyAd.recommendations[recommendIndex].script.text = script.text;
+    _voxifyAd.recommendations[recommendIndex].script.text_plain = script.text_plain;
+    setVoxifyAd({..._voxifyAd});
+  }
+
+  const regenerateVoxifyAd = async (recommendIndex: number, voice: object, track: object, voiceVolume: number, musicVolume: number) => {
+    console.log("regenerateVoxifyAd here ", { recommendIndex, voice, track });
+
+    const _voxifyAd = voxifyAd;
+    _voxifyAd.recommendations[recommendIndex].generating = true;
+    _voxifyAd.recommendations[recommendIndex].generated = false;
+    _voxifyAd.recommendations[recommendIndex].voice = voice as VoxifyVoice;
+    _voxifyAd.recommendations[recommendIndex].track = track as VoxifyTrack;
+    _voxifyAd.recommendations[recommendIndex].isEdited = true;
+    _voxifyAd.recommendations[recommendIndex].sourceUrl = "";
+    setVoxifyAd({..._voxifyAd});
+
+    const { status, error, message, data } = await adsApi.regenerateAudioAd({
+      adScript: voxifyAd.recommendations[recommendIndex].script.text_plain,
+      compositionId: voxifyAd.recommendations[recommendIndex].reference.composition_id,
+      jobId: voxifyJobId,
+      voice: voice,
+      track: track,
+      voiceVolume: voiceVolume,
+      musicVolume: musicVolume
+    });
+
+    console.log("generateAudioAd here ", { status, error, message, data });
+
+    if(status !== 200 || !data.data?.sourceUrl){
+      toast({
+        title: "Error",
+        content: "Error generating audio ad",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    const genAiMetadata = JSON.parse(data?.data?.genAiMetadata || "{}");
+
+    _voxifyAd.recommendations[recommendIndex].generated = true;
+    _voxifyAd.recommendations[recommendIndex].generating = false;
+    _voxifyAd.recommendations[recommendIndex].sourceUrl = data.data?.sourceUrl;
+    _voxifyAd.recommendations[recommendIndex].voice = genAiMetadata.voice as VoxifyVoice;
+    _voxifyAd.recommendations[recommendIndex].track = genAiMetadata.track as VoxifyTrack;
+    _voxifyAd.recommendations[recommendIndex].id = data.data?.id;
+
+    setVoxifyAd({..._voxifyAd});
+
+    console.log("setVoxifyAd here ", { _voxifyAd });
+  }
+
+  const generateVoxifyAd = async (recommendIndex: number, jobId?: string, sourceVoxifyAd?: VoxifyPollResponse["data"]["result"]) => {
+
+    const session = getStoredSession();
+    if (!session) {
+      toast({ title: "Session not found", variant: "destructive" });
+      return;
+    }
+
+    setHideTopOptions(true);
+
+    console.log("generateVoxifyAd here ", { recommendIndex, voxifyAd });
+    const _voxifyAd = voxifyAd || sourceVoxifyAd;
+    _voxifyAd.recommendations[recommendIndex].generating = true;
+    console.log("setVoxifyAd here ", { _voxifyAd });
+    setVoxifyAd({..._voxifyAd});
+    const { status, error, message, data } = await adsApi.generateAudioAd({
+      adScript: _voxifyAd.recommendations[recommendIndex].script.text_plain,
+      compositionId: _voxifyAd.recommendations[recommendIndex].reference.composition_id,
+      jobId: jobId || voxifyJobId,
+      advertiserId: advertiserId || session.currentAdvertiserId
+    });
+
+    console.log("generateAudioAd here ", { status, error, message, data });
+
+    if(status !== 200 || !data.data?.sourceUrl){
+      toast({
+        title: "Error",
+        content: "Error generating audio ad",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    const genAiMetadata = JSON.parse(data?.data?.genAiMetadata || "{}");
+
+    _voxifyAd.recommendations[recommendIndex].generated = true;
+    _voxifyAd.recommendations[recommendIndex].generating = false;
+    _voxifyAd.recommendations[recommendIndex].sourceUrl = data.data?.sourceUrl;
+    _voxifyAd.recommendations[recommendIndex].voice = genAiMetadata.voice as VoxifyVoice;
+    _voxifyAd.recommendations[recommendIndex].track = genAiMetadata.track as VoxifyTrack;
+    _voxifyAd.recommendations[recommendIndex].id = data.data?.id;
+
+
+    console.log("setVoxifyAd here ", { _voxifyAd });
+
+    setVoxifyAd({..._voxifyAd});
+  }
+
+  const pollVoxifyJob = async (jobId: string, compositionId?: string) => {
+    const { status, error, message, data } = await adsApi.getVoxifyPoll(jobId);
+    console.log("getVoxifyPoll here ", { status, error, message, data });
+    if (status != 200) {
+      toast({
+        title: "Error polling voxify job",
+        description: message,
+        variant: "destructive",
+      });
+      setVoxifyGenerating(false);
+      return;
+    }
+
+    if(!data.data?.success) {
+      toast({
+        title: "Error polling voxify job",
+        description: message,
+        variant: "destructive",
+      });
+      setVoxifyGenerating(false);
+      return;
+    }
+
+    if (data.data?.status === "completed") {
+      setVoxifyGenerating(false);
+      const _voxifyAd = data?.data?.result;
+
+
+
+      for(let i = 0; i < _voxifyAd.recommendations.length; i++){
+        _voxifyAd.recommendations[i].generated = false;
+        _voxifyAd.recommendations[i].generating = false;
+        _voxifyAd.recommendations[i].isEdited = false;
+        _voxifyAd.recommendations[i].id = data.data?.result.recommendations[i].id;
+        _voxifyAd.recommendations[i].script.text =  _voxifyAd.recommendations[i].script.text.replace(/(\[[^\]]+\])/g, '<strong>$1</strong>').replace(/\.\s/g, '. <br />');;
+      }
+
+
+      if(compositionId){
+        _voxifyAd.recommendations = _voxifyAd.recommendations.filter(recommendation => recommendation.reference.composition_id === compositionId);
+        _voxifyAd.recommendations[0].generating = true;
+      }
+
+      setVoxifyAd({..._voxifyAd});
+
+      if(compositionId){
+        setTimeout(() => {
+          generateVoxifyAd(0, jobId, _voxifyAd);
+        }, 2000);
+      }
+
+
+    } else {
+      setTimeout(() => {
+        pollVoxifyJob(jobId);
+      }, 5000);
+    }
+  };
+
+
+  const handleVoxifyGenerate = async () => {
+    console.log("handleVoxifyGenerate here ", { voxifyPlainText });
+
+    setVoxifyGenerating(true);
+    setHideTopOptions(true);
+
+    try {
+      console.log("handleVoxifyGenerate here ", {
+        voxifyPlainText,
+      });
+
+      const { error, status, message, data } = await adsApi.generateRecommendation({
+        type: "PROMPT",
+        campaignGoal: voxifyGoal,
+        advertiserId: advertiserId,
+        productDescription: voxifyPlainText,
+      });
+      console.log("createAd with PROMPT here ", { error, status, message, data });
+      if (status != 200) {
+        toast({
+          title: t("ad_creator.generation_failed"),
+          description: message,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (error) throw error;
+      // const ad = data;
+      // setGeneratedAd(ad);
+      // setEditedScript(ad.script);
+      // getAdStatus(data.data.jobId);
+      // setJobId(data.data.id);
+      setVoxifyJobId(data.data?.jobId);
+      pollVoxifyJob(data.data?.jobId);
+    } catch (err) {
+      console.error("Generate error:", err);
+      toast({
+        title: t("ad_creator.generation_failed"),
+        description: t("ad_creator.generation_failed_desc"),
+        variant: "destructive",
+      });
+    } finally {
+      //setIsGenerating(false);
+      //setVoxifyGenerating(false);
+    }
+
+  };
+
+
+  useEffect(() => {
+    
+    setVoxifyDescription(goalPlaceholdersHtml[voxifyGoal]);
+  }, [voxifyGoal])
+
   if (id && !loadedExistingCampaign)
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="animate-spin mr-2" />
-        Loading campaign data...
+        Loading ad data...
       </div>
     );
 
@@ -575,68 +865,127 @@ export default function AdCreator() {
           </h1>
         )}
       </div>
-
-      {/* Mode Switcher — Pro only */}
-      {isPro && !id && (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setMode("ai")}
-            className={cn(
-              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-              mode === "ai"
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border hover:border-primary/40",
-            )}
-          >
-            <Sparkles
-              className={cn(
-                "h-5 w-5 shrink-0",
-                mode === "ai" ? "text-primary" : "text-muted-foreground",
-              )}
-            />
-            <div>
-              <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
-                {t("ad_creator.ai_mode_title")} 
-                <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
-
-              </p>
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                Write a short description, we'll generate a complete ad.  <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
-              </p>
-            </div>
-          </button>
-          <button
-            onClick={() => setMode("upload")}
-            className={cn(
-              "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-              mode === "upload"
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border hover:border-primary/40",
-            )}
-          >
-            <Upload
-              className={cn(
-                "h-5 w-5 shrink-0",
-                mode === "upload" ? "text-primary" : "text-muted-foreground",
-              )}
-            />
-            <div>
-              <p className="text-sm font-medium text-foreground flex items-center gap-2">
-                Upload a Finished Audio Ad
-                <MyTooltip infoText="Already have a produced MP3 or audio file? Upload it directly to your Ad Library and attach it to any campaign." />
-              </p>
-              <p className="text-xs text-muted-foreground flex items-center gap-2" >
-              Upload an MP3 you've already produced.
-              <MyTooltip infoText="Supported formats: MP3, MP4 audio. Maximum recommended ad length: 60 seconds for podcast slots." />
-              </p>
-            </div>
-          </button>
-        </div>
-      )}
-
       <Card>
+
+        {/* Mode Switcher — Pro only */}
+        {isPro && !id && !hideTopOptions && (
+          <div className="p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setMode("ai")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                    mode === "ai"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <Upload
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      mode === "ai" ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                    {t("ad_creator.ai_mode_title")} 
+                      <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2" >
+                    Upload an MP3 you've already produced.
+                    <MyTooltip infoText="Supported formats: MP3, MP4 audio. Maximum recommended ad length: 60 seconds for podcast slots." />
+                    </p>
+                  </div>
+                </button>
+  {/* 
+                <button
+                  onClick={() => setMode("script")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                    mode === "script"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <Sparkles
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      mode === "script" ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
+                      Add your own script
+                      <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      Write a short description, we'll generate a complete ad.  <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
+                    </p>
+                  </div>
+                </button> */}
+                
+                <button
+                  onClick={() => setMode("upload")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                    mode === "upload"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <Upload
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      mode === "upload" ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                      Upload a Finished Audio Ad
+                      <MyTooltip infoText="Already have a produced MP3 or audio file? Upload it directly to your Ad Library and attach it to any campaign." />
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2" >
+                    Upload an MP3 you've already produced.
+                    <MyTooltip infoText="Supported formats: MP3, MP4 audio. Maximum recommended ad length: 60 seconds for podcast slots." />
+                    </p>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setMode("legacy")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                    mode === "legacy"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <Sparkles
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      mode === "legacy" ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
+                    Legacy 
+                      <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      Write a short description, we'll generate a complete ad.  <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
+                    </p>
+                  </div>
+                </button>
+
+              </div>
+          </div>
+        )}
+
         <CardContent className="pt-6">
-          {mode === "ai" ? (
+          {(mode === "legacy")  && (
             <AdCreatorForm
               age={age}
               onAgeChange={setAge}
@@ -703,13 +1052,41 @@ export default function AdCreator() {
               currentMusic={currentMusic}
               isEditing={!!id}
             />
-          ) : (
+          )}
+
+          {
+          mode === "ai"  && (
+            <div>
+              <VoxifyForm
+                key={voxifyGoal}
+                type={voxifyType}
+                goal={voxifyGoal}
+                onGoalChange={setVoxifyGoal}
+                description={voxifyDescription}
+                onDescriptionChange={setVoxifyDescription}
+                setPlainText={setVoxifyPlainText}
+                onGenerate={handleVoxifyGenerate}
+                isGenerating={voxifyGenerating}
+                ad={voxifyAd}
+                generateVoxifyAd={generateVoxifyAd}
+                regenerateVoxifyAd={regenerateVoxifyAd}
+                updateScript={(recommendIndex: number, script: { text_plain: string, text: string }) => updateScript(recommendIndex, script)}
+                handleSaveAd={saveVoxifyAd}
+              />
+            </div>
+          )}
+
+          {(mode === "script") && (
+            <></>
+          )}
+
+          {(mode === "upload") && (
             <UploadAdForm onSaved={handleSaved} />
           )}
         </CardContent>
       </Card>
 
-      {mode === "ai" && (
+      {mode === "legacy" && (
         <AdGeneratingModal
           open={isGenerating}
           onCancel={() => setIsGenerating(false)}

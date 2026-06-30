@@ -19,6 +19,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
 import VerifyEmail from "./pages/VerifyEmail";
 import Support from "./components/dashboard/Support";
+import 'react-quill/dist/quill.snow.css';
 
 const queryClient = new QueryClient();
 
