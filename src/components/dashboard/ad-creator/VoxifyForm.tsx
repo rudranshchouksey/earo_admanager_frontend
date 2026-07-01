@@ -83,7 +83,7 @@ function GeneratingAdSteps() {
     },
   ];
   const [activeStep, setActiveStep] = useState(0);
-  const INTERVAL_TIME = 2500 + Math.random() * 10000;
+  const INTERVAL_TIME = 7000 + Math.random() * 10000;
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
