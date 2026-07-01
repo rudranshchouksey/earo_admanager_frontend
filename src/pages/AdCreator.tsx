@@ -128,7 +128,7 @@ export default function AdCreator() {
   const [voxifyDescription, setVoxifyDescription] = useState("");
   const [voxifyPlainText, setVoxifyPlainText] = useState("");
   const [voxifyGenerating, setVoxifyGenerating] = useState(false);
-  const [voxifyError, setVoxifyError] = useState<string | null>("error");
+  const [voxifyError, setVoxifyError] = useState<string | null>(null);
   // REMOVE the default job id 86814a13-c81c-4679-ba13-83a2a5c1fef1
   const [voxifyJobId, setVoxifyJobId] = useState("");
   const [voxifyAd, setVoxifyAd] = useState<
