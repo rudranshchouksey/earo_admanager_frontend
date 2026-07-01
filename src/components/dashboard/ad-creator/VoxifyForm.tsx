@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/contexts/TranslationContext";
 import Editor from "@/components/sdui/Editor";
 import {
+  CircleHelp,
   InfoIcon,
   LightbulbIcon,
   Loader2,
@@ -32,6 +33,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Slider } from "@/components/ui/slider";
 import { DialogContent, Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import BusinessHelperModal from "@/components/modals/BusinessHelperModal";
 
 
 interface VoxifyFormProps {
@@ -47,7 +49,7 @@ interface VoxifyFormProps {
   generateVoxifyAd: (recommendIndex: number) => void;
   regenerateVoxifyAd: (recommendIndex: number, voice: object, track: object, musicVolume: number, voiceVolume: number) => void;
   updateScript: (recommendIndex: number, script: { text_plain: string, text: string }) => void;
-  handleSaveAd: (id: string, name: string) => Promise<void>;
+  handleSaveAd: (id: string, name: string, index: number) => Promise<void>;
 }
 
 function GeneratingAdLoader() {
@@ -171,7 +173,7 @@ function VoiceFilterControls({
   );
 }
 
-function RecommendationCard({ recommendation, index, editMode, handleEdit, handleCancelEdit, generateVoxifyAd, regenerateVoxifyAd, updateScript, handleSaveAd }: { recommendation: Recommendation, index: number, editMode: boolean, handleEdit: () => void, handleCancelEdit: () => void, generateVoxifyAd: () => void, regenerateVoxifyAd: (voice: object, track: object, musicVolume: number, voiceVolume: number) => void, updateScript: (script: { text_plain: string, text: string }) => void, handleSaveAd: (id: string, name: string) => Promise<void> }) {
+function RecommendationCard({ type, recommendation, index, editMode, handleEdit, handleCancelEdit, generateVoxifyAd, regenerateVoxifyAd, updateScript, handleSaveAd }: { type: "PROMPT" | "SCRIPT", recommendation: Recommendation, index: number, editMode: boolean, handleEdit: () => void, handleCancelEdit: () => void, generateVoxifyAd: () => void, regenerateVoxifyAd: (voice: object, track: object, musicVolume: number, voiceVolume: number) => void, updateScript: (script: { text_plain: string, text: string }) => void, handleSaveAd: (id: string, name: string, index: number) => Promise<void> }) {
   const [voiceVolume, setVoiceVolume] = useState(-20);
   const [musicVolume, setMusicVolume] = useState(-28);
   const { t } = useTranslation();
@@ -192,7 +194,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
   const handleConfirmSave = () => {
     setIsSaving(true);
     setShowSaveModal(false);
-    handleSaveAd(recommendation.id, adName);
+    handleSaveAd(recommendation.id, adName, index);
     setIsSaving(false);
     setAdName("");
   }
@@ -202,6 +204,10 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
     setCurrentVoice(recommendation.voice ?? null);
     setSelectedTrackId(recommendation.track?.track_id ?? null);
     setCurrentTrack(recommendation.track ?? null);
+    setVoiceVolume( Math.round(Number(recommendation?.clips[0]?.vocal?.["rms-dbfs"])) || -20);
+    setMusicVolume( Math.round(Number(recommendation?.clips[0]?.music?.["rms-dbfs"])) || -28);
+
+    console.log("setting voice volume and music volume here ", { voiceVolume, musicVolume }, recommendation.clips[0].vocal);
   }, [recommendation.voice?.voice_id, recommendation.track?.track_id]);
 
   const handleScriptChange = (
@@ -210,6 +216,13 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
     source: string,
     editor: any,
   ) => {
+    if(content === "") {
+      updateScript({
+        text_plain: "",
+        text: ""
+      })
+      return;
+    }
     const plainText = editor.getText();
     updateScript({
       text_plain: plainText,
@@ -222,7 +235,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
     {recommendation.generated ? (
       <div className="border bg-card text-card-foreground shadow-sm relative rounded-2xl border-border p-6">
         {
-          index === 0 && (
+          index === 0 && type === "PROMPT" && (
             <div className="inline-flex items-center border transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent absolute -top-3 left-6 bg-foreground text-background hover:bg-foreground rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase">
               Best match for your brand
             </div>
@@ -232,13 +245,16 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
           <h2 className="text-xl font-semibold text-foreground">
             {recommendation.script.name}
           </h2>
-          <div className="grid gap-5 md:grid-cols-[3fr_1fr]">
-            <div className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-5">
+            <div className="space-y-4 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
+                {
+                  recommendation.script.classification && <span className="text-sm font-semibold text-foreground">
                   Script
                 </span>
-                {recommendation.script.classification.tone_of_voice.speech_tags.map(
+
+                }
+                {recommendation.script.classification?.tone_of_voice?.speech_tags.map(
                   (tag) => (
                     <div key={tag} className="capitalize inline-flex items-center px-2.5 py-0.5 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-muted/30 text-foreground hover:bg-muted/30 rounded-sm font-medium border border-border">
                       {tag}
@@ -260,6 +276,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
                 </p>
                 <InlineAudioPlayer
                   audioUrl={recommendation.sourceUrl}
+                  playerWidthFull={true}
                 />
                 <div className="flex gap-2 md:max-w-sm">
                   <button
@@ -282,7 +299,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                      Best matched voices {recommendation.voice?.name} {selectedVoiceId}
+                      Best matched voices
                     </label>
                     <InfoIcon className="w-4 h-4 text-muted-foreground" />
                   </div>
@@ -357,6 +374,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
                         >
                           <InlineAudioPlayer
                             audioUrl={voice.preview_url}
+                            playerWidthFull={true}
                           />
                         </div>
                       </div>
@@ -469,6 +487,7 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
                         >
                           <InlineAudioPlayer
                             audioUrl={track.preview_url}
+                            playerWidthFull={true}
                           />
                         </div>
                       </div>
@@ -571,13 +590,13 @@ function RecommendationCard({ recommendation, index, editMode, handleEdit, handl
           <h2 className="text-xl font-semibold text-foreground">
             {recommendation.script.name}
           </h2>
-          <div className="grid gap-5 md:grid-cols-[3fr_1fr]">
-            <div className="space-y-2">
+          <div className="flex flex-col md:flex-row gap-5">
+            <div className="space-y-2 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
                   Script
                 </span>
-                {recommendation.script.classification.tone_of_voice.speech_tags.map(
+                {recommendation.script.classification?.tone_of_voice?.speech_tags.map(
                   (tag) => (
                     <div key={tag} className="capitalize inline-flex items-center px-2.5 py-0.5 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-muted/30 text-foreground hover:bg-muted/30 rounded-sm font-medium border border-border">
                       {tag}
@@ -672,6 +691,7 @@ export default function VoxifyForm({
   const [editMode, setEditMode] = useState([false, false, false]);
   const [voiceVolume, setVoiceVolume] = useState(0);
   const [musicVolume, setMusicVolume] = useState(0);
+  const [showBusinessHelperModal, setShowBusinessHelperModal] = useState(false);
 
 
   const handleChange = (
@@ -680,6 +700,11 @@ export default function VoxifyForm({
     source: string,
     editor: any,
   ) => {
+    if(content === "") {
+      onDescriptionChange("");
+      setPlainText("");
+      return;
+    }
     const plainText = editor.getText();
     onDescriptionChange(content);
     setPlainText(plainText);
@@ -702,18 +727,23 @@ export default function VoxifyForm({
   };
 
   return (
-    <div>
+    <div className="w-full">
       {isGenerating ? (
         <div className="flex flex-col gap-4 space-y-2">
           <GeneratingAdSteps />
-          <GeneratingAdSteps />
-          <GeneratingAdSteps />
+          {
+            type === "PROMPT" && <GeneratingAdSteps />
+          }
+          {
+            type === "PROMPT" && <GeneratingAdSteps />
+          }
         </div>
       ) : ad ? (
         <div className="flex flex-col gap-4 space-y-2">
           {ad.recommendations.map(
             (recommendation: Recommendation, index: number) => (
               <RecommendationCard 
+                type={type}
                 recommendation={recommendation} 
                 key={index}
                 index={index} 
@@ -723,7 +753,7 @@ export default function VoxifyForm({
                 generateVoxifyAd={() => generateVoxifyAd(index)} 
                 regenerateVoxifyAd={(voice: object, track: object, musicVolume: number, voiceVolume: number) => regenerateVoxifyAd(index, voice, track, musicVolume, voiceVolume)} 
                 updateScript={(script: { text_plain: string, text: string }) => updateScript(index, script)} 
-                handleSaveAd={(id: string, name: string) => handleSaveAd(id, name)}
+                handleSaveAd={(id: string, name: string, index: number) => handleSaveAd(id, name, index)}
               />
 
             ),
@@ -775,7 +805,19 @@ export default function VoxifyForm({
               onChange={(e) => onDescriptionChange(e.target.value)}
               rows={10}
           /> */}
-              <Editor value={description} onChange={handleChange} /> 
+              <div className="relative">
+               <Editor value={description} onChange={handleChange} /> 
+               
+               {
+                type === "PROMPT" && ( 
+                  <button onClick={() => setShowBusinessHelperModal(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 absolute bottom-2 right-2 h-8"> 
+                    <CircleHelp className="w-4 h-4" />
+                    <span>Need help with your prompt?</span>
+                  </button>
+                )
+               }
+               
+              </div>
               
               <div className="p-3 flex items-start gap-2 text-sm text-muted-foreground">
                 <LightbulbIcon className="w-4 h-4 text-primary" />
@@ -804,6 +846,12 @@ export default function VoxifyForm({
           </div>
         </div>
       )}
+      <BusinessHelperModal
+        open={showBusinessHelperModal}
+        onOpenChange={setShowBusinessHelperModal}
+        goal={goal}
+        onApply={(text: string) => onDescriptionChange(text.replace(/(\[[^\]]+\])/g, '<strong>$1</strong>').replace(/\.\s/g, '. <br />'))}
+      />
     </div>
   );
 }

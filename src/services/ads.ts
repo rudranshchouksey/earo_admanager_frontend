@@ -204,7 +204,70 @@ export interface AdResponse {
   status: number;
   message: string;
   data: Ad;
+  assets?: Asset;
 }
+
+export interface AssetRecommendation {
+    "voices": VoxifyVoice[],
+    "tracks": VoxifyTrack[],
+    "clips": Clip[],
+    "reference": Reference
+}
+export interface Asset {
+    "status": string,
+    "result": AssetRecommendation[],
+    "usage": {
+        "cached_response": boolean,
+        "original_credits": number,
+        "billed_credits": number,
+        "refunded_credits": 0,
+        "remaining_credits": number
+    },
+    "cached": false,
+    "success": true,
+    "project_id": "EARO-b2dd5e9c-8f28-4e7c-83ef-1e2795890fa2",
+    "script": {
+        "text": string,
+        "text_input": string,
+        "text_plain": string,
+        "classification": {
+            "campaign_goal": {
+                "id": string,
+                "name": string
+            },
+            "tone_of_voice": {
+                "category": {
+                    "id": string,
+                    "name": string
+                },
+                "speech_tags": [
+                    string
+                ]
+            },
+            "target_audience": {
+                "id": string,
+                "name": string
+            },
+            "business_activity": {
+                "main": {
+                    "id": string,
+                    "name": string
+                },
+                "leaf": {
+                    "id": string,
+                    "name": string
+                }
+            }
+        },
+        "name": string | null,
+        "rationale": null,
+        "tagline": null,
+        "promotion": null,
+        "cta": null
+    },
+    "request_id": "par_6c992f4aa633482190e2272ff627bb36"
+}
+
 
 export interface VoxifyRecommendResponse {
   status: number;
@@ -217,6 +280,7 @@ export interface VoxifyRecommendResponse {
     updated_at: string;
     poll_url: string;
   };
+  assets?: Asset
 }
 
 export interface VoxifyVoice {
@@ -250,7 +314,7 @@ export interface VoxifyTrack {
   key: string;
 }
 
-interface Classification {
+export interface Classification {
   advertiser: string;
   campaign_goal: {
     id: string;
@@ -268,34 +332,43 @@ interface Classification {
     name: string;
   };
 }
+
+export interface Clip {
+  "vocal": {
+      "start": number,
+      "end": number,
+      "rms-dbfs": number
+  },
+  "music": {
+      "start": number,
+      "end": number,
+      "rms-dbfs": number
+  }
+}
+
+export interface Reference {
+  composition_id: string;
+  script_id?: number;
+  name?: string;
+  brief?: string;
+}
+
 export interface Recommendation {
   script: {
     text: string;
     text_plain: string;
-    classification: Classification;
-    name: string;
-    rationale: string;
-    tagline: string | null;
-    promotion: string | null;
-    cta: {
-      action: string;
-      target: string;
-      type: string;
-    }[];
+    name?: string;
+    classification?: Classification;
   };
   voices: VoxifyVoice[];
   tracks: VoxifyTrack[];
-  reference: {
-    composition_id: string;
-    script_id: number;
-    name: string;
-    brief: string;
-  };
+  reference: Reference;
+  "clips": Clip[];
   sourceUrl: string;
   generated: boolean;
   generating: boolean;
-  voice: VoxifyVoice;
-  track: VoxifyTrack;
+  voice?: VoxifyVoice;
+  track?: VoxifyTrack;
   isEdited: boolean;
   id?: string;
 }
@@ -310,15 +383,69 @@ export interface VoxifyPollResponse {
     created_at: string;
     updated_at: string;
     result: {
-      project_id: string;
-      product: {
+      project_id?: string;
+      product?: {
         name: string;
         description: string;
       };
-      duration: number;
-      locale: string;
+      duration?: number;
+      locale?: string;
       recommendations: Recommendation[];
     };
+  };
+}
+
+export type VoxifyAdResult = VoxifyPollResponse["data"]["result"];
+
+function formatVoxifyScriptText(text: string): string {
+  return text
+    .replace(/(\[[^\]]+\])/g, "<strong>$1</strong>")
+    .replace(/\.\s/g, ". <br />");
+}
+
+function mapAssetScriptClassification(
+  classification: Asset["script"]["classification"],
+): Classification {
+  return {
+    advertiser:
+      classification.business_activity?.leaf?.name ??
+      classification.business_activity?.main?.name ??
+      "",
+    campaign_goal: classification.campaign_goal,
+    tone_of_voice: classification.tone_of_voice,
+    target_audience: classification.target_audience,
+  };
+}
+
+export function mapAssetToVoxifyResult(asset: Asset): VoxifyAdResult {
+  const formattedScriptText = formatVoxifyScriptText(asset.script.text);
+
+  const recommendations: Recommendation[] = asset.result.map((item, index) => ({
+    script: {
+      text: formattedScriptText,
+      text_plain: asset.script.text_plain,
+      classification: mapAssetScriptClassification(asset.script.classification),
+      name: asset.script.name ?? item.reference?.name ?? `Recommendation ${index + 1}`,
+      rationale: asset.script.rationale ?? "",
+      tagline: asset.script.tagline,
+      promotion: asset.script.promotion,
+      cta: asset.script.cta ?? [],
+    },
+    voices: item.voices ?? [],
+    tracks: item.tracks ?? [],
+    clips: item.clips ?? [],
+    reference: item.reference,
+    sourceUrl: "",
+    generated: false,
+    generating: false,
+    voice: item.voices?.[0],
+    track: item.tracks?.[0],
+    isEdited: false,
+  }));
+
+  return {
+    project_id: asset.project_id,
+    recommendations,
   };
 }
 
@@ -426,10 +553,10 @@ export const adsApi = {
       body: { externalId },
     }),
 
-  updateAdStatus: (jobId: string, name: string) =>
+  updateAdStatus: (jobId: string, name: string, voiceVolume?: number, musicVolume?: number) =>
     request<AdStatusResponse>("/api/v1/creatives/updateAdStatus", {
       method: "POST",
-      body: { id: jobId, adName: name },
+      body: { id: jobId, adName: name, voiceVolume, musicVolume },
     }),
 
   exportAds: (advertiserId: string) =>
@@ -465,10 +592,10 @@ export const adsApi = {
     }),
 
   generateRecommendation: (payload: {
-    type: "PROMPT";
     campaignGoal: string;
     advertiserId: string;
     productDescription: string;
+    type: "PROMPT" | "SCRIPT";
   }) =>
     request<VoxifyRecommendResponse>(
       "/api/v1/creatives/generateRecommendation",

@@ -34,6 +34,7 @@ function pauseAllDomHtmlMedia() {
 
 interface InlineAudioPlayerProps {
   audioUrl: string;
+  playerWidthFull?: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -55,7 +56,7 @@ const formatTime = (seconds: number) => {
   return parts.join(':');
 };
 
-export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) {
+export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false }: InlineAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentSec, setCurrentSec] = useState(0);
@@ -178,7 +179,7 @@ export default function InlineAudioPlayer({ audioUrl }: InlineAudioPlayerProps) 
           </Button>
         )}
       </Button>
-      <div className="hidden md:block w-full md:w-16 h-6 rounded-md overflow-hidden">
+      <div className={`hidden md:block w-full ${ playerWidthFull ? ''  : 'md:w-16'} h-6 rounded-md overflow-hidden`}>
         <div ref={waveformElRef} className="w-full h-full" />
       </div>
       <span className="hidden md:block text-[10px] text-muted-foreground tabular-nums w-7">
