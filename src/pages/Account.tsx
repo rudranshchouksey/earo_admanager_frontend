@@ -1637,7 +1637,7 @@ export default function Account() {
                             <TableHead>{t("account.amount")}</TableHead>
                             <TableHead>For Month</TableHead>
                             <TableHead>{t("account.status")}</TableHead>
-                            <TableHead className="w-10"></TableHead>
+                            {/* <TableHead className="w-10"></TableHead> */}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1665,7 +1665,7 @@ export default function Account() {
                                   {row.paymentStatus?.toUpperCase()}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              {/* <TableCell>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1674,7 +1674,7 @@ export default function Account() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                              </TableCell>
+                              </TableCell> */}
                             </TableRow>
                           ))}
 
