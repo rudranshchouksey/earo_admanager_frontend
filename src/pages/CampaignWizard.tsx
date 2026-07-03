@@ -963,11 +963,11 @@ export default function CampaignWizard() {
         return;
       }
 
-      // start time should be atleast 24 hour from now
-      if(completeStartDate.getTime() < new Date().getTime() + 86400000) {
+      // start time should be atleast 1 hour from now
+      if(completeStartDate.getTime() < new Date().getTime() + 3600000) {
         toast({
           title: "Error",
-          description: "Start date should be atleast 24 hours from now",
+          description: "Start date should be atleast 1 hour from now",
           variant: "destructive",
         });
         setSaving(false);

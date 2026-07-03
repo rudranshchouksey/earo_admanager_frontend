@@ -14,8 +14,10 @@ import { MyTooltip } from '@/components/ui/MyTooltip';
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-function TimeDropdown({ value, onChange, className, disabled=false }: { value: string; onChange: (val: string) => void; className?: string; disabled?: boolean }) {
+function TimeDropdown({ value, onChange, className, disabled=false, isToday=false }: { value: string; onChange: (val: string) => void; className?: string; disabled?: boolean; isToday?: boolean }) {
   const [h, m] = (value || '00:00').split(':');
+
+  const now = new Date();
 
   return (
     <div className={cn('flex gap-1', className)}>
@@ -24,9 +26,15 @@ function TimeDropdown({ value, onChange, className, disabled=false }: { value: s
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper" className="max-h-[200px] overflow-y-auto">
-          {HOURS.map(hour => (
+          {
+          isToday ? 
+          HOURS.filter(hour => Number(hour) > Number(now.getHours().toString().padStart(2, '0'))).map(hour => (
             <SelectItem key={hour} value={hour}>{hour}</SelectItem>
-          ))}
+          )): 
+          HOURS.map(hour => (
+            <SelectItem key={hour} value={hour}>{hour}</SelectItem>
+          ))
+          }
         </SelectContent>
       </Select>
       <span className="self-center text-muted-foreground text-sm">:</span>
@@ -91,6 +99,7 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
   const [timeSlots, setTimeSlots] = useState(data.timeSlots || TIME_SLOTS.map(s => s.value));
 
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const timezone = useMemo(() => {
     try {
@@ -172,7 +181,7 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
                   selected={data.startDate ? new Date(data.startDate) : undefined}
                   onSelect={(date) => {
                     const nextDate = new Date(date);
-                    nextDate.setDate(nextDate.getDate() + 1);
+                    nextDate.setHours(nextDate.getHours() + 1);
                     onChange({ ...data, startDate: formatDate(date), endDate: new Date(data.endDate) <= date ? formatDate(nextDate) : data.endDate });
                     // setStartDate(date);
                     setStartOpen(false);
@@ -187,6 +196,7 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
               value={data.startTime || '00:00'}
               onChange={(val) => onChange({ ...data, startTime: val })}
               disabled={shouldDisable}
+              isToday={data.startDate ? formatDate(new Date()) === formatDate(new Date(data.startDate)) : false}
             />
           </div>
         </div>
