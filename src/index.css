@@ -265,3 +265,13 @@
   min-height: 700px;
   height: 100%;
 }
+
+
+.ql-toolbar {
+  display: none;
+}
+
+.ql-editor {
+  font-size: large !important;
+  min-height: 350px !important;
+}

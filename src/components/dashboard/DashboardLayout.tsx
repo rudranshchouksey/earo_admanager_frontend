@@ -592,7 +592,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Persistent CTAs — hidden on dashboard home for new users, always shown elsewhere */}
           {(location.pathname !== '/dashboard' || !isNewUser) && (isSuperAdmin || role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
             <div className="flex items-center gap-3">
-              <Button size="sm" variant="outline" className="h-9 gap-2" onClick={() => navigate('/dashboard/ads/new')}>
+              <Button size="sm" variant="outline" className="h-9 gap-2" onClick={() => window.location.href = '/dashboard/ads/new'}>
                 <Volume2 className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_ad')}</span>
               </Button>
