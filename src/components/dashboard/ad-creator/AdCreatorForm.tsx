@@ -1309,9 +1309,7 @@ export default function AdCreatorForm({
           </h3>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
           Your goal shapes the script. Tell us what this ad is trying to achieve — we'll build the right structure and prompt template around it.
-          <MyTooltip infoText="Your campaign goal tells the AI what the ad needs to accomplish. It adjusts the script's opening, structure, offer framing, and call to action — a Sales script leads with an offer and urgency signal, while an Awareness script leads with a brand moment and emotional takeaway.
-
-" />
+          <MyTooltip infoText="Your campaign goal tells the AI what the ad needs to accomplish. It adjusts the script's opening, structure, offer framing, and call to action — a Sales script leads with an offer and urgency signal, while an Awareness script leads with a brand moment and emotional takeaway." />
           </p>
         </div>
       )}
