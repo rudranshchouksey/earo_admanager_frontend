@@ -7,6 +7,7 @@ interface EditorProps {
   value: string;
   onChange: (content: string, delta: any, source: string, editor: any) => void;
   readonly?: boolean;
+  maxLength?: number;
 }
 
 const EDITOR_FORMATS = [
@@ -30,6 +31,7 @@ export default function Editor({
   value,
   onChange,
   readonly = false,
+  maxLength = 1000,
 }: EditorProps) {
   const normalizedValue = useMemo(() => normalizeHtmlForQuill(value), [value]);
   const editorRef = useRef<ReactQuill>(null);
@@ -40,6 +42,24 @@ export default function Editor({
       onChange("", "", "", editorRef.current?.getEditor());
     }, 100);
   };
+
+
+  editorRef.current?.getEditor().on('text-change', (delta, oldDelta, source) => {
+    // quill.getLength() includes the trailing newline (\n), 
+    // so we subtract 1 for an accurate count.
+
+    if(maxLength) {
+      const currentLength = editorRef.current?.getEditor().getLength() - 1; 
+    
+      if (currentLength > maxLength) {
+        // Calculate how many characters crossed the line
+        const overLimit = currentLength - maxLength;
+        
+        // Delete the excess characters from the end of the input
+        editorRef.current?.getEditor().deleteText(maxLength, overLimit);
+      }
+    }
+  });
 
   return (
     <div className="w-full">
@@ -67,7 +87,7 @@ export default function Editor({
       </div>
       <div className="w-full flex items-center justify-end">
         <span className="text-xs text-muted-foreground text-right">
-          {editorRef?.current?.getEditor().getText().trim().length}{" "} characters
+          {editorRef?.current?.getEditor().getText().trim().length}{" "}/1000 characters
         </span>
       </div>
     </div>

@@ -815,7 +815,7 @@ export default function VoxifyForm({
               rows={10}
           /> */}
               <div className="relative">
-               <Editor value={description} onChange={handleChange} /> 
+               <Editor value={description} onChange={handleChange} maxLength={1000} /> 
                
               </div>
               

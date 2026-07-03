@@ -764,7 +764,7 @@ export default function AdCreator() {
     setVoxifyAd({ ..._voxifyAd });
 
     const { status, error, message, data } = await adsApi.regenerateAudioAd({
-      adScript: voxifyAd.recommendations[recommendIndex].script.text_plain,
+      adScript: voxifyAd.recommendations[recommendIndex].script.text_plain.replace(/\n/g, ' ').replace(/<strong>(.*?)<\/strong>/g, "$1").replace(/\.\s*<br\s*\/?>/g, ". "),
       compositionId:
         voxifyAd.recommendations[recommendIndex].reference.composition_id,
       jobId: voxifyJobId,
@@ -820,7 +820,7 @@ export default function AdCreator() {
     console.log("setVoxifyAd here ", { _voxifyAd });
     setVoxifyAd({ ..._voxifyAd });
     const { status, error, message, data } = await adsApi.generateAudioAd({
-      adScript: _voxifyAd.recommendations[recommendIndex].script.text_plain,
+      adScript: _voxifyAd.recommendations[recommendIndex].script.text.replace(/\n/g, ' ').replace(/<strong>(.*?)<\/strong>/g, "$1").replace(/\.\s*<br\s*\/?>/g, ". "),
       compositionId:
         _voxifyAd.recommendations[recommendIndex].reference.composition_id,
       jobId: jobId || voxifyJobId,
@@ -934,7 +934,7 @@ export default function AdCreator() {
         await adsApi.generateRecommendation({
           campaignGoal: voxifyGoal,
           advertiserId: advertiserId,
-          productDescription: voxifyPlainText,
+          productDescription: voxifyPlainText.replace(/\n/g, ' '),
           type: voxifyType as "PROMPT" | "SCRIPT",
         });
       console.log("createAd with PROMPT here ", {
