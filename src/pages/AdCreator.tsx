@@ -564,6 +564,7 @@ export default function AdCreator() {
             setLoadedExistingCampaign(true);
           } else if (data.data.source === "V1") {
             setJobId(data.data.jobId);
+            setVoxifyJobId(data.data.jobId);
             if (data.data.type === "PROMPT")
               pollVoxifyJob(data.data.jobId, data.data.compositionId);
             else {
@@ -726,7 +727,7 @@ export default function AdCreator() {
       description: "Ad saved successfully",
       variant: "default",
     });
-    navigate("/dashboard/ads");
+    //navigate("/dashboard/ads");
   };
 
   const updateScript = (
