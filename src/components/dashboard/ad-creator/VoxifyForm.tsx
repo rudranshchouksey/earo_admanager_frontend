@@ -79,7 +79,7 @@ function GeneratingAdSteps() {
     },
     {
       title: "Mastering complete!",
-      subtitle: "Your free ad is ready to hear and adjust.",
+      subtitle: "Your free ad is generating and will be ready to hear and adjust in a few minutes.",
     },
   ];
   const [activeStep, setActiveStep] = useState(0);
@@ -220,7 +220,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
       updateScript({
         text_plain: "",
         text: ""
-      })
+      })      
       return;
     }
     const plainText = editor.getText();
@@ -784,15 +784,24 @@ export default function VoxifyForm({
           )}
 
           <div className="space-y-2">
-            <Label className="flex flex-row gap-2 justify-start items-center w-full">
+            <Label className="flex flex-row gap-2 justify-between items-center w-full">
+              <div className="flex flex-row gap-2 justify-between items-center">
               <span>
                 {type === "PROMPT"
                   ? "Describe Your Brand & Offer"
                   : t("ad_creator.ad_script")}
                 <sup>*</sup>
               </span>
-
               <MyTooltip infoText="In up to 500 characters, tell us: (1) what makes your brand unique, (2) who it's for, and (3) what you want listeners to do. Adding your website URL lets the AI pull extra context to enrich the script." />
+              </div>
+              {
+                type === "PROMPT" && ( 
+                  <button onClick={() => setShowBusinessHelperModal(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 h-8"> 
+                    <CircleHelp className="w-4 h-4" />
+                    <span>Need help with your prompt?</span>
+                  </button>
+                )
+               }
             </Label>
             <div className="relative">
               {/* <Textarea
@@ -806,16 +815,7 @@ export default function VoxifyForm({
               rows={10}
           /> */}
               <div className="relative">
-               <Editor value={description} onChange={handleChange} /> 
-               
-               {
-                type === "PROMPT" && ( 
-                  <button onClick={() => setShowBusinessHelperModal(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 absolute bottom-2 right-2 h-8"> 
-                    <CircleHelp className="w-4 h-4" />
-                    <span>Need help with your prompt?</span>
-                  </button>
-                )
-               }
+               <Editor value={description} onChange={handleChange} maxLength={1000} /> 
                
               </div>
               
