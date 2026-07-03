@@ -1308,7 +1308,10 @@ export default function AdCreatorForm({
           What Are You Advertising? <MyTooltip infoText="This section provides the AI with the information it needs to write your ad script. The more specific you are, the better the output." />
           </h3>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
-          Describe your brand, offer, and call to action — and we'll write the script. <MyTooltip infoText="Include your website URL, what makes your offer unique, and what you want listeners to do after hearing the ad." />
+          Your goal shapes the script. Tell us what this ad is trying to achieve — we'll build the right structure and prompt template around it.
+          <MyTooltip infoText="Your campaign goal tells the AI what the ad needs to accomplish. It adjusts the script's opening, structure, offer framing, and call to action — a Sales script leads with an offer and urgency signal, while an Awareness script leads with a brand moment and emotional takeaway.
+
+" />
           </p>
         </div>
       )}

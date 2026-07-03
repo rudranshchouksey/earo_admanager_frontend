@@ -1017,7 +1017,7 @@ export default function AdCreator() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
       <Helmet>
-        <title>EARO | Audio Ad</title>
+        <title>EARO | Let's build your audio ad</title>
       </Helmet>
       <div>
         {id ? (
@@ -1046,14 +1046,14 @@ export default function AdCreator() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2">
-                    AI Ad Studio
-                    <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+                  AI Audio Ad Studio
+                    <MyTooltip infoText="Our AI writes three script versions from your brief, then produces the first as a full audio ad — with a matched voice and music track — ready to preview straight away.." />
                   </p>
                   <div className="mt-0.5 text-[11px] leading-tight font-normal hidden sm:block text-foreground/70">
-                    Write a short description and we'll generate the ad
+                  Describe your brand or product and we'll write the script
                   </div>
                   <div className="items-center rounded-full border py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground text-[10px] h-4 mt-1 hidden sm:inline-flex">
-                    Powered by Sonic 2.0
+                    Powered by Sonic v1
                   </div>
                 </div>
               </button>
@@ -1069,12 +1069,12 @@ export default function AdCreator() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
-                    Add your own script
+                  Write your own script
                     <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    Paste your own script and enhance it if needed{" "}
-                    <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
+                  Paste or type your script and we'll produce the audio
+                    <MyTooltip infoText="Already have copy? Paste your script here. We'll match a voice, select music, and produce a finished audio ad without rewriting anything." />
                   </p>
                 </div>
               </button>
@@ -1090,12 +1090,11 @@ export default function AdCreator() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2">
-                    Upload Audio Ad
-                    <MyTooltip infoText="Already have a produced MP3 or audio file? Upload it directly to your Ad Library and attach it to any campaign." />
+                  Upload a finished audio ad
+                  <MyTooltip infoText="Upload a completed MP3 file to add directly to your ad library. No script writing or production — just upload and use." />
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    Upload your own pre-produced audio ad
-                    <MyTooltip infoText="Supported formats: MP3, MP4 audio. Maximum recommended ad length: 60 seconds for podcast slots." />
+                  Upload a pre-produced audio file
                   </p>
                 </div>
               </button>
@@ -1111,13 +1110,15 @@ export default function AdCreator() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2 ">
-                    Legacy (V0)
-                    <MyTooltip infoText="Use EARO's AI to generate a professional voiceover and music mix from a short description of your business. No audio production experience needed." />
+                  Classic AI Audio Ad Studio
+                    <MyTooltip infoText="The previous EARO ad builder. Use this if you prefer the original creation flow." />
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    Original ad creator UI{" "}
-                    <MyTooltip infoText="The AI reads your business description and creates a script, selects a voice, and mixes in your chosen music — all in under a minute." />
+                  Original ad creation interface
                   </p>
+                  <div className="items-center rounded-full border py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground text-[10px] h-4 mt-1 hidden sm:inline-flex">
+                    Powered by Pulse v1
+                  </div>
                 </div>
               </button>
             </div>

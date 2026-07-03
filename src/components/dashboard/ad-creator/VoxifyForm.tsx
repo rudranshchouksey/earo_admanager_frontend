@@ -66,20 +66,24 @@ function GeneratingAdLoader() {
 function GeneratingAdSteps() {
   const LOADING_STEPS = [
     {
-      title: "Creating your ad",
-      subtitle: "Scripting your goal, products, and offer.",
+      title: "Writing your script",
+      subtitle: "Reading your brief and scripting the first version…",
     },
     {
-      title: "Refining the creative",
-      subtitle: "Selecting your language, voice, and music style.",
+      title: "Selecting a voice",
+      subtitle: "Matching voice to your language, tone, and goal…",
     },
     {
-      title: "Production",
-      subtitle: "Generating your broadcast-quality audio in the Earo Cloud.",
+      title: "Adding music",
+      subtitle: "Choosing a track and mixing your audio ad…",
     },
     {
-      title: "Mastering complete!",
-      subtitle: "Your free ad is generating and will be ready to hear and adjust in a few minutes.",
+      title: "Finishing up",
+      subtitle: "Almost there — your ad is being produced…",
+    },
+    {
+      title: "Your ad is ready",
+      subtitle: "Listen to the first version below.",
     },
   ];
   const [activeStep, setActiveStep] = useState(0);
@@ -301,7 +305,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
                       Best matched voices
                     </label>
-                    <InfoIcon className="w-4 h-4 text-muted-foreground" />
+                    <MyTooltip infoText="Voices are filtered to match your script's language and dialect. The top result is our recommended match for your goal and tone — preview any voice by pressing play. Only voices compatible with your selected language are shown." />
                   </div>
                   <div className="flex items-center gap-2 hidden">
                     <VoiceFilterControls
@@ -389,7 +393,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
                       Best matched music
                     </label>
-                    <InfoIcon className="w-4 h-4 text-muted-foreground" />
+                    <MyTooltip infoText="Tracks are matched to your script's emotional tone and pacing. Background music works best for brand-building and awareness ads — for short, direct-response ads, voice-only is often clearer and more effective." />
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -423,12 +427,11 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-foreground">
-                          No music - Voice only (default)
+                          No music - Voice only
                         </span>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
-                        Just your script, no background track.
-                        Recommended for short, direct ads.
+                      Just your script, with no background track. Recommended for 15-second ads and direct-response goals where clarity is the priority.
                       </p>
                     </div>
                   </div>
@@ -501,7 +504,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   <Label className="text-sm font-medium text-foreground">
                     Volume mix
                   </Label>
-                  <MyTooltip infoText="0 is the baseline of the generated ad." />
+                  <MyTooltip infoText="Adjust the relative volume of the voice and background music. These are mixing levels, not absolute loudness — the final ad is normalised before export. Recommended: voice at -4 dB, music at -15 dB. Raising music too high will obscure the spoken message." />
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   {(
@@ -556,8 +559,8 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-medium text-foreground shrink-0">
-                      Voice: {recommendation?.voice?.name}
+                    <span className="text-xs font-medium text-foreground shrink-0 flex items-center gap-2">
+                      Voice: {recommendation?.voice?.name} <MyTooltip infoText="This voice was selected to match your script's language, tone, and goal. You can choose a different voice in the Edit step." />
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate capitalize">
@@ -571,8 +574,8 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-medium text-foreground truncate">
-                      Music: {recommendation?.track?.title}
+                    <span className="text-xs font-medium text-foreground truncate flex items-center gap-2">
+                      Music: {recommendation?.track?.title} <MyTooltip infoText="This track was selected to complement the script's pacing and emotional tone. You can swap it in the Edit step, or remove it entirely." />
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate capitalize">
@@ -767,9 +770,8 @@ export default function VoxifyForm({
               <MyTooltip infoText="This section provides the AI with the information it needs to write your ad script. The more specific you are, the better the output." />
             </h3>
             <p className="text-sm text-muted-foreground flex items-center gap-2">
-              Describe your brand, offer, and call to action — and we'll write
-              the script.{" "}
-              <MyTooltip infoText="Include your website URL, what makes your offer unique, and what you want listeners to do after hearing the ad." />
+            Your goal shapes the script. Tell us what this ad is trying to achieve — we'll build the right structure and prompt template around it.
+              <MyTooltip infoText="Your campaign goal tells the AI what the ad needs to accomplish. It adjusts the script's opening, structure, offer framing, and call to action — a Sales script leads with an offer and urgency signal, while an Awareness script leads with a brand moment and emotional takeaway." />
             </p>
           </div>
 
@@ -788,20 +790,20 @@ export default function VoxifyForm({
               <div className="flex flex-row gap-2 justify-between items-center">
               <span>
                 {type === "PROMPT"
-                  ? "Describe Your Brand & Offer"
+                  ? "Your Prompt"
                   : t("ad_creator.ad_script")}
                 <sup>*</sup>
               </span>
-              <MyTooltip infoText="In up to 500 characters, tell us: (1) what makes your brand unique, (2) who it's for, and (3) what you want listeners to do. Adding your website URL lets the AI pull extra context to enrich the script." />
+              <MyTooltip infoText="This is the brief you give the AI. The template gives you a starting point — edit anything in brackets, delete lines you don't need, or clear everything and write your own. The more specific your inputs, the more tailored the script." />
               </div>
-              {
+              {/* {
                 type === "PROMPT" && ( 
                   <button onClick={() => setShowBusinessHelperModal(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 h-8"> 
                     <CircleHelp className="w-4 h-4" />
                     <span>Need help with your prompt?</span>
                   </button>
                 )
-               }
+               } */}
             </Label>
             <div className="relative">
               {/* <Textarea
@@ -822,8 +824,7 @@ export default function VoxifyForm({
               <div className="p-3 flex items-start gap-2 text-sm text-muted-foreground">
                 <LightbulbIcon className="w-4 h-4 text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Edit any section in brackets, delete what you don't need, or
-                  clear everything to write your own prompt.
+                Edit anything in [brackets], delete what you don't need, or clear everything to write your own prompt.
                 </p>
               </div>
 
@@ -839,7 +840,7 @@ export default function VoxifyForm({
 
                 <MyTooltip
                   iconClassName="text-white-50 hover:text-white"
-                  infoText="Click to generate your ad using the voice, music, and settings selected above. Generation takes under a minute. You'll be able to preview and regenerate before saving."
+                  infoText="The AI will write three script versions from your prompt. The first will be fully produced — voice and music included — and ready to preview straight away. The other two are script-only alternatives."
                 />
               </Button>
             </div>

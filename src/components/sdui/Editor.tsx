@@ -22,7 +22,7 @@ const EDITOR_FORMATS = [
 ];
 
 function normalizeHtmlForQuill(html: string) {
-  return html
+  return (html?.trim() || "")
     .replace(/<b(\s[^>]*)?>/gi, "<strong$1>")
     .replace(/<\/b>/gi, "</strong>");
 }
@@ -77,7 +77,7 @@ export default function Editor({
           ref={editorRef}
         />
         <button
-          disabled={value.length === 0}
+          disabled={value?.length === 0}
           onClick={clear}
           className="absolute bottom-5 cursor-pointer right-5 inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 absolute bottom-2 right-2 h-8"
         >
