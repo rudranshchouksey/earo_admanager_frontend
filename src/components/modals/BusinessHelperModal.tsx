@@ -129,7 +129,8 @@ const TONES = [
   'energetic, authoritative',
 ];
 
-export default function BusinessHelperModal({ open, onOpenChange, goal, onApply }: BusinessHelperModalProps) {
+export default function BusinessHelperModal({ open, onOpenChange, onApply }: BusinessHelperModalProps) {
+  const [goal, setGoal] = useState("sales");
   const goalKey = GOAL_FIELDS[goal] ? goal : 'sales';
   const fields = GOAL_FIELDS[goalKey];
   const goalLabel = GOAL_LABELS[goalKey];
@@ -179,6 +180,16 @@ export default function BusinessHelperModal({ open, onOpenChange, goal, onApply 
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <div className="space-y-2">
+              <Label className="text-sm">Campaign Goal</Label>
+              <Select value={goal} onValueChange={setGoal}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.keys(GOAL_LABELS).map((g) => <SelectItem key={g} value={g}>{GOAL_LABELS[g]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {COMMON_HEADER.map((f) => (
               <div key={f.key} className="space-y-2">

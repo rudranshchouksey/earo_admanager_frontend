@@ -1,3 +1,4 @@
+import { MyTooltip } from "@/components/ui/MyTooltip";
 import { cn } from "@/lib/utils";
 import { DollarSign, Filter, Globe, Lightbulb, Volume2, Smartphone, MapPin, Mic } from "lucide-react";
 
@@ -76,15 +77,15 @@ export default function CampaignGoal({ goal, onGoalChange }: { goal: string, onG
     return (
         <div className="hidden md:grid grid-cols-4 gap-3">
         {[
-            { value: 'sales', label: 'Sales', icon: DollarSign },
-            { value: 'leads', label: 'Leads', icon: Filter },
-            { value: 'traffic', label: 'Website Traffic', icon: Globe },
-            { value: 'consideration', label: 'Consideration', icon: Lightbulb },
-            { value: 'awareness', label: 'Brand Awareness', icon: Volume2 },
-            { value: 'app', label: 'App Promotion', icon: Smartphone },
-            { value: 'local', label: 'Store Visits', icon: MapPin },
-            { value: 'podcast', label: 'Podcast promotion', icon: Mic },
-        ].map(({ value, label, icon: Icon }) => {
+            { value: 'sales', label: 'Sales', icon: DollarSign, tooltip: "Turning interest into results by driving sales, sign-ups, or form completions." },
+            { value: 'leads', label: 'Leads', icon: Filter, tooltip: "Attracting qualified leads by inviting the audience to share details for future engagement."},
+            { value: 'traffic', label: 'Website Traffic', icon: Globe, tooltip: "Boosting visits to the site or app by motivating people to check it out online." },
+            { value: 'consideration', label: 'Consideration', icon: Lightbulb, tooltip: "Spreading the message to the largest possible group, increasing overall exposure." },
+            { value: 'awareness', label: 'Brand Awareness', icon: Volume2, tooltip: "Introducing the brand to new audiences and building name recall whenever people think of the category." },
+            { value: 'app', label: 'App Promotion', icon: Smartphone, tooltip: "Driving more installs and active users by encouraging listeners to download and engage with the app." },
+            { value: 'local', label: 'Store Visits', icon: MapPin, tooltip: "Bringing customers to the location by encouraging in-person visits." },
+            { value: 'podcast', label: 'Podcast promotion', icon: Mic, tooltip: "Boosting listeners of your podcast by motivating people to check it out and grow subscribers." },
+        ].map(({ value, label, icon: Icon, tooltip }) => {
             const selected = goal === value;
             return (
             <button
@@ -107,6 +108,7 @@ export default function CampaignGoal({ goal, onGoalChange }: { goal: string, onG
                 <Icon className="w-5 h-5" />
                 </span>
                 <span className="text-sm font-semibold text-foreground">{label}</span>
+                <MyTooltip infoText={tooltip} />
             </button>
             );
         })}
