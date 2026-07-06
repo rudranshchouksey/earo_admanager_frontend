@@ -331,6 +331,14 @@ export interface Classification {
     id: string;
     name: string;
   };
+  call_to_action: {
+    id: string;
+    name: string;
+  };
+  specific_date_event: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface Clip {
