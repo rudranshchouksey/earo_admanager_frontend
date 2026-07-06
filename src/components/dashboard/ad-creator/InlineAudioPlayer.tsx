@@ -179,7 +179,7 @@ export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false }:
           </Button>
         )}
       </Button>
-      <div className={`hidden md:block w-full ${ playerWidthFull ? ''  : 'md:w-16'} h-6 rounded-md overflow-hidden`}>
+      <div className={`hidden md:block min-w-10 w-full ${ playerWidthFull ? ''  : 'md:w-16'} h-6 rounded-md overflow-hidden`}>
         <div ref={waveformElRef} className="w-full h-full" />
       </div>
       <span className="hidden md:block text-[10px] text-muted-foreground tabular-nums w-7">

@@ -195,6 +195,8 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
   const [adName, setAdName] = useState(sanitizeAdName(recommendation.script.name.replace(/\.[^.]+$/, '')));
   const [isSaving, setIsSaving] = useState(false);
 
+  const [tags, setTags] = useState<string[]>([]);
+
   const handleConfirmSave = () => {
     setIsSaving(true);
     setShowSaveModal(false);
@@ -210,6 +212,38 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
     setCurrentTrack(recommendation.track ?? null);
     setVoiceVolume( Math.round(Number(recommendation?.clips[0]?.vocal?.["rms-dbfs"])) || -20);
     setMusicVolume( Math.round(Number(recommendation?.clips[0]?.music?.["rms-dbfs"])) || -28);
+
+
+
+    const _tags = [];
+    const campaignGoal = recommendation.script?.classification?.campaign_goal?.name;
+    const category = recommendation.script?.classification?.tone_of_voice?.category?.name;
+    const targetAudience = recommendation.script?.classification?.target_audience?.name;
+    const callToAction = recommendation.script?.classification?.call_to_action?.name;
+    const specificDateEvent = recommendation.script?.classification?.specific_date_event?.name;
+
+
+    if(campaignGoal){
+      _tags.push(campaignGoal);
+    }
+    if(category){
+      _tags.push(category);
+    }
+    
+    if(targetAudience){
+      _tags.push(targetAudience);
+    }
+    if(callToAction){
+      _tags.push(callToAction);
+    }
+    if(specificDateEvent){
+      _tags.push(specificDateEvent);
+    }
+    setTags(_tags.filter((f,i) => i < 4));
+
+
+
+
 
     console.log("setting voice volume and music volume here ", { voiceVolume, musicVolume }, recommendation.clips[0].vocal);
   }, [recommendation.voice?.voice_id, recommendation.track?.track_id]);
@@ -258,7 +292,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 </span>
 
                 }
-                {recommendation.script.classification?.tone_of_voice?.speech_tags.map(
+                {tags?.map(
                   (tag) => (
                     <div key={tag} className="capitalize inline-flex items-center px-2.5 py-0.5 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-muted/30 text-foreground hover:bg-muted/30 rounded-sm font-medium border border-border">
                       {tag}
@@ -599,7 +633,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 <span className="text-sm font-semibold text-foreground">
                   Script
                 </span>
-                {recommendation.script.classification?.tone_of_voice?.speech_tags.map(
+                {tags?.map(
                   (tag) => (
                     <div key={tag} className="capitalize inline-flex items-center px-2.5 py-0.5 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-muted/30 text-foreground hover:bg-muted/30 rounded-sm font-medium border border-border">
                       {tag}
