@@ -714,26 +714,26 @@ export default function CampaignWizard() {
       completeEndDate.setMinutes(Number(campaignEndTime.split(":")[1]));
 
 
-      if(completeStartDate.getTime() < new Date().getTime()) {
-        toast({
-          title: "Error",
-          description: "Start date cannot be in the past",
-          variant: "destructive",
-        });
-        setSaving(false);
-        return;
-      }
+      // if(completeStartDate.getTime() < new Date().getTime()) {
+      //   toast({
+      //     title: "Error",
+      //     description: "Start date cannot be in the past",
+      //     variant: "destructive",
+      //   });
+      //   setSaving(false);
+      //   return;
+      // }
 
-      // start time should be atleast 24 hour from now
-      if(completeStartDate.getTime() < new Date().getTime() + 86400000) {
-        toast({
-          title: "Error",
-          description: "Start date should be atleast 24 hours from now",
-          variant: "destructive",
-        });
-        setSaving(false);
-        return;
-      }
+      // // start time should be atleast 24 hour from now
+      // if(completeStartDate.getTime() < new Date().getTime() + 86400000) {
+      //   toast({
+      //     title: "Error",
+      //     description: "Start date should be atleast 24 hours from now",
+      //     variant: "destructive",
+      //   });
+      //   setSaving(false);
+      //   return;
+      // }
 
 
       if(completeEndDate.getTime() < completeStartDate.getTime()) {
