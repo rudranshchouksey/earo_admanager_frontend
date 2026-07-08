@@ -2043,7 +2043,7 @@ export default function CampaignWizard() {
               }
               
              {
-                (id && (campaignStatus?.toLowerCase() === "processing" || campaignStatus?.toLowerCase() === "scheduled") ) && isAdminOrEditor && <Button
+                (id && ( campaignStatus?.toLowerCase() === "active" || campaignStatus?.toLowerCase() === "paused" ||  campaignStatus?.toLowerCase() === "processing" || campaignStatus?.toLowerCase() === "scheduled") ) && isAdminOrEditor && <Button
                 onClick={updateCampaign}
                 disabled={saving}
               >
