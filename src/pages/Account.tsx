@@ -679,7 +679,7 @@ export default function Account() {
       });
     }
 
-    const getInvoiceHistory = async () => {
+    const getPostpaidInvoiceHistory = async () => {
 
       const organizationId = session?.currentOrganizationId;
       const advertiserId = session?.currentAdvertiserId;
@@ -690,6 +690,7 @@ export default function Account() {
         advertiserId: advertiserId,
         page: String(1),
         limit: String(100),
+        type: "postpaid",
       });
       if(error || status !== 200) {
         toast({
@@ -702,7 +703,7 @@ export default function Account() {
     }
     setTimeout(() => {
       getCreditDetails();
-      getInvoiceHistory();
+      getPostpaidInvoiceHistory();
     }, 1000);
   }, [session?.currentOrganizationId, session?.currentAdvertiserId]);
 
@@ -1446,6 +1447,7 @@ export default function Account() {
                         <TableRow>
                           <TableHead>{t("account.date")}</TableHead>
                           <TableHead>{t("account.description")}</TableHead>
+                          <TableHead>Invoice Id</TableHead>
                           <TableHead>{t("account.amount")}</TableHead>
                           <TableHead>{t("account.status")}</TableHead>
                         </TableRow>
@@ -1476,6 +1478,9 @@ export default function Account() {
 
                             </p> : row.description
                             }</TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {row.creditInvoice?.invoiceId ?? '-'}
+                            </TableCell>
                             <TableCell className="text-sm font-medium">
                               ${row.amount.toLocaleString()}
                             </TableCell>
@@ -1633,7 +1638,6 @@ export default function Account() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>{t("account.invoice")}</TableHead>
-                            <TableHead>{t("account.date")}</TableHead>
                             <TableHead>{t("account.amount")}</TableHead>
                             <TableHead>For Month</TableHead>
                             <TableHead>{t("account.status")}</TableHead>
@@ -1645,9 +1649,6 @@ export default function Account() {
                             <TableRow key={i}>
                               <TableCell className="text-sm font-medium text-primary">
                                 {row.invoiceId}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {row.createdAt.substring(0, 10)}
                               </TableCell>
                               <TableCell className="text-sm font-medium">
                                 ${row.amount.toLocaleString()}
