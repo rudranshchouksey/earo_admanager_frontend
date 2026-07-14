@@ -32,6 +32,10 @@ export interface PaymentHistory {
     status: string;
     createdAt: string;
     campaign?: Campaign;
+    creditInvoice?: {
+        invoiceId: string;
+    }
+
 }
 
 export const paymentApi = {
