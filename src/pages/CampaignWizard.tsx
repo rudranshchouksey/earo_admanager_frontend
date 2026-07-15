@@ -35,7 +35,7 @@ import {
 import { DAYS_OF_WEEK } from "@/components/dashboard/campaign-wizard/CampaignScheduleStep";
 import { countryCPM } from "@/lib/defaults";
 import { auth } from "@/services/auth";
-import { AdGroup, campaignApi } from "@/services/campaign";
+import { AdGroup, campaignApi, SavedTransaction } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
 import { adsApi } from "@/services/ads";
@@ -321,6 +321,8 @@ export default function CampaignWizard() {
   const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
   const [campaignId, setCampaignId] = useState("");
   const [campaignStatus, setCampaignStatus] = useState("")
+
+  const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
 
   // Completion checks
@@ -1720,6 +1722,12 @@ export default function CampaignWizard() {
           setCampaignStatus(data?.data?.status);
         }
 
+        if(data?.transaction){
+          setSavedTransaction(data.transaction);
+        } else {
+          setSavedTransaction(null);
+        }
+
         if(status === 200 && data?.data) {
 
           let adId = data.data.audioId;
@@ -2006,7 +2014,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} />
+              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} savedTransaction={savedTransaction} />
             </CardContent>
           </Card>
 
