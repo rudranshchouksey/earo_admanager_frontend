@@ -324,6 +324,8 @@ export default function CampaignWizard() {
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
+  // to skip the schedule update when loading the campaign data
+  const skipScheduleUpdate = useRef(false);
 
   // Completion checks
   const setupDone = !!(setup.audioId && setup.campaignName.trim());
@@ -1273,6 +1275,10 @@ export default function CampaignWizard() {
   }
 
   useEffect(() => {
+    if(skipScheduleUpdate.current) {
+      skipScheduleUpdate.current = false;
+      return;
+    }
 
     const noOfDays = differenceInCalendarDays(new Date(schedule.endDate), new Date(schedule.startDate)) + 1;
     setBudget((prev) => ({ ...prev, totalBudget: (Number(prev.dailyBudget) * noOfDays).toString(), dailyBudget: String(Number(prev.dailyBudget)) }));
@@ -1755,6 +1761,7 @@ export default function CampaignWizard() {
           const noOfDays = differenceInCalendarDays(campaignEndDate, campaignStartDate) + 1;
           const perDay = data.data.perDayBudget ? data.data.perDayBudget : (data.data.budget ? data.data.budget / noOfDays : 0);
           const budget = perDay * noOfDays;
+          skipScheduleUpdate.current = true;
           setSchedule({
             startDate: `${campaignStartDate.getFullYear()}-${(campaignStartDate.getMonth() + 1).toString().padStart(2, "0")}-${campaignStartDate.getDate().toString().padStart(2, "0")}` || "",
             endDate: `${campaignEndDate.getFullYear()}-${(campaignEndDate.getMonth() + 1).toString().padStart(2, "0")}-${campaignEndDate.getDate().toString().padStart(2, "0")}` || "",
