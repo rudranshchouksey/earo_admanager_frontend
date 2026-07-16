@@ -301,9 +301,7 @@ export default function CampaignWizard() {
   const [cards, setCards] = useState<Cards[]>([])
   const [creditsDetails, setCreditsDetails] = useState<CreditDetails>({
     availableCredit: 0,
-    creditUsed: 0,
-    totalCredits: 0,
-    utilizationPercentage: "0%",
+    creditCycle: null,
   });
   const [audienceExtension, setAudienceExtension] =
     useState<AudienceExtensionData>({
@@ -324,7 +322,7 @@ export default function CampaignWizard() {
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
-  // to skip the schedule update when loading the campaign data
+  // to skip the schedule update when loading the campaign data and applying the coupon
   const skipScheduleUpdate = useRef(false);
 
   // Completion checks
@@ -1681,19 +1679,11 @@ export default function CampaignWizard() {
         console.error(error);
         return;
       }
-      console.log({
-        
-          availableCredit: data?.availableCredit || 0,
-          creditUsed: data?.creditUsed || 0,
-          totalCredits: data?.availableCredit || 0,
-          utilizationPercentage: data?.utilizationPercentage || "0%",
-        
-      })
+
+      
       setCreditsDetails({
         availableCredit: data?.availableCredit || 0,
-        creditUsed: data?.creditUsed || 0,
-        totalCredits: data?.availableCredit || 0,
-        utilizationPercentage: data?.utilizationPercentage || "0%",
+        creditCycle: data?.creditCycle || null,
       });
     }
 

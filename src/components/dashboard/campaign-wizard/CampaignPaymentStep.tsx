@@ -191,7 +191,7 @@ export default function CampaignPaymentStep({
       </div>
 
       {
-        creditsDetails.totalCredits > 0 ? (
+        creditsDetails?.creditCycle?.amount > 0  && ( savedTransaction === null) ? (
           <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
             <Label className="text-sm font-medium">Pay using your credits</Label>
             <div className="flex items-center justify-between gap-2">
