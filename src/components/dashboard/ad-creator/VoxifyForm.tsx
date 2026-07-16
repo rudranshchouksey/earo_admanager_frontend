@@ -865,6 +865,7 @@ export default function VoxifyForm({
               <Button
                 className="w-full h-12"
                 onClick={onGenerate}
+                disabled={description?.split(" ").length < 8}
                 // disabled={!canSubmit || !selectedVoice || (showMusicOptions && !selectedMusic) || isGenerating}
               >
                 {
@@ -877,6 +878,11 @@ export default function VoxifyForm({
                   infoText="The AI will write three script versions from your prompt. The first will be fully produced — voice and music included — and ready to preview straight away. The other two are script-only alternatives."
                 />
               </Button>
+              <h6 className="text-xs text-muted-foreground text-center w-full">
+                {
+                  description?.split(" ").length < 8 ? "Please enter at least 8 words" : ""
+                }
+              </h6>
             </div>
           </div>
         </div>
