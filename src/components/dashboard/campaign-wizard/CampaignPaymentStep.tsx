@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, Wallet, Building2, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { CreditDetails } from "@/services/wallet";
+import { SavedTransaction } from "@/services/campaign";
 // import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentData {
@@ -32,6 +33,7 @@ interface Props {
   cards: Cards[];
   totalBudget: number;
   disabled: boolean;
+  savedTransaction: SavedTransaction | null;
 }
 
 interface Cards {
@@ -55,6 +57,7 @@ export default function CampaignPaymentStep({
   totalBudget,
   durationDays,
   disabled,
+  savedTransaction,
 }: Props) {
   const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -250,6 +253,41 @@ export default function CampaignPaymentStep({
         ) : (
           <></>
         )}
+        {savedTransaction?.pre?.couponCode ? (
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <label className="text-sm text-primary">
+                Coupon - {savedTransaction?.pre?.couponCode}
+              </label>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <label className="text-sm font-semibold text-primary">
+                -${Math.abs(Number(savedTransaction?.pre?.amount) - Number(savedTransaction?.pre?.originalAmount)).toLocaleString()}
+              </label>
+            </div>
+          </div>
+        ) : (
+          <></>
+        )}
+
+        {savedTransaction?.post?.couponCode ? (
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <label className="text-sm text-primary">
+                Coupon - {savedTransaction?.post?.couponCode}
+              </label>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <label className="text-sm font-semibold text-primary">
+                -${Math.abs(Number(Math.abs(Number(savedTransaction?.post?.amount))) - Number(Math.abs(Number(savedTransaction?.post?.originalAmount)))).toLocaleString()}
+              </label>
+            </div>
+          </div>
+        ) : (
+          <></>
+        )}
+
+
         <hr />
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -260,7 +298,7 @@ export default function CampaignPaymentStep({
               $
               {data?.couponCode
                 ? data.finalAmount.toLocaleString()
-                : totalBudget.toLocaleString()}
+                : savedTransaction?.pre?.amount ? Number(savedTransaction?.pre?.amount) : savedTransaction?.post?.amount ? Math.abs(Number(savedTransaction?.post?.amount)) : totalBudget.toLocaleString()}
             </label>
           </div>
         </div>

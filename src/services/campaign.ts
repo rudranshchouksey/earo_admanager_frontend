@@ -98,6 +98,7 @@ export interface CampaignResponse {
   status: number;
   message: string;
   data: Campaign;
+  transaction?: SavedTransaction
 }
 
 interface CreateCampaignResponse {
@@ -109,6 +110,25 @@ interface CreateCampaignResponse {
   payment_url: string;
   paymentLinkId: string;
   paid: boolean;
+}
+
+export interface SavedTransaction {
+  pre: {
+    "id": string,
+    "amount": string,
+    "originalAmount": string,
+    "type": "SPEND",
+    "status": "SUCCESS",
+    "couponCode": "AUGUSTUS250",
+  }
+  post: {
+    "id": string,
+    "amount": string,
+    "originalAmount": string,
+    "type": "SPEND",
+    "status": "SUCCESS",
+    "couponCode": "AUGUSTUS250",
+  }
 }
 
 export const campaignApi = {
