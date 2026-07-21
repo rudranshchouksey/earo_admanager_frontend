@@ -1,4 +1,4 @@
-import { TrashIcon } from "lucide-react";
+import { CircleHelp, TrashIcon } from "lucide-react";
 import { useMemo, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -8,6 +8,8 @@ interface EditorProps {
   onChange: (content: string, delta: any, source: string, editor: any) => void;
   readonly?: boolean;
   maxLength?: number;
+  showPromptHelpButton?: boolean;
+  onShowPromptHelpButtonClick?: () => void;
 }
 
 const EDITOR_FORMATS = [
@@ -32,6 +34,8 @@ export default function Editor({
   onChange,
   readonly = false,
   maxLength = 1000,
+  showPromptHelpButton = false,
+  onShowPromptHelpButtonClick = () => {},
 }: EditorProps) {
   const normalizedValue = useMemo(() => normalizeHtmlForQuill(value), [value]);
   const editorRef = useRef<ReactQuill>(null);
@@ -76,14 +80,24 @@ export default function Editor({
           placeholder="Write your script here..."
           ref={editorRef}
         />
-        <button
-          disabled={value?.length === 0}
-          onClick={clear}
-          className="absolute bottom-5 cursor-pointer right-5 inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 absolute bottom-2 right-2 h-8"
-        >
-          <TrashIcon className="w-4 h-4" />
-          <span>Clear</span>
-        </button>
+        <div className="absolute bottom-5 right-5 flex md:flex-row flex-col items-end md:items-center gap-2">
+          {
+            showPromptHelpButton && (
+              <button onClick={onShowPromptHelpButtonClick} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] h-8 px-2"> 
+                <CircleHelp className="w-4 h-4" />
+                <span>Need help with your prompt?</span>
+              </button>  
+            )
+          }
+          <button
+            disabled={value?.length === 0}
+            onClick={clear}
+            className="cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 h-8"
+          >
+            <TrashIcon className="w-4 h-4" />
+            <span>Clear</span>
+          </button>
+        </div>
       </div>
       <div className="w-full flex items-center justify-end">
         <span className="text-xs text-muted-foreground text-right">

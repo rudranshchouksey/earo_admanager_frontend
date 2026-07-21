@@ -272,6 +272,13 @@
 }
 
 .ql-editor {
-  font-size: large !important;
-  min-height: 350px !important;
+  font-size: small !important;
+  min-height: 550px !important;
+}
+
+@media (min-width: 768px) {
+  .ql-editor {
+    font-size: large !important;
+    min-height: 350px !important;
+  }
 }
