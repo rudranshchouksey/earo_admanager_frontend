@@ -84,27 +84,109 @@ const TONE_OPTIONS: SelectOption[] = [
 ];
 
 const SCRIPT_LANGUAGE_OPTIONS: SelectOption[] = [
-  { value: 'en', label: 'English' },
-  { value: 'ar', label: 'Arabic' },
-  { value: 'fr', label: 'French' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'tl', label: 'Tagalog' },
-  { value: 'ur', label: 'Urdu' },
-  { value: 'ml', label: 'Malayalam' },
+  { value: 'English', label: 'English' },
+  { value: 'Spanish', label: 'Spanish' },
+  { value: 'French', label: 'French' },
+  { value: 'German', label: 'German' },
+  { value: 'Arabic', label: 'Arabic' },
+  { value: 'Afrikaans', label: 'Afrikaans' },
+  { value: 'Armenian', label: 'Armenian' },
+  { value: 'Assamese', label: 'Assamese' },
+  { value: 'Azerbaijani', label: 'Azerbaijani' },
+  { value: 'Belarusian', label: 'Belarusian' },
+  { value: 'Bengali', label: 'Bengali' },
+  { value: 'Bosnian', label: 'Bosnian' },
+  { value: 'Bulgarian', label: 'Bulgarian' },
+  { value: 'Catalan', label: 'Catalan' },
+  { value: 'Cebuano', label: 'Cebuano' },
+  { value: 'Chichewa', label: 'Chichewa' },
+  { value: 'Croatian', label: 'Croatian' },
+  { value: 'Czech', label: 'Czech' },
+  { value: 'Danish', label: 'Danish' },
+  { value: 'Dutch', label: 'Dutch' },
+  { value: 'Estonian', label: 'Estonian' },
+  { value: 'Filipino', label: 'Filipino' },
+  { value: 'Finnish', label: 'Finnish' },
+  { value: 'Galician', label: 'Galician' },
+  { value: 'Georgian', label: 'Georgian' },
+  { value: 'Greek', label: 'Greek' },
+  { value: 'Gujarati', label: 'Gujarati' },
+  { value: 'Hausa', label: 'Hausa' },
+  { value: 'Hebrew', label: 'Hebrew' },
+  { value: 'Hindi', label: 'Hindi' },
+  { value: 'Hungarian', label: 'Hungarian' },
+  { value: 'Icelandic', label: 'Icelandic' },
+  { value: 'Indonesian', label: 'Indonesian' },
+  { value: 'Irish', label: 'Irish' },
+  { value: 'Italian', label: 'Italian' },
+  { value: 'Japanese', label: 'Japanese' },
+  { value: 'Javanese', label: 'Javanese' },
+  { value: 'Kannada', label: 'Kannada' },
+  { value: 'Kazakh', label: 'Kazakh' },
+  { value: 'Kirghiz', label: 'Kirghiz' },
+  { value: 'Korean', label: 'Korean' },
+  { value: 'Latvian', label: 'Latvian' },
+  { value: 'Lingala', label: 'Lingala' },
+  { value: 'Lithuanian', label: 'Lithuanian' },
+  { value: 'Luxembourgish', label: 'Luxembourgish' },
+  { value: 'Macedonian', label: 'Macedonian' },
+  { value: 'Malay', label: 'Malay' },
+  { value: 'Malayalam', label: 'Malayalam' },
+  { value: 'Mandarin Chinese', label: 'Mandarin Chinese' },
+  { value: 'Marathi', label: 'Marathi' },
+  { value: 'Nepali', label: 'Nepali' },
+  { value: 'Norwegian', label: 'Norwegian' },
+  { value: 'Pashto', label: 'Pashto' },
+  { value: 'Persian', label: 'Persian' },
+  { value: 'Polish', label: 'Polish' },
+  { value: 'Portuguese', label: 'Portuguese' },
+  { value: 'Punjabi', label: 'Punjabi' },
+  { value: 'Romanian', label: 'Romanian' },
+  { value: 'Russian', label: 'Russian' },
+  { value: 'Serbian', label: 'Serbian' },
+  { value: 'Sindhi', label: 'Sindhi' },
+  { value: 'Slovak', label: 'Slovak' },
+  { value: 'Slovenian', label: 'Slovenian' },
+  { value: 'Somali', label: 'Somali' },
+  { value: 'Swahili', label: 'Swahili' },
+  { value: 'Swedish', label: 'Swedish' },
+  { value: 'Tamil', label: 'Tamil' },
+  { value: 'Telugu', label: 'Telugu' },
+  { value: 'Thai', label: 'Thai' },
+  { value: 'Turkish', label: 'Turkish' },
+  { value: 'Ukrainian', label: 'Ukrainian' },
+  { value: 'Urdu', label: 'Urdu' },
+  { value: 'Vietnamese', label: 'Vietnamese' },
+  { value: 'Welsh', label: 'Welsh' }
 ];
 
 const ENGLISH_ACCENT_OPTIONS: SelectOption[] = [
-  { value: 'en_us', label: 'Standard American' },
-  { value: 'en_gb', label: 'Standard British' },
-  { value: 'en_au', label: 'Australian' },
+  { value: 'any', label: 'Any' },
+  { value: 'American', label: 'American' },
+  { value: 'Australian', label: 'Australian' },
+  { value: 'British', label: 'British' },
+  { value: 'Indian', label: 'Indian' },
+  { value: 'Scottish', label: 'Scottish' }
 ];
 
 const ARABIC_ACCENT_OPTIONS: SelectOption[] = [
-  { value: 'ar_msa', label: 'MSA — Modern Standard Arabic' },
-  { value: 'ar_gulf', label: 'Gulf / Khaleeji' },
-  { value: 'ar_egyptian', label: 'Egyptian / Masri' },
-  { value: 'ar_levantine', label: 'Levantine / Shami' },
-  { value: 'ar_maghrebi', label: 'Maghrebi / Darija' },
+  { value: 'Modern Standard', label: 'Modern Standard' },
+  { value: 'Gulf', label: 'Gulf' },
+  { value: 'Egyptian', label: 'Egyptian' },
+  { value: 'Levantine', label: 'Levantine' },
+  { value: 'Saudi', label: 'Saudi' },
+  { value: 'Kuwaiti', label: 'Kuwaiti' },
+  { value: 'Moroccan', label: 'Moroccan' }
+];
+
+const SPANISH_ACCENT_OPTIONS: SelectOption[] = [
+  { value: 'Any', label: 'Any' },
+  { value: 'Castilian', label: 'Castilian' },
+  { value: 'Mexican', label: 'Mexican' },
+  { value: 'US Spanish', label: 'US Spanish' },
+  { value: 'Rioplatense', label: 'Rioplatense' },
+  { value: 'Colombian', label: 'Colombian' },
+  { value: 'Carabian', label: 'Carabian' }
 ];
 
 const CALL_TO_ACTION_OPTIONS: SelectOption[] = [
@@ -417,164 +499,164 @@ const HEADERS: Record<string, FieldDef> = {
 
 const GOAL_FIELDS: Record<string, GoalFieldConfig[]> = {
   sales: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
     { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
     { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true },
-    { key: 'opening_hook', required: true },
-    { key: 'offer_or_incentive', required: true },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false },
+    { key: 'opening_hook', required: false },
+    { key: 'offer_or_incentive', required: false },
     { key: 'offer_detail', required: false },
     { key: 'promo_code', required: false },
     { key: 'urgency_signal', required: false },
     { key: 'tagline', required: false },
     { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
+    { key: 'occasion_detail', required: false },
   ],
   leads: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
     { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
     { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true },
-    { key: 'opening_hook', required: true },
-    { key: 'lead_magnet', required: true },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false },
+    { key: 'opening_hook', required: false },
+    { key: 'lead_magnet', required: false },
     { key: 'trust_signal', required: false },
-    { key: 'offer_or_incentive', required: true },
-    { key: 'offer_detail', required: false },
-    { key: 'tagline', required: false },
-    { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
-  ],
-  traffic: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
-    { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
-    { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true },
-    { key: 'opening_hook', required: true },
-    { key: 'tagline', required: false },
-    { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
-  ],
-  consideration: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
-    { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
-    { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true },
-    { key: 'opening_hook', required: true },
-    { key: 'key_differentiator', required: true },
-    { key: 'objection_to_address', required: false },
-    { key: 'trust_signal', required: false },
-    { key: 'tagline', required: false },
-    { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
-  ],
-  awareness: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
-    { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
-    { key: 'language_accent', required: false },
-    { key: 'brand_mission', required: true },
-    { key: 'brand_personality', required: false },
-    { key: 'emotional_feeling', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'tagline', required: false },
-    { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
-  ],
-  app: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
-    { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
-    { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true, label: 'Product / app description' },
-    { key: 'opening_hook', required: true },
-    { key: 'platform_availability', required: true },
     { key: 'offer_or_incentive', required: false },
     { key: 'offer_detail', required: false },
     { key: 'tagline', required: false },
     { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
+    { key: 'occasion_detail', required: false },
+  ],
+  traffic: [
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
+    { key: 'audience_detail', required: false },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
+    { key: 'language_accent', required: false },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false },
+    { key: 'opening_hook', required: false },
+    { key: 'tagline', required: false },
+    { key: 'occasion', required: false },
+    { key: 'occasion_detail', required: false },
+  ],
+  consideration: [
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
+    { key: 'audience_detail', required: false },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
+    { key: 'language_accent', required: false },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false },
+    { key: 'opening_hook', required: false },
+    { key: 'key_differentiator', required: false },
+    { key: 'objection_to_address', required: false },
+    { key: 'trust_signal', required: false },
+    { key: 'tagline', required: false },
+    { key: 'occasion', required: false },
+    { key: 'occasion_detail', required: false },
+  ],
+  awareness: [
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
+    { key: 'audience_detail', required: false },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
+    { key: 'language_accent', required: false },
+    { key: 'brand_mission', required: false },
+    { key: 'brand_personality', required: false },
+    { key: 'emotional_feeling', required: false },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'tagline', required: false },
+    { key: 'occasion', required: false },
+    { key: 'occasion_detail', required: false },
+  ],
+  app: [
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
+    { key: 'audience_detail', required: false },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
+    { key: 'language_accent', required: false },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false, label: 'Product / app description' },
+    { key: 'opening_hook', required: false },
+    { key: 'platform_availability', required: false },
+    { key: 'offer_or_incentive', required: false },
+    { key: 'offer_detail', required: false },
+    { key: 'tagline', required: false },
+    { key: 'occasion', required: false },
+    { key: 'occasion_detail', required: false },
   ],
   local: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
     { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
     { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true },
-    { key: 'opening_hook', required: true },
-    { key: 'store_location', required: true },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false },
+    { key: 'opening_hook', required: false },
+    { key: 'store_location', required: false },
     { key: 'opening_hours', required: false },
     { key: 'offer_or_incentive', required: false },
     { key: 'offer_detail', required: false },
     { key: 'urgency_signal', required: false },
     { key: 'tagline', required: false },
     { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
+    { key: 'occasion_detail', required: false },
   ],
   podcast: [
-    { key: 'brand', required: true },
-    { key: 'website', required: true },
-    { key: 'ad_duration', required: true },
-    { key: 'target_audience', required: true },
+    { key: 'brand', required: false },
+    { key: 'website', required: false },
+    { key: 'ad_duration', required: false },
+    { key: 'target_audience', required: false },
     { key: 'audience_detail', required: false },
-    { key: 'tone', required: true },
-    { key: 'script_language', required: true },
+    { key: 'tone', required: false },
+    { key: 'script_language', required: false },
     { key: 'language_accent', required: false },
-    { key: 'call_to_action', required: true },
-    { key: 'call_to_action_phrase', required: true },
-    { key: 'product_service_app_description', required: true, label: 'Podcast description' },
-    { key: 'opening_hook', required: true },
-    { key: 'platform_availability', required: true },
+    { key: 'call_to_action', required: false },
+    { key: 'call_to_action_phrase', required: false },
+    { key: 'product_service_app_description', required: false, label: 'Podcast description' },
+    { key: 'opening_hook', required: false },
+    { key: 'platform_availability', required: false },
     { key: 'episode_highlight', required: false },
     { key: 'host_name', required: false },
     { key: 'trust_signal', required: false },
     { key: 'tagline', required: false },
     { key: 'occasion', required: false },
-    { key: 'occasion_detail', required: true },
+    { key: 'occasion_detail', required: false },
   ],
 };
 
@@ -587,7 +669,7 @@ function normalizeUrl(value: string): string {
 
 function shouldShowField(key: string, values: Record<string, string>): boolean {
   if (key === 'language_accent') {
-    return values.script_language === 'en' || values.script_language === 'ar';
+    return values.script_language === 'English' || values.script_language === 'Arabic' || values.script_language === 'Spanish';
   }
   if (key === 'call_to_action_phrase') {
     return values.call_to_action === 'other';
@@ -610,8 +692,9 @@ function isFieldRequired(config: GoalFieldConfig, values: Record<string, string>
 
 function getFieldOptions(field: FieldDef, goal: string, values: Record<string, string>): SelectOption[] {
   if (field.key === 'language_accent') {
-    if (values.script_language === 'en') return ENGLISH_ACCENT_OPTIONS;
-    if (values.script_language === 'ar') return ARABIC_ACCENT_OPTIONS;
+    if (values.script_language === 'English') return ENGLISH_ACCENT_OPTIONS;
+    if (values.script_language === 'Arabic') return ARABIC_ACCENT_OPTIONS;
+    if (values.script_language === 'Spanish') return SPANISH_ACCENT_OPTIONS;
     return [];
   }
   if (field.optionsByGoal?.[goal]) return field.optionsByGoal[goal];
@@ -761,10 +844,10 @@ export default function BusinessHelperModal({ open, onOpenChange, goal: goalProp
     }
 
     const lines: string[] = [];
-    const brandName = values.brand?.trim() || 'your brand';
+    const brandName = values.brand?.trim() || '[your brand]';
     const audienceDetail = values.audience_detail?.trim();
     const audienceText = audienceDetail ? ` targeting ${audienceDetail}` : '';
-    lines.push(`Write a ${values.ad_duration}-seconds ${goalLabel.toLowerCase()} generatation ad for <b>${brandName}</b> targeting <b>${values.target_audience}</b>.`);
+    lines.push(`Write a ${values.ad_duration ?? '30' }-seconds ${goalLabel.toLowerCase()} generatation ad for <b>${brandName}</b> targeting <b>${values.target_audience ?? '[audience]'}</b>.`);
     lines.push('');
 
     for (const fieldConfig of visibleFields) {
@@ -846,38 +929,40 @@ export default function BusinessHelperModal({ open, onOpenChange, goal: goalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Describe your business</DialogTitle>
           <DialogDescription>
             Fill in the fields below and we&apos;ll build a structured prompt tailored to your campaign goal.
           </DialogDescription>
         </DialogHeader>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4 py-2" noValidate>
-          <div className="space-y-2">
-            <Label className="text-sm">Campaign goal</Label>
-            <Select value={goal} onValueChange={setGoal}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(GOAL_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2 pr-1">
+            <div className="space-y-2">
+              <Label className="text-sm">Campaign goal</Label>
+              <Select value={goal} onValueChange={setGoal}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(GOAL_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {showErrorsSummary ? (
+              <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Please fix {Object.keys(errors).length} {Object.keys(errors).length === 1 ? 'error' : 'errors'} below before applying.
+              </p>
+            ) : null}
+
+            <div className="border-t pt-4 space-y-4">
+              {fields.map(renderField)}
+            </div>
           </div>
 
-          {showErrorsSummary ? (
-            <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              Please fix {Object.keys(errors).length} {Object.keys(errors).length === 1 ? 'error' : 'errors'} below before applying.
-            </p>
-          ) : null}
-
-          <div className="border-t pt-4 space-y-4">
-            {fields.map(renderField)}
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 shrink-0 border-t bg-background pt-4">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit">Apply to description</Button>
           </DialogFooter>

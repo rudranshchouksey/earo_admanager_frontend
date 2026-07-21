@@ -767,6 +767,11 @@ export default function VoxifyForm({
     <div className="w-full">
       {isGenerating ? (
         <div className="flex flex-col gap-4 space-y-2">
+          {
+            type === "PROMPT" && (
+              <h6 className="text-sm text-muted-foreground">Your prompt is being turned into 3 different ad variations — different voices, music, and creative direction, so you have options to choose and start from.</h6>
+            )
+          }
           <GeneratingAdSteps />
           {
             type === "PROMPT" && <GeneratingAdSteps />
@@ -830,14 +835,6 @@ export default function VoxifyForm({
               </span>
               <MyTooltip infoText="This is the brief you give the AI. The template gives you a starting point — edit anything in brackets, delete lines you don't need, or clear everything and write your own. The more specific your inputs, the more tailored the script." />
               </div>
-              {
-                type === "PROMPT" && ( 
-                  <button onClick={() => setShowBusinessHelperModal(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-sans text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-[8px] px-3 h-8"> 
-                    <CircleHelp className="w-4 h-4" />
-                    <span>Need help with your prompt?</span>
-                  </button>
-                )
-               }
             </Label>
             <div className="relative">
               {/* <Textarea
@@ -851,8 +848,7 @@ export default function VoxifyForm({
               rows={10}
           /> */}
               <div className="relative">
-               <Editor value={description} onChange={handleChange} maxLength={1000} /> 
-               
+               <Editor value={description} onChange={handleChange} maxLength={1000} showPromptHelpButton={type === "PROMPT"} onShowPromptHelpButtonClick={() => setShowBusinessHelperModal(true)} /> 
               </div>
               
               <div className="p-3 flex items-start gap-2 text-sm text-muted-foreground">

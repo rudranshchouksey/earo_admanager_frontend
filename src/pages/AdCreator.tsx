@@ -1035,7 +1035,7 @@ export default function AdCreator() {
         {/* Mode Switcher — Pro only */}
         {isPro && !id && !hideTopOptions && (
           <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <button
                 onClick={() => setMode("ai")}
                 className={cn(
@@ -1100,7 +1100,7 @@ export default function AdCreator() {
                 </div>
               </button>
 
-              <button
+              {/* <button
                 onClick={() => setMode("legacy")}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border p-4 text-left transition-colors",
@@ -1121,7 +1121,7 @@ export default function AdCreator() {
                     Powered by Pulse v1
                   </div>
                 </div>
-              </button>
+              </button> */}
             </div>
           </div>
         )}

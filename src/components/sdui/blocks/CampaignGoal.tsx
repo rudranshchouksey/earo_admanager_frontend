@@ -75,7 +75,7 @@ Drive foot traffic to a physical location. The AI creates an urgency-and-locatio
 
 export default function CampaignGoal({ goal, onGoalChange }: { goal: string, onGoalChange: (value: string) => void }) {
     return (
-        <div className="hidden md:grid grid-cols-4 gap-3">
+        <div className="grid md:grid-cols-4 grid-cols-2 gap-3">
         {[
             { value: 'sales', label: 'Sales', description: "Drive conversions",  icon: DollarSign, tooltip: "Turning interest into results by driving sales, sign-ups, or form completions." },
             { value: 'leads', label: 'Leads', description: "Generate enquiries", icon: Filter, tooltip: "Best for capturing contact details or bookings. The script will establish a pain point, introduce a low-barrier entry offer, and close with an easy next step."},
@@ -93,7 +93,7 @@ export default function CampaignGoal({ goal, onGoalChange }: { goal: string, onG
                 type="button"
                 onClick={() => onGoalChange(value)}
                 className={cn(
-                'flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all',
+                'flex md:flex-row flex-col items-start md:items-center gap-3 rounded-2xl border-2 p-2 md:p-4 text-left transition-all',
                 selected
                     ? 'border-primary bg-primary/[0.06]'
                     : 'border-border bg-card hover:bg-muted/50'
@@ -101,15 +101,15 @@ export default function CampaignGoal({ goal, onGoalChange }: { goal: string, onG
             >
                 <span
                 className={cn(
-                    'flex items-center justify-center rounded-xl w-10 h-10 shrink-0',
+                    'flex items-center justify-center rounded-xl md:w-10 md:h-10 w-6 h-6 shrink-0',
                     selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 )}
                 >
-                <Icon className="w-5 h-5" />
+                <Icon className="md:w-5 md:h-5 w-3 h-3" />
                 </span>
                 <div className="flex flex-col gap-2">
-                <span className="text-sm font-semibold text-foreground">{label}</span>
-                <span className="text-xs font-semibold text-muted-foreground">{description}</span>
+                    <span className="text-sm md:text-base font-semibold text-foreground">{label}</span>
+                    <span className="text-xs md:text-sm font-semibold text-muted-foreground">{description}</span>
                 </div>
                 <MyTooltip infoText={tooltip} />
             </button>
