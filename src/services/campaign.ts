@@ -72,6 +72,7 @@ export interface Campaign {
   dailyCap?: number;
   totalBudget?: number;
   campaignBudget?: number;
+  cpm?: number;
   impressions?: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   adGroups?: AdGroup[];

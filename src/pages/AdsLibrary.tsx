@@ -498,9 +498,7 @@ export default function AdsLibrary() {
       valueGetter: (p) => {
         try{
           const c = p.data as AdData;
-          const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');
-          const impressions = Number(cleanString);
-          return impressions > 0 ? ((c.totalBudget/impressions) * 1000) : null;
+          return c.cpm;
         }catch(err){
           return null;
         }
