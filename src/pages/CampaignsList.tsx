@@ -337,9 +337,10 @@ export default function CampaignsList() {
       valueGetter: (p) => {
         try{
           const c = p.data as Campaign;
-          const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');
-          const impressions = Number(cleanString);
-          return impressions > 0 ? ((c.totalBudget/impressions) * 1000) : null;
+          if(c.cpm){
+            return c.cpm;
+          }
+          return '—';
         }catch(err){
           return null;
         }

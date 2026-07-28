@@ -180,6 +180,7 @@ export interface AdData {
   pixelUrl?: string;
   campaignBudget?: number;
   totalBudget?: number;
+  cpm?: number;
 }
 
 export interface AdsResponse {
