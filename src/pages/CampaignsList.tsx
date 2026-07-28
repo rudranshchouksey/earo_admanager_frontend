@@ -340,7 +340,7 @@ export default function CampaignsList() {
           if(c.cpm){
             return c.cpm;
           }
-          return '—';
+          return null;
         }catch(err){
           return null;
         }
