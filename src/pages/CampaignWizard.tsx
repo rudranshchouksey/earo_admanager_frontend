@@ -225,6 +225,12 @@ Confirm payment and activate your campaign. It will begin serving impressions on
 </div>
 `;
 
+interface ContentLanguage {
+  code: string;
+  label: string;
+  name: string;
+}
+
 export default function CampaignWizard() {
   const navigate = useNavigate();
   const { isPro, role } = useSessionFlags();
@@ -267,6 +273,10 @@ export default function CampaignWizard() {
     adPositions: ["pre-roll", "mid-roll", "post-roll"] as string[],
     selectedShows: [] as string[],
     savedAudiences: [] as string[],
+    contentLanguages: [] as string[],
+    postalCodes: [] as { country: string; code: string }[],
+    lat: "",
+    long: "",
   });
   const [budget, setBudget] = useState({
     dailyBudget: "25",
@@ -275,6 +285,7 @@ export default function CampaignWizard() {
   });
   const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", originalAmount: 0, discountApplied: 0, finalAmount: 0 });
   const [countries, setCountries] = useState<Country[]>([]);
+  const [postalCodeCountries, setPostalCodeCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [countryCityMap, setCountryCityMap] = useState<Record<string, City[]>>(
     {},
@@ -318,7 +329,8 @@ export default function CampaignWizard() {
 
   const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
   const [campaignId, setCampaignId] = useState("");
-  const [campaignStatus, setCampaignStatus] = useState("")
+  const [campaignStatus, setCampaignStatus] = useState("");
+  const [contentLanguages, setContentLanguages] = useState<ContentLanguage[]>([]);
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
@@ -1273,6 +1285,11 @@ export default function CampaignWizard() {
   }
 
   useEffect(() => {
+    console.log({targeting});  
+  }, [targeting])
+  
+
+  useEffect(() => {
     if(skipScheduleUpdate.current) {
       skipScheduleUpdate.current = false;
       return;
@@ -1297,7 +1314,6 @@ export default function CampaignWizard() {
   }, [budget, durationDays]);
 
   useEffect(() => {
-    console.log({inventory});
     if(forecastTimer.current) {
       clearTimeout(forecastTimer.current);
     }
@@ -1580,13 +1596,23 @@ export default function CampaignWizard() {
 
   useEffect(() => {
     const fetchCountries = async () => {
-      const { data, error } = await targetingApi.getCountries();
+      const { data, error } = await targetingApi.getCountries('');
       if (error) {
         console.error(error);
         return;
       }
       setCountries(data?.data || []);
     };
+
+    const fetchCountriesWithPostalCodes = async () => {
+      const { data, error } = await targetingApi.getCountries("postalCode");
+      if (error) {
+        console.error(error);
+        return;
+      }
+      setPostalCodeCountries(data?.data || []);
+    };
+
 
     const fetchPublisherSegments = async () => {
       const { data, error } = await targetingApi.getPublisherSegments();
@@ -1687,6 +1713,21 @@ export default function CampaignWizard() {
       });
     }
 
+    const fetchContentLanguage = async () => {
+
+      const { data, error } = await targetingApi.getContentLanguage();
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log("getContentLanguage here ", {data, error});
+      if(data?.data && data?.data.length > 0){
+        setContentLanguages(data?.data?.filter(item => item.label).map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
+      } else {
+        setContentLanguages([]);
+      }
+    }
+
     Promise.allSettled([
       fetchCountries(),
       fetchPublisherSegments(),
@@ -1696,6 +1737,8 @@ export default function CampaignWizard() {
       fetchDeviceTypes(),
       fetchCards(),
       getCreditsDetails(),
+      fetchContentLanguage(),
+      fetchCountriesWithPostalCodes()
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -1960,6 +2003,7 @@ export default function CampaignWizard() {
             audienceTooltip,
             targetingDone,
             <CampaignTargetingStep
+              contentLanguages={contentLanguages}
               targetingSegments={targetingSegments}
               podcastTopics={podcastTopics}
               streamingTopics={streamingTopics}
@@ -1969,6 +2013,7 @@ export default function CampaignWizard() {
               onChange={setTargeting}
               deviceTypes={deviceTypes}
               disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
+              postalCodeCountries={postalCodeCountries}
             />,
           )}
 
