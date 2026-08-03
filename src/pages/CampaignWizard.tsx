@@ -42,6 +42,7 @@ import { adsApi } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import { Helmet } from "react-helmet-async";
 import { paymentApi } from "@/services/payment";
+import { logger } from "@/lib/logger";
 
 interface Cards {
   id: string;
@@ -225,6 +226,12 @@ Confirm payment and activate your campaign. It will begin serving impressions on
 </div>
 `;
 
+interface ContentLanguage {
+  code: string;
+  label: string;
+  name: string;
+}
+
 export default function CampaignWizard() {
   const navigate = useNavigate();
   const { isPro, role } = useSessionFlags();
@@ -267,6 +274,10 @@ export default function CampaignWizard() {
     adPositions: ["pre-roll", "mid-roll", "post-roll"] as string[],
     selectedShows: [] as string[],
     savedAudiences: [] as string[],
+    contentLanguages: [] as string[],
+    postalCodes: [] as { country: string; code: string }[],
+    lat: "",
+    long: "",
   });
   const [budget, setBudget] = useState({
     dailyBudget: "25",
@@ -275,6 +286,7 @@ export default function CampaignWizard() {
   });
   const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", originalAmount: 0, discountApplied: 0, finalAmount: 0 });
   const [countries, setCountries] = useState<Country[]>([]);
+  const [postalCodeCountries, setPostalCodeCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [countryCityMap, setCountryCityMap] = useState<Record<string, City[]>>(
     {},
@@ -318,7 +330,8 @@ export default function CampaignWizard() {
 
   const couponCodeTimer = useRef<NodeJS.Timeout | null>(null);
   const [campaignId, setCampaignId] = useState("");
-  const [campaignStatus, setCampaignStatus] = useState("")
+  const [campaignStatus, setCampaignStatus] = useState("");
+  const [contentLanguages, setContentLanguages] = useState<ContentLanguage[]>([]);
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
@@ -1225,7 +1238,7 @@ export default function CampaignWizard() {
       const { data, error, status } = await campaignApi.applyCoupon( Number(budget.totalBudget) || 0, couponCode, session.currentAdvertiserId);
 
 
-      console.log({data, error, status});
+      logger.info('debug', {data, error, status});
       if(status !== 200) {
         toast({
           title: "Error",
@@ -1267,10 +1280,15 @@ export default function CampaignWizard() {
       }
       setIsApplyingCoupon(false);
     } catch (error) {
-      console.error(error);
+      logger.captureException(error);
       setIsApplyingCoupon(false);
     }
   }
+
+  useEffect(() => {
+    console.log({targeting});  
+  }, [targeting])
+  
 
   useEffect(() => {
     if(skipScheduleUpdate.current) {
@@ -1297,7 +1315,6 @@ export default function CampaignWizard() {
   }, [budget, durationDays]);
 
   useEffect(() => {
-    console.log({inventory});
     if(forecastTimer.current) {
       clearTimeout(forecastTimer.current);
     }
@@ -1558,7 +1575,7 @@ export default function CampaignWizard() {
         setIsLoadingForecast(false);
 
         if (error) {
-          console.error(error);
+          logger.captureException(error);
           return;
         }
         const _forecastData = data?.data?.data[0];
@@ -1568,7 +1585,7 @@ export default function CampaignWizard() {
           totalReach: _forecastData?.reach || 0,
         });
       }catch(error) {
-        console.error(error);
+        logger.captureException(error);
       }
 
     }
@@ -1580,18 +1597,28 @@ export default function CampaignWizard() {
 
   useEffect(() => {
     const fetchCountries = async () => {
-      const { data, error } = await targetingApi.getCountries();
+      const { data, error } = await targetingApi.getCountries('');
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setCountries(data?.data || []);
     };
 
+    const fetchCountriesWithPostalCodes = async () => {
+      const { data, error } = await targetingApi.getCountries("postalCode");
+      if (error) {
+        console.error(error);
+        return;
+      }
+      setPostalCodeCountries(data?.data || []);
+    };
+
+
     const fetchPublisherSegments = async () => {
       const { data, error } = await targetingApi.getPublisherSegments();
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
 
@@ -1615,7 +1642,7 @@ export default function CampaignWizard() {
     const fetchPodcastAudiences = async () => {
       const { data, error } = await targetingApi.getPodcastAudiences("", "");
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setPodcastAudiences(data?.data || []);
@@ -1624,7 +1651,7 @@ export default function CampaignWizard() {
     const fetchStreamingAudiences = async () => {
       const { data, error } = await targetingApi.getStreamingAudiences("", "");
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setStreamingAudiences(data?.data || []);
@@ -1637,7 +1664,7 @@ export default function CampaignWizard() {
         "",
       );
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setTargetingSegments(data?.data || []);
@@ -1650,7 +1677,7 @@ export default function CampaignWizard() {
         "",
       );
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setDeviceTypes(data?.data || []);
@@ -1660,7 +1687,7 @@ export default function CampaignWizard() {
     const fetchCards = async () => {
       const { data, error, status } = await walletApi.getCards();
       if (error || status !== 200) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       if(data?.data && data?.data.length > 0){
@@ -1673,10 +1700,11 @@ export default function CampaignWizard() {
       const { data: { session } } = await auth.getSession();
       if(!session) return;
       const { data, error, status } = await walletApi.getCreditsDetails(session.currentAdvertiserId || "", session.currentOrganizationId || "");
-      console.log("getCreditsDetails here ", {data, error, status});
 
       if (error || status !== 200) {
-        console.error(error);
+
+        logger.error("Get credits details error", { status, error, message: data });
+        logger.captureException(error, { context: 'Get credits details error:' });
         return;
       }
 
@@ -1685,6 +1713,21 @@ export default function CampaignWizard() {
         availableCredit: data?.availableCredit || 0,
         creditCycle: data?.creditCycle || null,
       });
+    }
+
+    const fetchContentLanguage = async () => {
+
+      const { data, error } = await targetingApi.getContentLanguage();
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log("getContentLanguage here ", {data, error});
+      if(data?.data && data?.data.length > 0){
+        setContentLanguages(data?.data?.filter(item => item.label).map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
+      } else {
+        setContentLanguages([]);
+      }
     }
 
     Promise.allSettled([
@@ -1696,6 +1739,8 @@ export default function CampaignWizard() {
       fetchDeviceTypes(),
       fetchCards(),
       getCreditsDetails(),
+      fetchContentLanguage(),
+      fetchCountriesWithPostalCodes()
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -1704,7 +1749,7 @@ export default function CampaignWizard() {
 
   useEffect(() => {
     
-    console.log("id here ", id);
+    logger.info("id here ", { value: id });
 
     if(id && id !== "new"){
       // Fetch existing campaign data and populate form for editing
@@ -1712,7 +1757,7 @@ export default function CampaignWizard() {
       const { data: { session } } = await auth.getSession();
         const {status, data, message} = await campaignApi.getCampaign({id, advertiserId: session?.currentAdvertiserId});
 
-        console.log("Existing campaign data:", {status, data, message});
+        logger.info("Existing campaign data:", {status, data, message});
 
         if(data?.data?.status){
           setCampaignStatus(data?.data?.status);
@@ -1768,7 +1813,7 @@ export default function CampaignWizard() {
           });
 
           const adGroup:AdGroup = data.data.adGroups && data.data.adGroups.length > 0 ? data.data.adGroups[0] : null;
-          console.log("Ad Group data:", adGroup);
+
           if(adGroup){
             let targetingObj = {
               ...targeting
@@ -1792,7 +1837,7 @@ export default function CampaignWizard() {
               }
             }
 
-            console.log("Ad Group targeting data:", targetingObj);
+
             targetingObj = {
               ...targetingObj,
               adPositions: adGroup.adPosition || [],
@@ -1818,7 +1863,7 @@ export default function CampaignWizard() {
               })
 
 
-              console.log({selectedCountriesFromCountry, selectedCountriesFromCities, selectedCities});
+
               onCountryChange([...new Set([...selectedCountriesFromCountry, ...selectedCountriesFromCities])]);
               setTimeout(() => {
                 setInventory((prev) => ({ ...prev, selectedCities: selectedCities }));
@@ -1828,7 +1873,7 @@ export default function CampaignWizard() {
 
 
 
-            console.log("Ad Group banner data:", adGroup.bannerOne);
+
             if(adGroup.bannerOne && adGroup.bannerOne.length){
               const response = await fetch(adGroup.bannerOne);
               const blob = await response.blob();
@@ -1844,7 +1889,7 @@ export default function CampaignWizard() {
                 fileName: "Uploaded Banner",
                 preview: URL.createObjectURL(file),
               }
-              console.log("Banner slot data:", bannerSlot);
+
               setAudienceExtension((prev) => ({ ...prev, enabled: true, banners: [bannerSlot], impressionPixel: data.data.displayPixel ? data.data.displayPixel : "" }));
             }
 
@@ -1864,7 +1909,7 @@ export default function CampaignWizard() {
     setPaymentUrl("");
 
     const {data, error, status} = await paymentApi.cancelPayment(paymentLinkId);
-    console.log("cancelPayment here ", {data, error, status});
+    logger.info("cancelPayment here ", {data, error, status});
     setPaymentLinkId("");
     navigate(`/dashboard/campaigns/${campaignId}`);
     window.location.reload();
@@ -1960,6 +2005,7 @@ export default function CampaignWizard() {
             audienceTooltip,
             targetingDone,
             <CampaignTargetingStep
+              contentLanguages={contentLanguages}
               targetingSegments={targetingSegments}
               podcastTopics={podcastTopics}
               streamingTopics={streamingTopics}
@@ -1969,6 +2015,7 @@ export default function CampaignWizard() {
               onChange={setTargeting}
               deviceTypes={deviceTypes}
               disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
+              postalCodeCountries={postalCodeCountries}
             />,
           )}
 

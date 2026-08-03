@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
  // ============================================
  // NextAds Analytics Client
  // Behavioral event tracking for funnel analytics
@@ -105,9 +106,9 @@
    private async linkAnonymousEvents(userId: string): Promise<void> {
      try {
        // This would be handled by an edge function in production
-       console.log('[Analytics] Linking anonymous events to user:', userId);
+       logger.info('[Analytics] Linking anonymous events to user:', { value: userId });
      } catch (error) {
-       console.error('[Analytics] Failed to link anonymous events:', error);
+       logger.captureException(error, { context: '[Analytics] Failed to link anonymous events:' });
      }
    }
  
@@ -137,7 +138,7 @@
      };
  
      this.eventQueue.push(event);
-     console.log('[Analytics] Tracked:', name, properties);
+     logger.info('[Analytics] Tracked:', { detail: name, properties });
  
      // Flush if queue is full
      if (this.eventQueue.length >= this.MAX_QUEUE_SIZE) {
@@ -186,11 +187,11 @@
        });
 
        if (error) {
-         console.error('[Analytics] Flush error:', error);
+         logger.captureException(error, { context: '[Analytics] Flush error:' });
          this.eventQueue = [...events, ...this.eventQueue];
        }
      } catch (error) {
-       console.error('[Analytics] Flush failed:', error);
+       logger.captureException(error, { context: '[Analytics] Flush failed:' });
        // Re-queue events on failure
        this.eventQueue = [...events, ...this.eventQueue];
      }

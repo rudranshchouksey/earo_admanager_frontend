@@ -245,7 +245,6 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
 
 
-    console.log("setting voice volume and music volume here ", { voiceVolume, musicVolume }, recommendation.clips[0].vocal);
   }, [recommendation.voice?.voice_id, recommendation.track?.track_id]);
 
   const handleScriptChange = (

@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { auth } from "@/services/auth";
 import { organizationApi } from "@/services/organization";
+import { logger } from "@/lib/logger";
 
 export type OnboardingRole = "AGENCY" | "SME";
 
@@ -92,7 +93,7 @@ export const AgencySignup = ({
   const onRequestToUpgradeToAgency = async () => {
     const {data: {session: sessionData}} = await auth.getSession();
     if (!sessionData) {
-      console.error("Not authenticated");
+      logger.error("Not authenticated");
       return;
     }
     setLoading(true);

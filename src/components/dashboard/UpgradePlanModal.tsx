@@ -7,6 +7,7 @@ import { auth } from '@/services/auth';
 import { organizationApi } from '@/services/organization';
 import { toast } from '@/hooks/use-toast';
 import { advertiserApi } from '@/services/advertiser';
+import { logger } from "@/lib/logger";
 
 interface UpgradePlanModalProps {
   open: boolean;
@@ -77,7 +78,7 @@ export default function UpgradePlanModal({ open, onOpenChange, currentPlan = 'Ex
 
     const {data: {session: sessionData}} = await auth.getSession();
     if (!sessionData) {
-      console.error("Not authenticated");
+      logger.error("Not authenticated");
       return;
     }
     setLoading(true);
@@ -93,6 +94,7 @@ export default function UpgradePlanModal({ open, onOpenChange, currentPlan = 'Ex
 
     const { error, status, message } = await advertiserApi.upgradeAdvertiserToPro(sessionData?.currentAdvertiserId ?? '');
     if (error || status !== 200) {
+      logger.error("Failed to upgrade advertiser to pro", { status, error, message });
       toast({
         title: "Failed to upgrade advertiser to pro",
         description: message,
@@ -118,13 +120,14 @@ export default function UpgradePlanModal({ open, onOpenChange, currentPlan = 'Ex
   const handleUpgradeToAgency = async () => {
     const {data: {session: sessionData}} = await auth.getSession();
     if (!sessionData) {
-      console.error("Not authenticated");
+      logger.error("Not authenticated");
       return;
     }
     setLoading(true);
 
     const { error, status, message } = await organizationApi.requestToUpgradeToAgency(sessionData?.user?.id, sessionData?.currentOrganizationId ?? '');
     if (error || status !== 200) {
+      logger.error("Failed to request to upgrade to agency", { status, error, message });
       toast({
         title: "Failed to request to upgrade to agency",
         description: message,

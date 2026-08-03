@@ -32,6 +32,7 @@ import { advertiserApi } from '@/services/advertiser';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { Helmet } from 'react-helmet-async';
 import ShareModal from '@/components/modals/ShareModal';
+import { logger } from "@/lib/logger";
 
 interface AdStats {
   impressions: number;
@@ -100,7 +101,6 @@ export default function AdsLibrary() {
 
       /// fetch the advertisers and set the first one as the advertiserId
       const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      console.log("advertisersRes here ", {advertisersRes, advertisersStatus, advertisersError, advertisersMessage});
 
       if(advertisersStatus !== 200 || advertisersError) {
         toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
@@ -110,7 +110,6 @@ export default function AdsLibrary() {
 
 
       const advertisers = advertisersRes.data;
-      console.log("advertisers here ", {advertisers});
       if(advertisers.length > 0) {
         advertiserId = advertisers[0].id;
         auth.setCurrentAdvertiserId(advertiserId, advertisers[0].isPro);
@@ -128,7 +127,6 @@ export default function AdsLibrary() {
       status: opts.status,
     });
 
-    console.log("adsRes here ", {adsRes, error, status, message});
     if (status !== 200 || error) {
       toast({ title: t('common.error'), description: message ?? 'Unable to load ads', variant: 'destructive' });
       setAds([]);
@@ -265,13 +263,11 @@ export default function AdsLibrary() {
     let advertiserId = session.currentAdvertiserId;
     if(!advertiserId) {
       const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } = await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      console.log("advertisersRes here ", {advertisersRes, advertisersStatus, advertisersError, advertisersMessage});
       if(advertisersStatus !== 200 || advertisersError) {
         toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
         return;
       }
       const advertisers = advertisersRes.data;
-      console.log("advertisers here ", {advertisers});
       if(advertisers.length > 0) {
         advertiserId = advertisers[0].id;
         auth.setCurrentAdvertiserId(advertiserId, advertisers[0].isPro);
@@ -280,8 +276,10 @@ export default function AdsLibrary() {
 
     const {data}= await adsApi.exportAds(advertiserId);
     
-    console.log("data here ", {data});
-    if (!data) return;
+    if (!data) {
+      logger.error("Export CSV error", { context: 'Export CSV error:' });
+      return
+    };
 
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);

@@ -142,13 +142,28 @@ export interface GetInventoryForecastRequest {
     };
 }
 
+export interface GetContentLanguageResponse {
+    status: number;
+    data: ContentLanguage[];
+    message: string;
+}
+export interface ContentLanguage {
+    code: string;
+    name: string;
+    label: string;
+}
+
+
+
 export const targetingApi = {
-    getCountries: () => request<GetCountriesResponse>('/api/v1/campaigns/getCountries'),
+    getCountries: (postalCode: string) => request<GetCountriesResponse>('/api/v1/campaigns/getCountries', { method: 'GET', params: { postalCode: postalCode ? postalCode : '' } }),
     getCities: (countryCode: string) => request<GetCitiesResponse>('/api/v1/campaigns/getCitiesByCountry', { method: 'POST', body: { countryCode } }),
     getPublisherSegments: () => request<GetPublisherSegmentsResponse>('/api/v1/campaigns/getPublisherSegments', { method: 'POST', body: { segmentCode: 'PUBLISHER_ATTRIBUTES_SEGMENTS', search: '' } }),
     getPodcastAudiences: (contextual: string, behavioral: string) => request<GetPodcastAudiencesResponse>('/api/v1/campaigns/getPodcastAudiences', { method: 'POST', body: { contextual, behavioral, search: '' } }),
     getStreamingAudiences: (segmentCode: string, search: string) => request<GetStreamingAudiencesResponse>('/api/v1/campaigns/getStreamingAudiences', { method: 'GET', params: { segmentCode, search: '' } }),
     getTargetingSegments: (ruleType: string, segmentCode: string, search: string) => request<GetTargetingSegmentsResponse>('/api/v1/campaigns/getTargetingSegments', { method: 'POST', body: { ruleType, segmentCode, search: '' } }),
+    getContentLanguage: () => request<GetContentLanguageResponse>('/api/v1/campaigns/getContentLanguageTargeting', {method: 'POST'}),
+
     getInventoryForecast: (req: GetInventoryForecastRequest) => request<GetInventoryForecastResponse>('/api/v1/campaigns/getInventoryForecast', { method: 'POST', body: { ...req } }),
     /** Multipart upload — JSON body cannot carry a File; backend should read the field (e.g. multer `single('file')`). */
     uploadBanner: (file: File, width: number, height: number) => {

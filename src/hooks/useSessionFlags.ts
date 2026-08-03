@@ -58,7 +58,6 @@ export function useSessionFlags(): SessionFlags {
 
       if (meta) {
         const isAgency = Boolean(organization?.orgType === 'AGENCY');
-        console.log("isAgency", {isAgency, meta, organization});
         setFlags({
           isPro: isAgency || meta.isPro,
           isNewUser: meta.userState === 'new',

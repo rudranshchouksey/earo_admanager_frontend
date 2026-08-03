@@ -82,6 +82,7 @@ import {
 } from "@/constants/industryCategories";
 import { Helmet } from "react-helmet-async";
 import { countryList } from "@/lib/countries";
+import { logger } from "@/lib/logger";
 interface Cards {
   id: string;
   cardId: string;
@@ -165,7 +166,6 @@ export default function Account() {
   const getPaymentHistory = async () => {
     const {data: {session: sessionData}} = await auth.getSession();
     if (!sessionData) {
-      console.error("Not authenticated");
       return;
     }
     const advertiserIds = allAdvertisersSelected
@@ -193,7 +193,7 @@ export default function Account() {
     });
 
     if (error || status !== 200) {
-      console.error(error);
+      logger.captureException(error, { context: 'Get payment history error:' });
       setLoadingPaymentHistory(false);
       toast({
         title: t("common.error"),
@@ -311,7 +311,7 @@ export default function Account() {
       const { data, error, status } = await walletApi.getCards();
 
       if (error || status !== 200) {
-        console.error(error);
+        logger.captureException(error, { context: 'Get cards error:' });
         return;
       }
       setCards(data?.data || []);
@@ -348,9 +348,6 @@ export default function Account() {
         return;
       }
 
-      console.log({ userProfile });
-      console.log({ session: initialSession });
-
       if (userProfile && userProfile.data) {
         setorganizationCount(userProfile.data.organizations?.length ?? 0);
         setProfile((p) => ({
@@ -366,8 +363,8 @@ export default function Account() {
         status: organizationDetailsStatus,
         message: organizationDetailsMessage,
       } = await organizationApi.getOrganizationDetails(organizationId);
-      console.log({ organizationDetails });
 
+      
       if (organizationDetailsStatus !== 200) {
         toast({
           title: t("common.error"),
@@ -500,7 +497,6 @@ export default function Account() {
     e.preventDefault();
     e.stopPropagation();
 
-    console.log("save company details");
 
 
     const { error, status, message } = await organizationApi.updateOrganizationDetails(organizationDetails?.id ?? "", organizationDetails);
@@ -521,7 +517,6 @@ export default function Account() {
   }
 
   const updateMFASetup =  async(checked: boolean) => {
-    console.log(checked);
     if(checked){
       setIsMfaModalOpen(true);
       // enable mfa 
@@ -791,12 +786,10 @@ export default function Account() {
   };
 
   const addPaymentMethod = async () => {
-    console.log("add payment method");
     setGeneratingPaymentLink(true);
     const { data, error, status } = await paymentApi.addCard();
-    console.log({ data, error, status });
     if (error || status !== 200) {
-      console.error(error);
+      logger.captureException(error, { context: 'Add payment method card error:' });
       return;
     }
 
@@ -837,8 +830,6 @@ export default function Account() {
     }
 
 
-
-  console.log({isAgency, role, isPro, gridRows});
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

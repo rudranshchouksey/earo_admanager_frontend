@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
  // ============================================
  // SDUI Renderer
  // Maps block types to React components
@@ -74,7 +75,7 @@
    const BlockComponent = blockComponents[block.type];
    
    if (!BlockComponent) {
-     console.warn(`[SDUI] Unknown block type: ${block.type}`);
+     logger.warn('warning', { detail: `[SDUI] Unknown block type: ${block.type}` });
      return null;
    }
    

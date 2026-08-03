@@ -14,6 +14,7 @@ import {
 import { Mail, MessageSquare, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supportApi } from '@/services/support';
+import { logger } from "@/lib/logger";
 
 
 const TOPICS = [
@@ -69,8 +70,8 @@ export default function Support() {
     setSubmitting(true);
     try {
       const { error, status, message } = await supportApi.sendSupport({ topic: parsed.data.topic, message: parsed.data.message } as SupportMessage);
-      console.log({ error, status, message });
       if (status != 200 || error) {
+        logger.error('Send support error', { status, error, message });
         toast({
           title: message ?? 'Could not send message',
           description: error?.message ?? 'Please try again in a moment.',
@@ -86,7 +87,7 @@ export default function Support() {
         setSubmitted(true);
       }
     } catch (err: any) {
-      console.log({ err });
+      logger.captureException(err, { context: "sendSupport" });
       toast({
         title: 'Could not send message',
         description: err?.message ?? 'Please try again in a moment.',

@@ -10,7 +10,9 @@ import type { Column, FilterDef } from '@/components/ui/searchable-list';
 // import dubaiStarsImg from '@/assets/podcasts/dubai-stars.png';
 // import j2HubImg from '@/assets/podcasts/j2-hub.png';
 import bitesizeBusinessImg from '@/assets/podcasts/bitesize-business.png';
-import { PodcastAudience, StreamingAudience, TargetingSegment } from '@/services/targeting';
+import { ContentLanguage, Country, PodcastAudience, StreamingAudience, TargetingSegment } from '@/services/targeting';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 // import airDxbImg from '@/assets/podcasts/air-dxb.png';
 // import cityLightsImg from '@/assets/podcasts/city-lights.png';
 // import dubaiRealEstateImg from '@/assets/podcasts/dubai-real-estate.png';
@@ -31,27 +33,31 @@ const adPositionOptions = [
   {
     "code": "position",
     "category": "Audio Position",
-    "value": "mid-roll",
-    "label": "Mid-Roll"
-},
-{
-    "code": "position",
-    "category": "Audio Position",
-    "value": "post-roll",
-    "label": "Post-Roll"
-},
-{
-    "code": "position",
-    "category": "Audio Position",
     "value": "pre-roll",
     "label": "Pre-Roll"
-}
+  },
+  {
+      "code": "position",
+      "category": "Audio Position",
+      "value": "mid-roll",
+      "label": "Mid-Roll"
+  },
+  {
+      "code": "position",
+      "category": "Audio Position",
+      "value": "post-roll",
+      "label": "Post-Roll"
+},
 ] as const;
 
 const podcastTopicColumns: Column<{ id: string; name: string }>[] = [
   { key: 'name', label: 'Topic', sortable: true },
 ];
 
+const contentLanguageColumns: Column<{ id: string; name: string; label: string }>[] = [
+  { key: 'name', label: 'Language', sortable: true },
+  { key: 'label', label: 'Label', sortable: true },
+];
 
 const podcastAudienceColumns: Column<{ id: string; name: string }>[] = [
   {
@@ -186,11 +192,16 @@ interface TargetingData {
   adPositions: string[];
   selectedShows: string[];
   savedAudiences: string[];
+  contentLanguages: string[];
+  postalCodes: { country: string; code: string }[];
+  lat: string;
+  long: string;
 }
 
 interface Props {
   data: TargetingData;
   onChange: (data: TargetingData) => void;
+  contentLanguages: ContentLanguage[];
   podcastTopics: string[];
   streamingTopics: string[];
   podcastAudiences: PodcastAudience[];
@@ -198,9 +209,10 @@ interface Props {
   targetingSegments: TargetingSegment[];
   deviceTypes: TargetingSegment[];
   disabled: boolean;
+  postalCodeCountries: Country[];
 }
 
-export default function CampaignTargetingStep({ data, onChange, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled }: Props) {
+export default function CampaignTargetingStep({ data, onChange, contentLanguages, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled, postalCodeCountries }: Props) {
   const { isPro } = useSessionFlags();
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
   const [openListId, setOpenListId] = useState<string | null>(null);
@@ -213,6 +225,13 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
   const savedAudiences = data.savedAudiences || [];
 
   const toggleAge = (age: string) => {
+
+    if(age === 'ALL') {
+      onChange({ ...data, ageRanges: targetingSegments.filter(segment => segment.code === "age").map(segment => segment.value) });
+      return;
+    }
+
+
     const next = data.ageRanges.includes(age)
       ? data.ageRanges.filter((a) => a !== age)
       : [...data.ageRanges, age];
@@ -240,6 +259,10 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
   };
 
   const toggleAdPosition = (pos: string) => {
+    if(pos === 'ALL') {
+      onChange({ ...data, adPositions: adPositionOptions.map(p => p.value) });
+      return;
+    }
     const next = adPositions.includes(pos)
       ? adPositions.filter(p => p !== pos)
       : [...adPositions, pos];
@@ -367,6 +390,78 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
               </div>
 
 
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label>Content Languages</Label>
+                </div>
+                <SearchableList
+                  items={contentLanguages?.map(language => ({ id: language.code, name: language.name, label: language.label})) || []}
+                  columns={contentLanguageColumns}
+                  selectionMode="multi"
+                  selectedIds={data.contentLanguages || []}
+                  onSelectionChange={(ids) => onChange({ ...data, contentLanguages: ids })}
+                  selectAllFiltered
+                  idKey="id"
+                  searchPlaceholder="Search by language"
+                  searchableKeys={['name', 'label']}
+                  filters={null}
+                  variant="table"
+                  maxHeight="300px"
+                  collapsible
+                  isOpen={openListId === 'content-languages'}
+                  onOpenChange={handleOpenChange('content-languages')}
+                  collapsibleLabel="Search or select segments"
+                  emptyMessage="No languages match your search"
+                  disabled={disabled}
+                />
+              </div>
+
+
+
+              <div className='space-y-3'>
+                <div className="flex items-center gap-2">
+                  <Label>Postal Codes</Label>
+                </div>
+                <div className='flex gap-2'>
+                 <select className='border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5'>
+                  {postalCodeCountries.map((country) => (
+                    <option key={country.code} value={country.code}>{country.name}</option>
+                  ))}
+                 </select>
+
+                <Input
+                  type="text"
+                  placeholder="Enter postal codes..."
+                  value={''}
+                  onChange={(e) => console.log(e.target.value)}
+                />
+                </div>
+                <span className="text-xs text-muted-foreground">Enter postal codes separated by commas</span>
+            </div>
+
+
+            <div className='space-y-3'>
+                <div className="flex items-center gap-2">
+                  <Label>Lat Long</Label>
+                </div>
+                <div className='flex gap-2'>
+                  <Input
+                    type="text"
+                    placeholder="Enter latitude..."
+                    value={data.lat}
+                    onChange={(e) => onChange({ ...data, lat: e.target.value })}
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Enter longitude..."
+                    value={data.long}
+                    onChange={(e) => onChange({ ...data, long: e.target.value })}
+                  />
+                </div>
+                <span className="text-xs text-underline text-blue-800">Select from map</span>
+                
+            </div>
+
               <div className="space-y-3 hidden">
                 <Label>
                   Saved & Re-targeting Audiences
@@ -440,7 +535,7 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                   columns={streamingAudienceColumns}
                   selectionMode="multi"
                   selectedIds={data.streamingAudiences || []}
-                  onSelectionChange={(ids) => {console.log(ids); onChange({ ...data, streamingAudiences: ids })}}
+                  onSelectionChange={(ids) => {onChange({ ...data, streamingAudiences: ids })}}
                   selectAllFiltered
                   idKey="value"
                   searchPlaceholder="Search by category, behavior, or segment..."
@@ -527,6 +622,25 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
         <div className="space-y-3">
           <Label>Ad Position</Label>
           <div className="flex flex-wrap gap-2">
+            <div
+              key={'ALL'}
+              onClick={() => !disabled ? toggleAdPosition('ALL') : undefined}
+              className={cn(
+                'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
+                adPositions.length === 3
+                  ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                  : 'border-border hover:border-[#C8E6C9]',
+                  disabled ? 'opacity-50 cursor-not-allowed' : ''
+              )}
+            >
+              {adPositions.length === 3 && (
+                <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                  <Check className="h-2.5 w-2.5 text-foreground" />
+                </div>
+              )}
+              <span className="text-sm font-medium">All</span>
+            </div>
+
             {adPositionOptions.map(pos => {
               const selected = adPositions.includes(pos.value);
               return (
@@ -558,7 +672,27 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
       <div className="space-y-3">
         <Label>Gender</Label>
         <div className="flex flex-wrap gap-2">
-          {[ {value: '', label: 'All'}, ...targetingSegments?.filter(segment => segment.code === 'gender')].map(({ value, label }) => {
+
+          <div
+            key={'ALL'}
+            onClick={() => !disabled ? onChange({ ...data, gender: '' }) : undefined}
+            className={cn(
+              'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
+              data.gender === ''
+                ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                : 'border-border hover:border-[#C8E6C9]',
+                disabled ? 'opacity-50 cursor-not-allowed' : ''
+            )}
+          >
+            {data.gender === '' && (
+              <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                <Check className="h-2.5 w-2.5 text-foreground" />
+              </div>
+            )}
+            <span className="text-sm font-medium">All</span>
+          </div>
+
+          {[...targetingSegments?.filter(segment => segment.code === 'gender')].map(({ value, label }) => {
             const selected = data.gender === value;
             return (
               <div
@@ -566,13 +700,13 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
                 onClick={() => !disabled ? onChange({ ...data, gender: value }) : undefined}
                 className={cn(
                   'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
-                  selected
+                  (selected || data.gender === '')
                     ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
                     : 'border-border hover:border-[#C8E6C9]',
                     disabled ? 'opacity-50 cursor-not-allowed' : ''
                 )}
               >
-                {selected && (
+                {(selected || data.gender === '') && (
                   <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
                     <Check className="h-2.5 w-2.5 text-foreground" />
                   </div>
@@ -588,6 +722,26 @@ export default function CampaignTargetingStep({ data, onChange, podcastTopics, s
       <div className="space-y-3">
         <Label>Age Range</Label>
         <div className="flex flex-wrap gap-2">
+
+          <div
+            key={'ALL'}
+            onClick={() => !disabled ? toggleAge('ALL') : undefined}
+            className={cn(
+              'border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5',
+              targetingSegments.filter(segment => segment.code === "age").length === data.ageRanges.length
+                ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                : 'border-border hover:border-[#C8E6C9]',
+                disabled ? 'opacity-50 cursor-not-allowed' : ''
+            )}
+            >
+            { ( targetingSegments.filter(segment => segment.code === "age").length === data.ageRanges.length) && (
+              <div className="h-4 w-4 rounded-full bg-[#E6F4EA] flex items-center justify-center shrink-0">
+                <Check className="h-2.5 w-2.5 text-foreground" />
+              </div>
+            )}
+            <span className="text-sm font-medium">{'All'}</span>
+          </div>
+
           {targetingSegments.filter(segment => segment.code === "age").map((age) => {
             const selected = data.ageRanges.includes(age.value);
             return (
