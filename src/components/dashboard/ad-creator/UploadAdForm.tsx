@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { auth } from '@/services/auth';
 import { adsApi } from '@/services/ads';
 import { toast } from '@/hooks/use-toast';
+import { logger } from "@/lib/logger";
 
 const MAX_SIZE_MB = 10;
 const MAX_DURATION_SEC = 60;
@@ -121,7 +122,6 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
         toast({ title: 'Not authenticated', variant: 'destructive' });
         return;
       }
-      console.log("file", file);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -129,6 +129,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       const { status, error, message, data } = await adsApi.uploadFile(formData);
       if (status !== 200 || error) {
         toast({ title: message, variant: 'destructive' });
+        logger.captureException(error, { context: 'Upload error:' });
         return;
       }
       const finalAudioUrl = data.data.url;
@@ -142,13 +143,14 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
       });
       if (dbError){
         toast({ title: 'Error uploading ad', description: uploadAdMessage, variant: 'destructive' });
+        logger.captureException(dbError, { context: 'Upload ad error:' });
         return;
       }
 
       toast({ title: t('ad_creator.ad_saved_success') });
       onSaved();
     } catch (err) {
-      console.error('Save error:', err);
+      logger.captureException(err, { context: 'Save error:' });
       toast({ title: t('ad_creator.save_failed'), description: t('ad_creator.could_not_save'), variant: 'destructive' });
     } finally {
       setIsSaving(false);

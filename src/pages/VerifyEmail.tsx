@@ -14,6 +14,7 @@ import { campaignApi } from "@/services/campaign";
 import { auth } from "@/services/auth";
 import { toast } from "@/hooks/use-toast";
 import { Helmet } from "react-helmet-async";
+import { logger } from "@/lib/logger";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -31,8 +32,9 @@ export default function VerifyEmail() {
       setverifying(true);
       const {token} = getParams();
       const {data, error, status, message} = await auth.verifyEmailWithToken(token);
-      console.log("verifyEmailWithToken", {data, error, status, message});
       if(error || status !== 200) {
+        logger.error("Verify email with token error", { status, error, message });
+        logger.captureException(error, { context: 'Verify email with token error:' });
         toast({
           title: "Verification failed",
           description: data?.data?.message || "Failed to verify email",

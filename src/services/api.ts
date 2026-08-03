@@ -2,6 +2,8 @@
  * API Service - Core Engine
  * Handles authentication headers, token refresh logic, and error normalization.
  */
+import * as Sentry from '@sentry/react';
+import { logger } from '@/lib/logger';
 import { auth, getStoredSession } from './auth';
 
 export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -138,6 +140,18 @@ export async function request<T = unknown>(
 
   if (!res.ok) {
     const message = responseData?.message?.message || responseData?.message || `Error ${res.status}: ${res.statusText}`;
+    logger.warn('API request failed', {
+      path: urlObj.pathname,
+      method,
+      status: res.status,
+      message,
+    });
+    if (res.status >= 500) {
+      Sentry.captureMessage(`API ${method} ${urlObj.pathname} failed: ${message}`, {
+        level: 'error',
+        extra: { status: res.status, path: urlObj.pathname, method },
+      });
+    }
     return { data: null, error: new Error(message), status: responseData.status || res.status, message: message };
   }
 

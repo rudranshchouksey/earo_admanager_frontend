@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Lightweight in-app pub/sub for cross-route updates (no WebSocket).
  * Use when a child page mutates data the shell (e.g. layout) must refresh.
@@ -50,7 +51,7 @@ export const appNotifications: AppNotifications = {
         try {
           fn(payload as AdvertisersChangedPayload | undefined);
         } catch (err) {
-          console.error('[appNotifications]', event, err);
+          logger.captureException(err, { context: '[appNotifications]', event: event });
         }
       });
       return;
@@ -60,7 +61,7 @@ export const appNotifications: AppNotifications = {
         try {
           fn(payload as AdvertiserSelectedPayload);
         } catch (err) {
-          console.error('[appNotifications]', event, err);
+          logger.captureException(err, { context: '[appNotifications]', event: event });
         }
       });
     }

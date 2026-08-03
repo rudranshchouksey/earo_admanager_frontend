@@ -18,6 +18,7 @@ import { reportsApi } from '@/services/reports';
 import { campaignApi } from '@/services/campaign';
 import { adsApi } from '@/services/ads';
 import { appNotifications } from '@/services/appNotifications';
+import { logger } from "@/lib/logger";
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -147,7 +148,7 @@ export default function DashboardHome() {
     useEffect(() => {
       const audio = audioRef.current;
       if (!audio) return;
-      console.log("audio duration here ", audio.duration, audio);
+
       if(audio.duration)
         setDuration(Math.round(audio.duration));
       const onTime = () => setProgress((audio.currentTime / audio.duration) * 100);

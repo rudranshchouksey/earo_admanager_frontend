@@ -8,6 +8,7 @@ import { toast } from '@/hooks/use-toast';
 import { Clock, Play, CalendarCheck, FileEdit } from 'lucide-react';
 import { CampaignActionData, reportsApi } from '@/services/reports';
 import { auth } from '@/services/auth';
+import { logger } from "@/lib/logger";
 
 type TabKey = 'ALL' | 'ALMOST_ENDING' | 'UNDERPERFORMING' | 'DOING_WELL' | 'STARTING_SOON' | 'ENDED_LAST_10_DAYS' | 'DRAFTS';
 
@@ -142,7 +143,7 @@ export default function CampaignActionsGrid() {
     });
 
     if (status !== 200 || error) {
-      console.error(error);
+      logger.captureException(error);
       return false;
     }
 
@@ -161,7 +162,7 @@ export default function CampaignActionsGrid() {
       setInitialLoading(true);
       const { data: { session } } = await auth.getSession();
       if (!session) {
-        console.error('Not authenticated');
+        logger.error('Not authenticated');
         setInitialLoading(false);
         return;
       }
