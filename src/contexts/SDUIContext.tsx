@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
  // ============================================
  // SDUI Context Provider
  // Provides SDUI payload, experiments, and nudges
@@ -126,7 +127,7 @@
         variant_id: assignment.variant_id,
       });
     } catch (error) {
-      console.error('[SDUI] Failed to log experiment exposure:', error);
+      logger.captureException(error, { context: '[SDUI] Failed to log experiment exposure:' });
     }
   }, [payload?.experiments]);
  
@@ -140,7 +141,7 @@
       );
       analytics.track({ name: 'nudge.dismissed', properties: { nudge_id: nudgeId } });
     } catch (error) {
-      console.error('[SDUI] Failed to dismiss nudge:', error);
+      logger.captureException(error, { context: '[SDUI] Failed to dismiss nudge:' });
     }
   }, []);
 
@@ -153,7 +154,7 @@
       );
       analytics.track({ name: 'nudge.clicked', properties: { nudge_id: nudgeId } });
     } catch (error) {
-      console.error('[SDUI] Failed to record nudge click:', error);
+      logger.captureException(error, { context: '[SDUI] Failed to record nudge click:' });
     }
   }, []);
  

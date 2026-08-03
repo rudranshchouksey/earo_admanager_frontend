@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
  // ============================================
  // Nudge Manager
  // Displays and tracks in-app nudges
@@ -102,7 +103,7 @@
              channel: 'in_app',
            });
          } catch (error) {
-           console.error('[NudgeManager] Failed to record impression:', error);
+           logger.captureException(error, { context: '[NudgeManager] Failed to record impression:' });
          }
        }
      });

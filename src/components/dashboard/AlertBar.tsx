@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { logger } from "@/lib/logger";
 
 interface AlertItem {
   id: string;
@@ -101,7 +102,7 @@ export default function AlertBar() {
     const fetchCountries = async () => {
       const { data, error } = await targetingApi.getCountries();
       if (error) {
-        console.error(error);
+        logger.captureException(error);
         return;
       }
       setCountries(data?.data || []);
@@ -139,8 +140,6 @@ export default function AlertBar() {
         return;
       }
 
-      console.log({ userProfile });
-      console.log({ session: initialSession });
       const allAlerts = [];
       setUserId(userProfile.data.id);
 
@@ -192,7 +191,6 @@ export default function AlertBar() {
 
       const hasCancelledCompleteProfile = localStorage.getItem('complete-profile-'+userProfile.data.id);
 
-      console.log({ hasCancelledCompleteProfile });
 
       if (hasCancelledCompleteProfile) {
         setAlerts(allAlerts);
@@ -206,7 +204,6 @@ export default function AlertBar() {
         status: organizationDetailsStatus,
         message: organizationDetailsMessage,
       } = await organizationApi.getOrganizationDetails(organizationId);
-      console.log({ organizationDetails });
 
       if (organizationDetailsStatus !== 200) {
         toast({
@@ -273,7 +270,6 @@ export default function AlertBar() {
     localStorage.setItem(alert.id + "-" + alert.userId, "true");
   };
 
-  console.log({ alerts });
 
   if (alerts.length === 0) return null;
 

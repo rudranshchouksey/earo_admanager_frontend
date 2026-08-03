@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialogHeader } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { logger } from "@/lib/logger";
 
 
 export const BANNER_TYPES = [
@@ -108,7 +109,6 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
       return;
     };
 
-    console.log("Processing file:", file);
     const dimensions = await getImageDimensions(file);
 
     const acceptedDimensions = {

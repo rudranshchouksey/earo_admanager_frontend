@@ -44,6 +44,7 @@ import { useSessionFlags } from "@/hooks/useSessionFlags";
 import { teamApi, TeamUser } from "@/services/team";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
 import { getStoredSession } from "@/services/auth";
+import { logger } from "@/lib/logger";
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -121,7 +122,6 @@ export default function UsersTab() {
   };
 
   const openEdit = (user: TeamUser) => {
-    console.log("user", user);
     setEditingUser(user);
     setForm({ ...user, advertiserId: user.advertiserId || "", AdvertiserAccounts: user.AdvertiserAccounts || "SPECIFIC" });
     setDialogOpen(true);
@@ -135,6 +135,7 @@ export default function UsersTab() {
     }
     const { status, error, message } = await teamApi.deleteTeamUser(userId, session.currentOrganizationId);
     if(status !== 200 || error){
+      logger.error("Failed to delete user", { status, error, message });
       toast({ title: message, variant: "destructive" });
       return;
     }
@@ -181,6 +182,7 @@ export default function UsersTab() {
     );
       setSendingInvite(false);
       if(status !== 200 || error){
+        logger.error("Failed to update user", { status, error, message });
         toast({ title: message, variant: "destructive" });
         return;
       }

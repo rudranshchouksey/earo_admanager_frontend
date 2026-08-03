@@ -44,6 +44,7 @@ import logoFull from '@/assets/logo-full.png';
 import logo from '@/assets/logo.png';
 import { userApi } from '@/services/user';
 import UpgradePlanModal from './UpgradePlanModal';
+import { logger } from "@/lib/logger";
 
 const BREADCRUMB_KEYS: Record<string, string> = {
   dashboard: 'layout.nav_dashboard',
@@ -154,12 +155,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (selectedAdvertiser) {
-      console.log("selectedAdvertiser", selectedAdvertiser, advertisers);
       if(advertisers.length === 0){
-        console.log("no advertisers", session?.currentOrganizationId);
        
         advertiserApi.getAdvertisers(session?.currentOrganizationId ?? '').then(res => {
-          console.log("allAdvertisers", res.status, res.data.data);
           if(res.status === 200 && res.data.data.length > 0){
             setAdvertisers(res.data.data);
             const currentAdvertiser = res.data.data.find((a) => a.id === selectedAdvertiser);
@@ -178,7 +176,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               // }
             }
           }
-        }).catch(err => console.log("error", err));
+        }).catch(err => logger.captureException(err, { context: "getAdvertisers in DashboardLayout" }));
       }
       else{
         auth.setCurrentAdvertiserId(selectedAdvertiser, advertisers.find((a) => a.id === selectedAdvertiser)?.isPro ?? false);
@@ -197,7 +195,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     
     if(selectedOrganization && organizations.length > 1){
-      console.log("selectedOrganization", selectedOrganization);
       auth.setCurrentOrganizationId(selectedOrganization);
     }
   
@@ -236,9 +233,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const organization = data.data.organizations[0];
         if(organization.orgType === "SME" && !isPro) setShowAgencySignupBtn(true);
         if(organization.orgType === "SME" && organization.requestedForAgency) setRequestedForAgency(true);
-        console.log({organization, isPro, requestedForAgency})
         const proFlagFromAdvertisers = organization.orgType === "SME" ? advertisers.some((a) => a.isPro) : true;
-        console.log({proFlagFromAdvertisers})
         setAccountType(organization.orgType === "SME" ? (isPro || proFlagFromAdvertisers) ? "Pro" : "Express" : "Agency");
         setOrganizations(data.data.organizations);
       }

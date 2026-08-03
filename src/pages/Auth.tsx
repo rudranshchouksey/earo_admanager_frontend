@@ -23,6 +23,7 @@ import { MfaSelector } from "@/components/auth/mfa-selector";
 import { userApi } from "@/services/user";
 import { AuthPageBackground } from "@/components/dashboard/MockDashboardPreview";
 import { Helmet } from "react-helmet-async";
+import { logger } from "@/lib/logger";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -160,15 +161,14 @@ export default function Auth() {
       const jobId = url.searchParams.get("jobid");
       const recommendedVersion = url.searchParams.get("recommendedVersion");
 
-      console.log("jobId ", jobId);
-      console.log("recommendedVersion ", recommendedVersion);
 
       
       const { credential } = credentialResponse;
       const { error, status, message, data } = await auth.signInWithGoogle(credential, jobId, recommendedVersion);
-      console.log("handleGoogleLogin", { error, status, message, data });
-      if (error || status !== 200) {
 
+      if (error || status !== 200) {
+        logger.error("Google login error", { status, error, message, data });
+        logger.captureException(error, { context: 'Google login error:' });
         if (status === 400 && data?.mfaEnabled) {
           setuserId(data?.id);
           setMfaToken(data?.mfaToken);
@@ -204,8 +204,8 @@ export default function Auth() {
     const jobId = url.searchParams.get("jobid");
     const recommendedVersion = url.searchParams.get("recommendedVersion");
 
-    console.log("jobId ", jobId);
-    console.log("recommendedVersion ", recommendedVersion);
+    logger.info("jobId ", { value: jobId });
+    logger.info("recommendedVersion ", { value: recommendedVersion });
 
     const loginSchema = z.object({
       email: z.string().trim().email(t("auth.invalid_email")),
@@ -266,9 +266,10 @@ export default function Auth() {
           email,
           password,
         );
-        console.log({ error, status, message , data});
 
         if (status !== 200) {
+          logger.error("Login error", { status, error, message, data });
+          logger.captureException(error, { context: 'Login error:' });
           if (status === 400 && data?.mfaRequired) {
             setuserId(data.data?.id);
             setMfaToken(data.data?.mfaToken);
@@ -394,8 +395,9 @@ export default function Auth() {
   const handleMfaComplete = async (code: string) => {
     const { error, status, message, data } = await userApi.verify2fa(userId, code, mfaToken);
     
-    console.log("handleMfaComplete ", { error, status, message, data });
     if (error || status !== 200) {
+      logger.error("MFA verification error", { status, error, message, data });
+      logger.captureException(error, { context: 'MFA verification error:' });
       toast({
         title: t("common.error"),
         description: message,
@@ -412,7 +414,7 @@ export default function Auth() {
     createSessionAndNotify(data);
     setShowMfaSelector(false);
     navigate("/dashboard");
-    console.log("navigating to dashboard");
+    logger.info("navigating to dashboard");
   }
 
   return (
@@ -452,7 +454,7 @@ export default function Auth() {
                 <div className="[&>div]:w-full [&_iframe]:w-full">
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
-                    onError={() => console.log("Login Failed")}
+                    onError={() => logger.info("Login Failed")}
                     shape="square"                    
                     width="400"
                   />

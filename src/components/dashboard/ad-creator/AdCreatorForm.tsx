@@ -56,6 +56,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import CampaignGoal, { campaignGoalTooltip, goalPlaceholders } from "@/components/sdui/blocks/CampaignGoal";
+import { logger } from "@/lib/logger";
 
 interface AdCreatorFormProps {
   type: "PROMPT" | "SCRIPT";
@@ -309,7 +310,6 @@ function ExpressVoicePreview({
   currentVoice: Voice | null;
   isPro: boolean;
 }) {
-  console.log("selectedVoice", selectedVoice);
 
   if (voicesLoading && voices.length === 0)
     return (
@@ -1288,7 +1288,7 @@ export default function AdCreatorForm({
       setShowSaveModal(false);
       onSaved();
     } catch (err) {
-      console.error("Save error:", err);
+      logger.captureException(err, { context: "Save error:" });
       toast({
         title: t("ad_creator.save_failed"),
         description: t("ad_creator.could_not_save"),

@@ -37,6 +37,8 @@ import {
   goalPlaceholdersHtml,
 } from "@/components/sdui/blocks/CampaignGoal";
 import { Button } from "@/components/ui/button";
+import * as Sentry from "@sentry/react";
+import { logger } from "@/lib/logger";
 
 const PAGE_SIZE = 5;
 
@@ -139,8 +141,9 @@ export default function AdCreator() {
 
   const getAdStatus = async (jobId: string) => {
     const { status, error, message, data } = await adsApi.checkAdStatus(jobId);
-    console.log("getAdStatus here ", { status, error, message, data });
     if (status != 200) {
+      logger.error("Get ad status error", { status, error, message, data });
+      logger.captureException(error, { context: 'Get ad status error:' });
       toast({
         title: "Error checking ad status",
         description: message,
@@ -178,7 +181,6 @@ export default function AdCreator() {
   );
 
   const handleGenerate = async () => {
-    console.log("handleGenerated here ", { selectedVoice });
     if (!selectedVoice) {
       toast({
         title: "Error generating ad",
@@ -190,18 +192,8 @@ export default function AdCreator() {
     setIsGenerating(true);
     setHideTopOptions(true);
     try {
-      console.log("handleGenerated here ", {
-        description,
-        goal,
-        gender,
-        language,
-        tone,
-        selectedMusic,
-      });
 
       const contentSettings: Record<string, any> = {};
-      console.log("isPro here ", isPro);
-
       if (isPro && selectedMusic) {
         contentSettings["volume"] = proContent.volume;
         contentSettings["audioFadeIn"] = proContent.fadeIn;
@@ -211,7 +203,6 @@ export default function AdCreator() {
         contentSettings["pixelUrl"] = trackingPixel;
       }
 
-      console.log("proContent here ", proContent);
 
       const { error, status, message, data } = await adsApi.createAd({
         type,
@@ -228,8 +219,9 @@ export default function AdCreator() {
         musicId: selectedMusic,
         ...contentSettings,
       });
-      console.log("createAd here ", { error, status, message, data });
       if (status != 200) {
+        logger.error("Create ad error", { status, error, message, data });
+        logger.captureException(error, { context: 'Create ad error:' });
         toast({
           title: t("ad_creator.generation_failed"),
           description: message,
@@ -244,7 +236,7 @@ export default function AdCreator() {
       getAdStatus(data.data.jobId);
       setJobId(data.data.id);
     } catch (err) {
-      console.error("Generate error:", err);
+      logger.captureException(err, { context: "handleGenerate" });
       toast({
         title: t("ad_creator.generation_failed"),
         description: t("ad_creator.generation_failed_desc"),
@@ -497,7 +489,6 @@ export default function AdCreator() {
         }
 
         const { data } = await adsApi.getAd(adId, session.currentAdvertiserId);
-        console.log("getAdFromParams here ", { data });
         if (data) {
           if (data.data.source === "V0") {
             setDescription(data.data.generatedScript);
@@ -519,12 +510,6 @@ export default function AdCreator() {
               message: voiceMessage,
               data: voiceData,
             } = await adsApi.getVoice(data.data.voiceId);
-            console.log("getVoiceData here ", {
-              voiceStatus,
-              voiceError,
-              voiceMessage,
-              voiceData,
-            });
             if (voiceStatus != 200) {
               toast({
                 title: "Error loading current voice",
@@ -543,12 +528,7 @@ export default function AdCreator() {
                 message: musicMessage,
                 data: musicData,
               } = await adsApi.getMusic(data.data.musicId);
-              console.log("getMusicData here ", {
-                musicStatus,
-                musicError,
-                musicMessage,
-                musicData,
-              });
+
               if (musicStatus != 200) {
                 toast({
                   title: "Error loading current music",
@@ -577,13 +557,6 @@ export default function AdCreator() {
               let voices = [];
               let tracks = [];
 
-              console.log({
-                voice,
-                track,
-                musicVolume,
-                voiceVolume,
-                classification,
-              });
 
               const recommendation = data.assets?.result.find(
                 (item) =>
@@ -692,7 +665,6 @@ export default function AdCreator() {
   }, []);
 
   useEffect(() => {
-    console.log("voxifyAd useEffect here ", { voxifyAd });
     if (voxifyAd) {
       const isFirstTime = !voxifyAd.recommendations.some(
         (recommendation) => recommendation.generated,
@@ -713,7 +685,7 @@ export default function AdCreator() {
       voxifyAd.recommendations[index].clips[0].vocal["rms-dbfs"],
       voxifyAd.recommendations[index].clips[0].music["rms-dbfs"],
     );
-    console.log("saveVoxifyAd here ", { status, error, message, data });
+    logger.info("saveVoxifyAd here ", { status, error, message, data });
     if (status !== 200) {
       toast({
         title: "Error saving ad",
@@ -734,7 +706,6 @@ export default function AdCreator() {
     recommendIndex: number,
     script: { text_plain: string; text: string },
   ) => {
-    console.log("updateScript here ", { recommendIndex, script });
     const _voxifyAd = voxifyAd;
     _voxifyAd.recommendations[recommendIndex].script.text = script.text;
     _voxifyAd.recommendations[recommendIndex].script.text_plain =
@@ -749,7 +720,6 @@ export default function AdCreator() {
     voiceVolume: number,
     musicVolume: number,
   ) => {
-    console.log("regenerateVoxifyAd here ", { recommendIndex, voice, track });
 
     const _voxifyAd = voxifyAd;
     _voxifyAd.recommendations[recommendIndex].generating = true;
@@ -775,9 +745,9 @@ export default function AdCreator() {
       musicVolume: musicVolume,
     });
 
-    console.log("generateAudioAd here ", { status, error, message, data });
 
     if (status !== 200 || !data.data?.sourceUrl) {
+      logger.warn("regenerateAudioAd failed", { status, message, recommendIndex });
       toast({
         title: "Error",
         content: "Error generating audio ad",
@@ -799,7 +769,6 @@ export default function AdCreator() {
 
     setVoxifyAd({ ..._voxifyAd });
 
-    console.log("setVoxifyAd here ", { _voxifyAd });
   };
 
   const generateVoxifyAd = async (
@@ -815,10 +784,10 @@ export default function AdCreator() {
 
     setHideTopOptions(true);
 
-    console.log("generateVoxifyAd here ", { recommendIndex, voxifyAd });
+    logger.info("generateVoxifyAd here ", { recommendIndex, voxifyAd });
     const _voxifyAd = voxifyAd || sourceVoxifyAd;
     _voxifyAd.recommendations[recommendIndex].generating = true;
-    console.log("setVoxifyAd here ", { _voxifyAd });
+    logger.info("setVoxifyAd here ", { _voxifyAd });
     setVoxifyAd({ ..._voxifyAd });
     const { status, error, message, data } = await adsApi.generateAudioAd({
       adScript: _voxifyAd.recommendations[recommendIndex].script.text.replace(/\n/g, ' ').replace(/<strong>(.*?)<\/strong>/g, "$1").replace(/\.\s*<br\s*\/?>/g, ". "),
@@ -828,9 +797,10 @@ export default function AdCreator() {
       advertiserId: advertiserId || session.currentAdvertiserId,
     });
 
-    console.log("generateAudioAd here ", { status, error, message, data });
+    logger.info("generateAudioAd here ", { status, error, message, data });
 
     if (status !== 200 || !data.data?.sourceUrl) {
+      logger.warn("generateAudioAd failed", { status, message, recommendIndex });
       toast({
         title: "Error",
         content: "Error generating audio ad",
@@ -850,143 +820,181 @@ export default function AdCreator() {
       genAiMetadata.track as VoxifyTrack;
     _voxifyAd.recommendations[recommendIndex].id = data.data?.id;
 
-    console.log("setVoxifyAd here ", { _voxifyAd });
+    logger.info("setVoxifyAd here ", { _voxifyAd });
 
     setVoxifyAd({ ..._voxifyAd });
   };
 
   const pollVoxifyJob = async (jobId: string, compositionId?: string) => {
-    const { status, error, message, data } = await adsApi.getVoxifyPoll(jobId);
-    console.log("getVoxifyPoll here ", { status, error, message, data });
-    if (status != 200) {
-      toast({
-        title: "Error polling voxify job",
-        description: message,
-        variant: "destructive",
-      });
-      setVoxifyGenerating(false);
-      setLoadedExistingCampaign(true);
-      return;
-    }
+    return Sentry.startSpan(
+      {
+        name: "voxify.pollJob",
+        op: "voxify.poll",
+        attributes: { jobId, compositionId: compositionId ?? "" },
+      },
+      async () => {
+        const { status, error, message, data } =
+          await adsApi.getVoxifyPoll(jobId);
+        logger.info("getVoxifyPoll", {
+          jobId,
+          compositionId: compositionId ?? "",
+          status,
+          error: error?.message,
+          message,
+          jobStatus: data?.data?.status,
+          success: data?.data?.success,
+        });
+        if (status != 200) {
+          logger.warn("voxify poll HTTP error", { jobId, status, message });
+          toast({
+            title: "Error polling voxify job",
+            description: message,
+            variant: "destructive",
+          });
+          setVoxifyGenerating(false);
+          setLoadedExistingCampaign(true);
+          return;
+        }
 
-    if (!data.data?.success) {
-      toast({
-        title: "Error polling voxify job",
-        description: message,
-        variant: "destructive",
-      });
-      setVoxifyGenerating(false);
-      setLoadedExistingCampaign(true);
-      return;
-    }
+        if (!data.data?.success) {
+          logger.warn("voxify poll unsuccessful", { jobId, message });
+          toast({
+            title: "Error polling voxify job",
+            description: message,
+            variant: "destructive",
+          });
+          setVoxifyGenerating(false);
+          setLoadedExistingCampaign(true);
+          return;
+        }
 
-    if (data.data?.status === "completed") {
-      setVoxifyGenerating(false);
-      const _voxifyAd = data?.data?.result;
+        if (data.data?.status === "completed") {
+          logger.info("voxify poll completed", {
+            jobId,
+            recommendationCount: data?.data?.result?.recommendations?.length,
+          });
+          setVoxifyGenerating(false);
+          const _voxifyAd = data?.data?.result;
 
-      for (let i = 0; i < _voxifyAd.recommendations.length; i++) {
-        _voxifyAd.recommendations[i].generated = false;
-        _voxifyAd.recommendations[i].generating = false;
-        _voxifyAd.recommendations[i].isEdited = false;
-        _voxifyAd.recommendations[i].id =
-          data.data?.result.recommendations[i].id;
-        _voxifyAd.recommendations[i].script.text = _voxifyAd.recommendations[
-          i
-        ].script.text
-          .replace(/(\[[^\]]+\])/g, "<strong>$1</strong>")
-          .replace(/\.\s/g, ". <br />");
-      }
+          for (let i = 0; i < _voxifyAd.recommendations.length; i++) {
+            _voxifyAd.recommendations[i].generated = false;
+            _voxifyAd.recommendations[i].generating = false;
+            _voxifyAd.recommendations[i].isEdited = false;
+            _voxifyAd.recommendations[i].id =
+              data.data?.result.recommendations[i].id;
+            _voxifyAd.recommendations[i].script.text =
+              _voxifyAd.recommendations[i].script.text
+                .replace(/(\[[^\]]+\])/g, "<strong>$1</strong>")
+                .replace(/\.\s/g, ". <br />");
+          }
 
-      if (compositionId) {
-        _voxifyAd.recommendations = _voxifyAd.recommendations.filter(
-          (recommendation) =>
-            recommendation.reference.composition_id === compositionId,
-        );
-        _voxifyAd.recommendations[0].generating = true;
-      }
+          if (compositionId) {
+            _voxifyAd.recommendations = _voxifyAd.recommendations.filter(
+              (recommendation) =>
+                recommendation.reference.composition_id === compositionId,
+            );
+            _voxifyAd.recommendations[0].generating = true;
+          }
 
-      setVoxifyAd({ ..._voxifyAd });
+          setVoxifyAd({ ..._voxifyAd });
 
-      if (compositionId) {
-        setTimeout(() => {
-          generateVoxifyAd(0, jobId, _voxifyAd);
-        }, 2000);
-      }
-    } else {
-      setTimeout(() => {
-        pollVoxifyJob(jobId);
-      }, 5000);
-    }
-    setLoadedExistingCampaign(true);
+          if (compositionId) {
+            setTimeout(() => {
+              generateVoxifyAd(0, jobId, _voxifyAd);
+            }, 2000);
+          }
+        } else {
+          logger.info("voxify poll pending, retrying", {
+            jobId,
+            jobStatus: data.data?.status,
+          });
+          setTimeout(() => {
+            pollVoxifyJob(jobId, compositionId);
+          }, 5000);
+        }
+        setLoadedExistingCampaign(true);
+      },
+    );
   };
 
   const handleVoxifyGenerate = async () => {
-    console.log("handleVoxifyGenerate here ", { voxifyPlainText });
+    logger.info("handleVoxifyGenerate", {
+      voxifyType,
+      voxifyGoal,
+      plainTextLength: voxifyPlainText?.length,
+    });
 
     setVoxifyGenerating(true);
     setHideTopOptions(true);
 
     try {
-      console.log("handleVoxifyGenerate here ", {
-        voxifyPlainText,
-      });
-
-      const { error, status, message, data } =
-        await adsApi.generateRecommendation({
-          campaignGoal: voxifyGoal,
-          advertiserId: advertiserId,
-          productDescription: voxifyPlainText.replace(/\n/g, ' '),
-          type: voxifyType as "PROMPT" | "SCRIPT",
-        });
-      console.log("createAd with PROMPT here ", {
-        error,
-        status,
-        message,
-        data,
-      });
-      if (status != 200) {
-        toast({
-          title: t("ad_creator.generation_failed"),
-          description: "Error generating ad",
-          variant: "destructive",
-        });
-        setVoxifyGenerating(false);
-        setHideTopOptions(false);
-        setVoxifyError(message || "Error generating ad");
-        return;
-      }
-      if (error) throw error;
-      // const ad = data;
-      // setGeneratedAd(ad);
-      // setEditedScript(ad.script);
-      // getAdStatus(data.data.jobId);
-      // setJobId(data.data.id);
-      if (voxifyType === "PROMPT") {
-        setVoxifyJobId(data.data?.jobId);
-        pollVoxifyJob(data.data?.jobId);
-      } else {
-        if (!data.assets) {
-          toast({
-            title: t("ad_creator.generation_failed"),
-            description: message || t("ad_creator.generation_failed_desc"),
-            variant: "destructive",
+      await Sentry.startSpan(
+        {
+          name: "voxify.generateRecommendation",
+          op: "voxify.generate",
+          attributes: {
+            type: voxifyType,
+            goal: voxifyGoal,
+            advertiserId: advertiserId ?? "",
+          },
+        },
+        async () => {
+          const { error, status, message, data } =
+            await adsApi.generateRecommendation({
+              campaignGoal: voxifyGoal,
+              advertiserId: advertiserId,
+              productDescription: voxifyPlainText.replace(/\n/g, " "),
+              type: voxifyType as "PROMPT" | "SCRIPT",
+            });
+          logger.info("generateRecommendation response", {
+            status,
+            message,
+            jobId: data?.data?.jobId,
+            hasAssets: Boolean(data?.assets),
+            error: error?.message,
           });
-          setVoxifyGenerating(false);
-          setHideTopOptions(false);
-          setVoxifyError("Error generating ad");
-          return;
-        }
+          if (status != 200) {
+            logger.warn("generateRecommendation failed", { status, message });
+            toast({
+              title: t("ad_creator.generation_failed"),
+              description: "Error generating ad",
+              variant: "destructive",
+            });
+            setVoxifyGenerating(false);
+            setHideTopOptions(false);
+            setVoxifyError(message || "Error generating ad");
+            return;
+          }
+          if (error) throw error;
+          if (voxifyType === "PROMPT") {
+            setVoxifyJobId(data.data?.jobId);
+            pollVoxifyJob(data.data?.jobId);
+          } else {
+            if (!data.assets) {
+              logger.warn("SCRIPT response missing assets");
+              toast({
+                title: t("ad_creator.generation_failed"),
+                description: message || t("ad_creator.generation_failed_desc"),
+                variant: "destructive",
+              });
+              setVoxifyGenerating(false);
+              setHideTopOptions(false);
+              setVoxifyError("Error generating ad");
+              return;
+            }
 
-        if (data.data?.jobId) {
-          setVoxifyJobId(data.data.jobId);
-        }
+            if (data.data?.jobId) {
+              setVoxifyJobId(data.data.jobId);
+            }
 
-        setVoxifyAd(mapAssetToVoxifyResult(data.assets));
-        setVoxifyGenerating(false);
-        setLoadedExistingCampaign(true);
-      }
+            setVoxifyAd(mapAssetToVoxifyResult(data.assets));
+            setVoxifyGenerating(false);
+            setLoadedExistingCampaign(true);
+          }
+        },
+      );
     } catch (err) {
-      console.error("Generate error:", err);
+      logger.captureException(err, { context: "handleVoxifyGenerate" });
       toast({
         title: t("ad_creator.generation_failed"),
         description: t("ad_creator.generation_failed_desc"),
@@ -1213,7 +1221,6 @@ export default function AdCreator() {
                       variant="outline"
                       size="md"
                       onClick={() => {
-                        console.log("try again");
                         setVoxifyError("");
                       }}
                     >

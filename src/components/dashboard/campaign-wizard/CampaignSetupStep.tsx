@@ -12,6 +12,7 @@ import { auth, AuthSession } from '@/services/auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { MyTooltip } from '@/components/ui/MyTooltip';
+import { logger } from "@/lib/logger";
 
 interface CampaignSetupData {
   audioId: string;
@@ -180,8 +181,8 @@ export default function CampaignSetupStep({ data, onChange, searchInputRef, camp
         search: query || undefined
       });
   
-      console.log("adsRes here ", {adsRes, error, status, message});
       if (status !== 200 || error) {
+        logger.captureException(error, { context: 'Get ads error:', res: adsRes});
         toast({ title: t('common.error'), description: message ?? 'Unable to load ads', variant: 'destructive' });
         setAds([]);
         setTotalAds(0);

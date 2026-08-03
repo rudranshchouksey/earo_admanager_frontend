@@ -5,6 +5,7 @@
 import Cookies from "js-cookie";
 import { BASE_URL, request } from "./api";
 import { adsApi } from "./ads";
+import { logger } from "@/lib/logger";
 
 export interface Organizations {
   orgId: string;
@@ -94,8 +95,6 @@ export function createSessionAndNotify(data: any) {
   const currentOrganizationId = data.data.organizations[0].orgId;
   const orgType = data.data.organizations[0].orgType;
 
-  console.log({ currentOrganizationId });
-
   const role = data.data.organizations ? data.data.organizations[0].role : 'VIEWER';
 
   const session: AuthSession = {
@@ -165,7 +164,7 @@ async function downloadAndUploadAudio(audioUrl: string, organizationId: string, 
 
     return result;
   } catch (error) {
-    console.error('Error:', error);
+    logger.captureException(error, { context: 'Error:' });
     return null;
   }
 }
@@ -195,7 +194,7 @@ export const handleLandingPageAudioAdDownload = async (jobId: string, recommende
         .json()
         .catch(() => ({}));
 
-      console.log("recommendationJson ", recommendationJson);
+      logger.info("recommendationJson ", { value: recommendationJson });
       
 
       if (
@@ -204,12 +203,12 @@ export const handleLandingPageAudioAdDownload = async (jobId: string, recommende
         recommendationJson.result.audio_ad &&
         recommendationJson.result.audio_ad.audio_url
       ) {
-        console.log("audioUrl ", recommendationJson.result.audio_ad.audio_url);
 
+        
 
         const fileuploadResult = await downloadAndUploadAudio(recommendationJson.result.audio_ad.audio_url, organizationId, accessToken);
-        console.log("uploadResult ", fileuploadResult);
 
+        
         
         
         const result = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/creatives/uploadAudioAd`, {
@@ -228,9 +227,9 @@ export const handleLandingPageAudioAdDownload = async (jobId: string, recommende
           },
         });
         const resultJson = await result.json();
-        console.log("resultJson ", resultJson);
+        logger.info("resultJson ", { value: resultJson });
       } else {
-        console.log("No audio url found");
+        logger.info("No audio url found");
       }
 
       //setAudioUrl(json?.data?.result?.delivery?.uri);
@@ -277,12 +276,12 @@ export const auth = {
   },
 
   setCurrentAdvertiserId: (advertiserId: string, isPro: boolean = false) => {
-    console.log("setCurrentAdvertiserId here ", {advertiserId, isPro});
+
     const session = getStoredSession();
     if (!session) return;
     session.currentAdvertiserId = advertiserId;
     session.user.app_metadata!.isPro = isPro;
-    console.log("session here ", {session});
+
     setStoredSession(session);
     notify('ADVERTISER_CHANGED', session);
   },
@@ -297,7 +296,7 @@ export const auth = {
 
   /** Standard Login */
   signInWithPassword: async (email: string, password: string) => {
-    console.log("signInWithPassword", { email, password });
+
     const { data, error, status, message } = await request<any>('/api/v1/auth/login', {
       method: 'POST',
       body: { email: email.trim().toLowerCase(), password: password.trim() },
@@ -318,7 +317,7 @@ export const auth = {
       skipAuth: true
     });
 
-    console.log("signInWithGoogle", { data, error, status, message });
+    logger.info("signInWithGoogle", { data, error, status, message });
 
     if (error || status !== 200 || !data?.tokens) return { data: data?.data, error, status, message };
 
@@ -326,7 +325,7 @@ export const auth = {
     if(jobId && recommendedVersion && data.isNewAccount){
       const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
       const organizationId = data?.data?.organizations[0]?.orgId;
-      console.log("advertiserId ", advertiserId);
+      logger.info("advertiserId ", { value: advertiserId });
       handleLandingPageAudioAdDownload(jobId, recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
     }
 
@@ -350,19 +349,11 @@ export const auth = {
 
     if (error || !data?.tokens) return { data: null, error, status, message };   
 
-    console.log({
-      jobId: params.jobId,
-      recommendedVersion: params.recommendedVersion,
-      advertisers: data?.data?.organizations[0]?.advertisers,
-      advertisersLength: data?.data?.organizations[0]?.advertisers?.length,
-      accessToken: data.tokens.accessToken,
-      organizations: data?.data?.organizations,
-      organizationsLength: data?.data?.organizations?.length,
-    })
+
     if(params.jobId && data?.data?.organizations[0]?.advertisers && data?.data?.organizations[0]?.advertisers?.length > 0){
       const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
       const organizationId = data?.data?.organizations[0]?.orgId;
-      console.log("advertiserId ", advertiserId);
+
       handleLandingPageAudioAdDownload(params.jobId, params.recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
     }
 
@@ -373,7 +364,7 @@ export const auth = {
 
   /** OTP & Verification Flows */
   verifyEmailOtp: async (email: string, otp: string) => {
-    console.log("verifySignupOtp", email, otp);
+
     const { error, status, message } = await request('/api/v1/auth/verifyOtp', {
       method: 'POST',
       body: { email, otp }

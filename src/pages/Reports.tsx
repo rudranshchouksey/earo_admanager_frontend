@@ -58,6 +58,7 @@ import {
 import { appNotifications } from '@/services/appNotifications';
 import { Helmet } from 'react-helmet-async';
 import { toast } from '@/hooks/use-toast';
+import { logger } from "@/lib/logger";
 
 
 
@@ -1244,7 +1245,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data) {
-          if (error) console.error(error);
+          logger.error("Error getting campaign reports", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1296,7 +1298,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data) {
-          if (error) console.error(error);
+          logger.error("Error getting country city report", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1343,7 +1346,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data) {
-          if (error) console.error(error);
+          logger.error("Error getting content inventory report", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1390,7 +1394,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data) {
-          if (error) console.error(error);
+          logger.error("Error getting ad delivery report", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1436,7 +1441,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data) {
-          if (error) console.error(error);
+          logger.error("Error getting impressions by filtered", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1483,7 +1489,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !data?.data?.campaignMetrics) {
-          if (error) console.error(error);
+          logger.error("Error getting impressions share by campaigns", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1530,7 +1537,8 @@ export default function Reports() {
 
         if (cancelled) return;
         if (status !== 200 || error || !Array.isArray(data?.data)) {
-          if (error) console.error(error);
+          logger.error("Error getting campaign performance", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
           return;
         }
 
@@ -1557,7 +1565,7 @@ export default function Reports() {
 
       const {data: {session: sessionData}} = await auth.getSession();
       if (!sessionData) {
-        console.error("Not authenticated");
+        logger.error("Not authenticated");
         return;
       }
 
@@ -1576,7 +1584,7 @@ export default function Reports() {
           campaignType: 'SPECIFIC',
         });
         if (status !== 200 || error) {
-          console.error(error);
+          logger.captureException(error);
           return;
         }
       }
@@ -1590,7 +1598,7 @@ export default function Reports() {
           campaignType: 'SPECIFIC',
         });
         if (status !== 200 || error) {
-          console.error(error);
+          logger.captureException(error);
           return;
         }
       }
@@ -1613,7 +1621,7 @@ export default function Reports() {
       try {
         const {data: {session: sessionData}} = await auth.getSession();
         if (!sessionData) {
-          console.error("Not authenticated");
+          logger.error("Not authenticated");
           setAllCampaigns([]);
           return;
         }
@@ -1626,7 +1634,7 @@ export default function Reports() {
           adswizzSync: false
         });
         if (status !== 200 || error) {
-          console.error(error);
+          logger.captureException(error);
           toast({ title:'Error', description: error?.message ?? 'Unable to load campaigns', variant: 'destructive' });
           setAllCampaigns([]);
           return;
@@ -1644,7 +1652,7 @@ export default function Reports() {
 
 
     appNotifications.subscribe('advertiser:selected', () => {
-      console.log("advertiser:selected");
+      logger.info("advertiser:selected");
       fetchData();
     });
 
@@ -1721,9 +1729,9 @@ export default function Reports() {
     try{
 
       let obj: Record<string, number> = {};
-      console.log("campaignsReport", campaignsReport);
+
       campaignsReport?.data?.forEach((c) => {
-        console.log("campaignId and campaignBudget", c.campaignId, c.campaignBudget);
+
         if(c.campaignBudget && c.campaignId){
           if(!obj[c.campaignId]){
             const cleanString = c.campaignBudget?.toString().replace(/[^0-9.]/g, '');

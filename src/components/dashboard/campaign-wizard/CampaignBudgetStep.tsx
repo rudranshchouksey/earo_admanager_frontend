@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { MyTooltip } from '@/components/ui/MyTooltip';
 import { toast } from '@/hooks/use-toast';
 
+
 interface BudgetData {
   dailyBudget: string;
   totalBudget: string;
@@ -48,7 +49,6 @@ export default function CampaignBudgetStep({ data, onChange, durationDays = 7, c
     } else {
       const total = value;
       const daily = parseInt(String(total / durationDays));
-      console.log("daily", daily, "total", total);
       onChange({ ...data, dailyBudget: String(daily), totalBudget: String(total) });
     }
   };

@@ -535,7 +535,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                   columns={streamingAudienceColumns}
                   selectionMode="multi"
                   selectedIds={data.streamingAudiences || []}
-                  onSelectionChange={(ids) => {console.log(ids); onChange({ ...data, streamingAudiences: ids })}}
+                  onSelectionChange={(ids) => {onChange({ ...data, streamingAudiences: ids })}}
                   selectAllFiltered
                   idKey="value"
                   searchPlaceholder="Search by category, behavior, or segment..."

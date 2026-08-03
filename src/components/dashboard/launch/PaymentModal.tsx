@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { Cross, CrossIcon, Loader2 } from "lucide-react";
 import { Close } from "@radix-ui/react-toast";
+import { logger } from "@/lib/logger";
 
 export interface PaymentModalProps {
   open: boolean;
@@ -70,7 +71,7 @@ export default function PaymentModal({
         };
     
         scriptTag.onerror = () => {
-            console.error("Failed to load the Mamo Pay SDK.");
+            logger.error("Failed to load the Mamo Pay SDK.");
         };
     
         document.head.appendChild(scriptTag);

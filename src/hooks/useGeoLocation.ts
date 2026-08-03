@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getGeoData } from '@/services/geo';
 import type { GeoData } from '@/types/landing';
+import { logger } from "@/lib/logger";
 
 const defaultGeoData: GeoData = {
   locale: 'en-US',
   city: 'your city',
+  region: 'your region',
   country: 'your country',
   country_code: 'US',
   language: 'en',
@@ -23,13 +25,13 @@ export function useGeoLocation() {
       try {
         const { data, error: err } = await getGeoData();
         if (err) {
-          console.error('Geo detection error:', err);
+          logger.captureException(err, { context: 'Geo detection error:' });
           setGeoData(defaultGeoData);
           return;
         }
         setGeoData(data as GeoData);
       } catch (err) {
-        console.error('Failed to detect location:', err);
+        logger.captureException(err, { context: 'Failed to detect location:' });
         setGeoData(defaultGeoData);
         setError('Failed to detect location');
       } finally {
