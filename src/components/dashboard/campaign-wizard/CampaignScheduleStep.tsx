@@ -1,5 +1,5 @@
 import { Label } from '@/components/ui/label';
-import { Check, CalendarIcon } from 'lucide-react';
+import { Check, CalendarIcon, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 import { useEffect, useMemo, useState } from 'react';
@@ -8,6 +8,14 @@ import { differenceInCalendarDays, format, parse } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { MyTooltip } from '@/components/ui/MyTooltip';
 
@@ -79,7 +87,8 @@ interface ScheduleData {
   endTime: string;
   daysOfWeek: string[];
   timeSlots: string[];
-  selectedHours?: number[];
+  selectedHours: number[];
+  timezone: string;
 }
 
 interface Props {
@@ -100,14 +109,6 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const timezone = useMemo(() => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone;
-    } catch {
-      return 'UTC';
-    }
-  }, []);
 
   const toggleDay = (day: string) => {
     const next = selectedDays.includes(day)
@@ -144,9 +145,20 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
 
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
+  const [timezoneOpen, setTimezoneOpen] = useState(false);
 
   const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+  const timezones = useMemo(() => {
+    const intl = Intl as typeof Intl & {
+      supportedValuesOf?: (key: "timeZone") => string[];
+    };
+    if (typeof intl.supportedValuesOf === "function") {
+      return intl.supportedValuesOf("timeZone");
+    }
+    return [Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"];
+  }, []);
 
+  const selectedTimezone = data.timezone || "UTC";
 
   const formatDate = (date: Date) => {
     return `${date.getFullYear()}-${String(
@@ -155,9 +167,63 @@ export default function CampaignScheduleStep({ data, onChange, campaignStatus, d
   }
   return (
     <div className="space-y-6">
-      <div className=" flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col gap-4">
         <div className="space-y-2 w-full">
-          <Label className='flex items-center gap-2'><span>Start date and time ({timezone}) <sup>*</sup></span> </Label>
+          <Label className='flex items-center gap-2'><span>Campaign timezone <sup>*</sup></span> </Label>
+          <Popover open={timezoneOpen} onOpenChange={setTimezoneOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={timezoneOpen}
+                disabled={shouldDisable}
+                className="w-full justify-between font-normal"
+              >
+                <span className="truncate">{selectedTimezone}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search timezone..." />
+                <CommandList>
+                  <CommandEmpty>No timezone found.</CommandEmpty>
+                  <CommandGroup>
+                    {timezones.map((timezone) => (
+                      <CommandItem
+                        key={timezone}
+                        value={timezone}
+                        onSelect={(value) => {
+                          const match = timezones.find(
+                            (tz) => tz.toLowerCase() === value.toLowerCase(),
+                          );
+                          if (match) {
+                            onChange({ ...data, timezone: match });
+                          }
+                          setTimezoneOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 shrink-0",
+                            selectedTimezone === timezone ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {timezone}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div className=" flex flex-col lg:flex-row gap-4">
+
+        <div className="space-y-2 w-full">
+          <Label className='flex items-center gap-2'><span>Start date and time <sup>*</sup></span> </Label>
           <div className="flex gap-2">
             <Popover open={startOpen} onOpenChange={setStartOpen}>
               <PopoverTrigger asChild>

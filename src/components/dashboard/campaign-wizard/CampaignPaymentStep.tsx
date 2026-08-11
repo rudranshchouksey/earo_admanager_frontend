@@ -14,10 +14,12 @@ interface PaymentData {
   couponCode: string;
   discountValue: number;
   discountType: string;
+  remainingUsages: number;
   originalAmount: number;
   discountApplied: number;
   finalAmount: number;
   cardId: string | null;
+  expiryDate: string | null;
 }
 
 interface Props {
@@ -242,6 +244,20 @@ export default function CampaignPaymentStep({
               <label className="text-sm text-primary">
                 Coupon - {data.couponCode}
               </label>
+              <h6 className="text-xs text-muted-foreground capitalize">
+                {
+                  data.discountType === "FIXED" ? `Fixed $${data.discountValue} Off` : `${data.discountValue}% Off`
+                }
+              </h6>
+              <h6 className="text-xs text-muted-foreground">
+                {data.remainingUsages > 0 ? `${data.remainingUsages} usages remaining` : 'No usages remaining'}
+              </h6>
+              <h6 className="text-xs text-muted-foreground">
+                {
+                  data.expiryDate ? `Expires on ${new Date(data.expiryDate).toLocaleDateString()}` : ''
+                }
+
+              </h6>
             </div>
             <div className="flex flex-col items-center gap-2">
               <label className="text-sm font-semibold text-primary">
