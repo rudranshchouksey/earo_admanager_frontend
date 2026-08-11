@@ -1460,10 +1460,6 @@ export default function CampaignWizard() {
       setIsApplyingCoupon(false);
     }
   }
-
-  useEffect(() => {
-    console.log({inventory});  
-  }, [inventory])
   
 
   useEffect(() => {
@@ -1718,12 +1714,6 @@ export default function CampaignWizard() {
         const exisintgRules = audienceTargeting["groups"][0].rules;
 
         let groupIndex = 0;
-
-
-        console.log("countriesWithoutSubCategories", countriesWithoutSubCategories);
-        console.log("postalCodes", postalCodes);
-        console.log("latLong", latLong);
-        console.log("listOfCities", listOfCities);
 
 
 
@@ -2007,7 +1997,6 @@ export default function CampaignWizard() {
         console.error(error);
         return;
       }
-      console.log("getContentLanguage here ", {data, error});
       if(data?.data && data?.data.length > 0){
         setContentLanguages(data?.data?.filter(item => item.label).map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
       } else {
@@ -2033,15 +2022,11 @@ export default function CampaignWizard() {
 
   useEffect(() => {
     
-    logger.info("id here ", { value: id });
-
     if(id && id !== "new"){
       // Fetch existing campaign data and populate form for editing
       const getCampaignData = async () => {
       const { data: { session } } = await auth.getSession();
         const {status, data, message} = await campaignApi.getCampaign({id, advertiserId: session?.currentAdvertiserId});
-
-        logger.info("Existing campaign data:", {status, data, message});
 
         if(data?.data?.status){
           setCampaignStatus(data?.data?.status);

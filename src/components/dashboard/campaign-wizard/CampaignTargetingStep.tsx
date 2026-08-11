@@ -271,7 +271,6 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
   };
 
   const setInventoryType = (type: string) => {
-    console.log('setInventoryType', type);
     const _type = data.inventoryType.split(',').includes(type) ? data.inventoryType.split(',').filter(t => t !== type).join(',') : [...data.inventoryType.split(','), type].join(',');
     onChange({ ...data, inventoryType: _type });
   };
