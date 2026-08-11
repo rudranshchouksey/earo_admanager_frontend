@@ -4,6 +4,7 @@ export interface Country {
     id: string;
     name: string;
     code: string;
+    postalCodeAvailable: boolean
 }
 
 export interface City {
@@ -156,8 +157,8 @@ export interface ContentLanguage {
 
 
 export const targetingApi = {
-    getCountries: (postalCode: string) => request<GetCountriesResponse>('/api/v1/campaigns/getCountries', { method: 'GET', params: { postalCode: postalCode ? postalCode : '' } }),
-    getCities: (countryCode: string) => request<GetCitiesResponse>('/api/v1/campaigns/getCitiesByCountry', { method: 'POST', body: { countryCode } }),
+    getCountries: (postalCode: string) => request<GetCountriesResponse>('/api/v1/campaigns/getCountries', { method: 'GET', params: { postalCode: postalCode ? postalCode : '' }, dedupingInterval: 15 * 60 * 1000}),
+    getCities: (countryCode: string) => request<GetCitiesResponse>('/api/v1/campaigns/getCitiesByCountry', { method: 'POST', body: { countryCode }, dedupingInterval: 15 * 60 * 1000 }),
     getPublisherSegments: () => request<GetPublisherSegmentsResponse>('/api/v1/campaigns/getPublisherSegments', { method: 'POST', body: { segmentCode: 'PUBLISHER_ATTRIBUTES_SEGMENTS', search: '' } }),
     getPodcastAudiences: (contextual: string, behavioral: string) => request<GetPodcastAudiencesResponse>('/api/v1/campaigns/getPodcastAudiences', { method: 'POST', body: { contextual, behavioral, search: '' } }),
     getStreamingAudiences: (segmentCode: string, search: string) => request<GetStreamingAudiencesResponse>('/api/v1/campaigns/getStreamingAudiences', { method: 'GET', params: { segmentCode, search: '' } }),

@@ -26,6 +26,7 @@ export interface Ad {
   audioFadeOut?: boolean;
   source: "V0" | "V1";
   compositionId: string;
+  isMadeOfAI: "no" | "yes";
 }
 
 export interface Voice {

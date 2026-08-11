@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
@@ -253,13 +253,20 @@ export default function CampaignWizard() {
     const end = new Date();
     end.setDate(end.getDate() + 30);
     end.setHours(23,59);
-    return {  startDate: formatDate(today), endDate: formatDate(end), startTime: today.getHours().toString().padStart(2, "0") + ":00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))] };
+    return {  startDate: formatDate(today), endDate: formatDate(end), startTime: today.getHours().toString().padStart(2, "0") + ":00", endTime: "23:59", daysOfWeek: DAYS_OF_WEEK, timeSlots: TIME_SLOTS.flatMap(item => item.value), selectedHours: [...new Set(TIME_SLOTS.flatMap(item => item.valueInHours))], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
   });
   const { geoData, isLoading: geoLoading } = useGeoLocation();
   const [inventory, setInventory] = useState<LocationData>({
     country: "",
     countryCode: "",
     businessLocations: [],
+    targetingType: "cities",
+    targetLatLong: [],
+    targetPostal: [],
+    selectedCities: [],
+    selectedCountries: [],
+    selectedBusinessIds: [],
+    withinCountryValues: {},
   });
   const [geoApplied, setGeoApplied] = useState(false);
   const [targeting, setTargeting] = useState({
@@ -274,17 +281,14 @@ export default function CampaignWizard() {
     adPositions: ["pre-roll", "mid-roll", "post-roll"] as string[],
     selectedShows: [] as string[],
     savedAudiences: [] as string[],
-    contentLanguages: [] as string[],
-    postalCodes: [] as { country: string; code: string }[],
-    lat: "",
-    long: "",
+    contentLanguages: [] as string[]
   });
   const [budget, setBudget] = useState({
     dailyBudget: "25",
     totalBudget: "750",
     currency: "USD",
   });
-  const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", originalAmount: 0, discountApplied: 0, finalAmount: 0 });
+  const [payment, setPayment] = useState({ cardId: "", paymentMethod: "", couponCode: "", discountValue: 0, discountType: "", remainingUsages: 0, expiryDate: null, originalAmount: 0, discountApplied: 0, finalAmount: 0 });
   const [countries, setCountries] = useState<Country[]>([]);
   const [postalCodeCountries, setPostalCodeCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -335,6 +339,43 @@ export default function CampaignWizard() {
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
+
+  /** Derive per-country targeting mode from stored payload (not persisted as a type field). */
+  const existingTargetTypes = useMemo(() => {
+    const records: Record<string, "cities" | "latlong" | "postal"> = {};
+
+    // Later kinds win if a country somehow has multiple (UI enforces one).
+    inventory.targetPostal?.forEach((item) => {
+      if (item?.country && String(item.code ?? "").trim()) {
+        records[item.country] = "postal";
+      }
+    });
+
+    inventory.targetLatLong?.forEach((item) => {
+      if (!item?.country) return;
+      const lat = item.latitude;
+      const lng = item.longitude;
+      const hasCoords =
+        (lat !== "" && lat != null) || (lng !== "" && lng != null);
+      if (hasCoords) {
+        records[item.country] = "latlong";
+      }
+    });
+
+    inventory.selectedCities?.forEach((city) => {
+      if (city?.country) {
+        records[city.country] = "cities";
+      }
+    });
+
+    return records;
+  }, [
+    inventory.targetPostal,
+    inventory.targetLatLong,
+    inventory.selectedCities,
+  ]);
+
+  
   // to skip the schedule update when loading the campaign data and applying the coupon
   const skipScheduleUpdate = useRef(false);
 
@@ -559,6 +600,11 @@ export default function CampaignWizard() {
       }
 
 
+      if(!validateLatLong()){
+        setSaving(false);
+        return;
+      }
+
 
       const campaignObj = {
         id,
@@ -569,7 +615,7 @@ export default function CampaignWizard() {
         startTime: campaignStartTime,
         endDate: campaignEndDate,
         endTime: campaignEndTime,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: schedule.timezone ||  Intl.DateTimeFormat().resolvedOptions().timeZone,
         daysOfWeek: schedule.daysOfWeek,
         timeOfDay: schedule.timeSlots,
         budget: Number(budget.totalBudget),
@@ -579,7 +625,7 @@ export default function CampaignWizard() {
         audioId: setup.audioId,
         monthlyBilling: false,
         billingDuration: 1,
-        inventoryType: targeting.inventoryType === "Podcast" ? "Podcast" : "Streaming",
+        inventoryType: targeting.inventoryType,
         geoCountries: geoCountries,
         gender: targeting.gender === "all" ? "" : targeting.gender,
         age: targeting.ageRanges,
@@ -596,6 +642,9 @@ export default function CampaignWizard() {
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: payment.cardId ? payment.cardId : null,
+        contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
+        locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
+        locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
       };
 
 
@@ -648,6 +697,79 @@ export default function CampaignWizard() {
   }
 
 
+  const validateLatLong = (): boolean => {
+    if (!inventory.targetLatLong?.length) return true;
+
+    for (const latLong of inventory.targetLatLong) {
+      const lat = Number(latLong.latitude);
+      const lng = Number(latLong.longitude);
+      const radius = Number(latLong.radius);
+
+      // Skip empty rows
+      if (!lat && !lng && !radius) continue;
+
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+        toast({
+          title: "Error",
+          description: "Latitude must be between -90 and 90",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+        toast({
+          title: "Error",
+          description: "Longitude must be between -180 and 180",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (Number.isNaN(radius) || radius < 0 || radius > 1000) {
+        toast({
+          title: "Error",
+          description: "Radius must be between 0 and 1000",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const R = 6371;
+      const maxSafeLat = 90 - 0.5; // buffer near the pole
+      if (Math.abs(lat) > maxSafeLat) {
+        const deltaLat = (radius / R) * (180 / Math.PI);
+        if (
+          Math.abs(lat) + deltaLat > 90 ||
+          Math.abs(lat) - deltaLat < -90 + 0.001
+        ) {
+          toast({
+            title: "Error",
+            description:
+              "Radius is too large for a location this close to the pole.",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      // Cosine near-zero guard
+      const cosLat = Math.cos((lat * Math.PI) / 180);
+      if (cosLat < 0.01) {
+        toast({
+          title: "Error",
+          description:
+            "Locations this close to the pole are not supported for radius targeting.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+
 
   const updateCampaign = async () => {
 
@@ -698,6 +820,12 @@ export default function CampaignWizard() {
       countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       return;
     }
+
+    if(!validateLatLong()){
+      return;
+    }
+
+
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
@@ -804,7 +932,7 @@ export default function CampaignWizard() {
         startTime: campaignStartTime,
         endDate: campaignEndDate,
         endTime: campaignEndTime,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         daysOfWeek: schedule.daysOfWeek,
         timeOfDay: schedule.timeSlots,
         budget: Number(budget.totalBudget),
@@ -814,7 +942,7 @@ export default function CampaignWizard() {
         audioId: setup.audioId,
         monthlyBilling: false,
         billingDuration: 1,
-        inventoryType: targeting.inventoryType === "Podcast" ? "Podcast" : "Streaming",
+        inventoryType: targeting.inventoryType,
         geoCountries: geoCountries,
         gender: targeting.gender === "all" ? "" : targeting.gender,
         age: targeting.ageRanges,
@@ -831,6 +959,10 @@ export default function CampaignWizard() {
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
+        contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
+        locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
+        locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
+
       };
 
 
@@ -937,6 +1069,13 @@ export default function CampaignWizard() {
       countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       return;
     }
+
+
+    
+    if(!validateLatLong()){
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: { session } } = await auth.getSession();
@@ -1043,7 +1182,7 @@ export default function CampaignWizard() {
         startTime: campaignStartTime,
         endDate: campaignEndDate,
         endTime: campaignEndTime,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         daysOfWeek: schedule.daysOfWeek,
         timeOfDay: schedule.timeSlots,
         budget: Number(budget.totalBudget),
@@ -1053,7 +1192,7 @@ export default function CampaignWizard() {
         audioId: setup.audioId,
         monthlyBilling: false,
         billingDuration: 1,
-        inventoryType: targeting.inventoryType === "Podcast" ? "Podcast" : "Streaming",
+        inventoryType: targeting.inventoryType,
         geoCountries: geoCountries,
         gender: targeting.gender === "all" ? "" : targeting.gender,
         age: targeting.ageRanges,
@@ -1070,6 +1209,10 @@ export default function CampaignWizard() {
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
+        contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
+        locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
+        locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
+
       };
 
 
@@ -1180,6 +1323,26 @@ export default function CampaignWizard() {
     );
   };
 
+  const onTargetLatLongChange = (country: string, latitude: number, longitude: number, radius: number) => {
+
+    const countryLatLong = inventory.targetLatLong?.filter(p => p.country !== country) || [];
+    const targetLatLong = [...countryLatLong, { country, latitude, longitude, radius: Number(radius) }];
+
+    const listOfCities = inventory.selectedCities?.filter(c => c.country !== country) || [];
+    const listOfPostal = inventory.targetPostal?.filter(p => p.country !== country) || [];
+
+    setInventory((prev) => ({ ...prev, targetLatLong: targetLatLong, targetingType: "latlong", selectedCities: listOfCities, targetPostal: listOfPostal }));
+  }
+
+  const onTargetPostalChange = (country: string, postal: string) => {
+    const countryPostal = inventory.targetPostal?.filter(p => p.country !== country) || [];
+    const listOfCities = inventory.selectedCities?.filter(c => c.country !== country) || [];
+    const listOfLatLong = inventory.targetLatLong?.filter(p => p.country !== country) || [];
+    const targetPostal = [...countryPostal, { country, code: postal }];
+
+    setInventory((prev) => ({ ...prev, targetPostal: targetPostal, targetingType: "postal", selectedCities: listOfCities, targetLatLong: listOfLatLong }));
+  }
+
   const onCountryChange = async (codes: string[]) => {
     setInventory((prev) => ({ ...prev, selectedCountries: codes }));
     const newCities: City[] = [];
@@ -1212,15 +1375,24 @@ export default function CampaignWizard() {
     setCities(newCities);
   };
 
-  const onCityChange = (ids: string[]) => {
+  const onCityChange = (ids: string[], country: string) => {
     // const newCities = ids.map(id => {
     //   const city = countryCityMap[id.split('-')[0]]?.find(c => c.id === id);
     //   return city ? { ...city, id: id } : null;
     // }).filter(Boolean) as City[];
     // setInventory(prev => ({ ...prev, selectedCities: newCities }));
     // setCities(cities);
+
+    
+
+    const latLong = inventory.targetLatLong?.filter(p => p.country !== country) || [];
+    const postal = inventory.targetPostal?.filter(p => p.country !== country) || [];
+
     setInventory((prev) => ({
       ...prev,
+      targetingType: "cities",
+      targetLatLong: latLong,
+      targetPostal: postal,
       selectedCities: ids.map(
         (id) =>
           countryCityMap[id.split("---")[0]]?.find((c) => c.id === id) || null,
@@ -1252,6 +1424,8 @@ export default function CampaignWizard() {
           originalAmount: Number(budget.totalBudget),
           discountApplied: 0,
           finalAmount: Number(budget.totalBudget),
+          remainingUsages: 0,
+          expiryDate: null,
          }));
       }
 
@@ -1263,7 +1437,9 @@ export default function CampaignWizard() {
           discountType: data?.data?.discountType, 
           originalAmount: data?.data?.originalAmount, 
           discountApplied: data?.data?.discountApplied, 
-          finalAmount: data?.data?.finalAmount 
+          finalAmount: data?.data?.finalAmount,
+          remainingUsages: data?.data?.remainingUsages || 0,
+          expiryDate: data?.data?.expiryDate || null,
         }));
         if(isManual)
         toast({
@@ -1286,8 +1462,8 @@ export default function CampaignWizard() {
   }
 
   useEffect(() => {
-    console.log({targeting});  
-  }, [targeting])
+    console.log({inventory});  
+  }, [inventory])
   
 
   useEffect(() => {
@@ -1314,6 +1490,51 @@ export default function CampaignWizard() {
 
   }, [budget, durationDays]);
 
+  const getPublisherAttributesSegmentValues = (inventoryType: string) => {
+    const list: string[] = [];
+
+    if(inventoryType?.includes("podcast")) {
+      list.push("Podcast");
+    }
+
+    if(inventoryType?.includes("streaming")) {
+      list.push("Aggregator");
+      list.push("CTV");
+      list.push("OTA/Broadcast");
+      list.push("On-Demand");
+      list.push("Pure Player");
+    }
+
+    if(inventoryType?.includes("gaming")) {
+      list.push("Gaming");
+    }
+
+    return list.length ? list : ["Podcast"];
+  }
+
+  const getLatLongData = (latitude: number, longitude: number, radius: number) => {
+    const R = 6371  // Earth's radius in km
+    const pi = Math.PI;
+
+    const deltaLat = (radius / R) * (180 / pi)
+    const deltaLng = (radius / R) * (180 / pi) / Math.cos(latitude * pi / 180)
+
+    const maxLat = latitude + deltaLat
+    const minLat = latitude - deltaLat
+    const maxLng = longitude + deltaLng
+    const minLng = longitude - deltaLng
+    const data = {
+      latitude: {
+        minValue: minLat,
+        maxValue: maxLat
+      },
+      longitude: {
+        minValue: minLng,
+        maxValue: maxLng
+      }
+    }
+    return data;
+  }
   useEffect(() => {
     if(forecastTimer.current) {
       clearTimeout(forecastTimer.current);
@@ -1362,36 +1583,47 @@ export default function CampaignWizard() {
         });
       }
 
+      let genres = [];
+      let genreGroups:any = {};
 
-      if(targeting.inventoryType === "Podcast"){
-        
-        let genreGroups = [];
-        const segmentValues = {
-          podcast: ["podcast"],
-          streaming: ["Aggregator", "CTV", "Gaming", "OTA/Broadcast", "On-Demand", "Pure Player"]
-        }
+      if(targeting.inventoryType?.toLowerCase().includes("podcast")){
         if(targeting.podcastTopics && targeting.podcastTopics.length > 0){
-          genreGroups.push({
-            segmentCode: "genre",
-            segmentValues: targeting.podcastTopics,
-          });
+          genres = [ ...genres, ...targeting.podcastTopics];
         }
+      }
+      if(targeting.inventoryType?.toLowerCase().includes("streaming")){
+        if(targeting.streamingTopics && targeting.streamingTopics.length > 0){
+          genres = [...genres, ...targeting.streamingTopics];
+        }
+      }
 
 
-        audienceTargeting["groups"][0].rules.push({
-          type: "PUBLISHER_ATTRIBUTES_SEGMENTS",
-          comparison: "IS_ANY_OF",
-          groups: [
-           ...genreGroups,
-           {
-            "segmentCode": "type",
-            "segmentValues": segmentValues[targeting.inventoryType?.toLowerCase()] || segmentValues.podcast
-           }
-          ],
-        });
+      if(genres.length > 0){
+        genreGroups = {
+          segmentCode: "genre",
+          segmentValues: genres,
+        };
+
+      }
 
 
+      const publisherAttributeSegmentGroups:any = [];
 
+      if(genreGroups && Object.keys(genreGroups).length > 0 && genres.length > 0) {
+        publisherAttributeSegmentGroups.push(genreGroups);
+      }
+      publisherAttributeSegmentGroups.push({
+        "segmentCode": "type",
+        "segmentValues": getPublisherAttributesSegmentValues(targeting.inventoryType?.toLowerCase())
+      })
+      audienceTargeting["groups"][0].rules.push({
+        type: "PUBLISHER_ATTRIBUTES_SEGMENTS",
+        comparison: "IS_ANY_OF",
+        groups: publisherAttributeSegmentGroups,
+      });
+
+
+      if(targeting.inventoryType?.toLowerCase().includes("podcast")){
         if(targeting.podcastAudiences && targeting.podcastAudiences.length > 0){
           audienceTargeting["groups"][0].rules.push({
             type: "PODCAST_CONTEXTUAL",
@@ -1404,20 +1636,9 @@ export default function CampaignWizard() {
             ],
           });
         }
-
-      }else {
-        if(targeting.streamingTopics && targeting.streamingTopics.length > 0){
-          audienceTargeting["groups"][0].rules.push({
-            type: "PUBLISHER_ATTRIBUTES_SEGMENTS",
-            comparison: "IS_ANY_OF",
-            groups: [
-              {
-                segmentCode: "genre",
-                segmentValues: targeting.streamingTopics,
-              }
-            ],
-          });
-        }
+      }
+      
+      if(targeting.inventoryType?.toLowerCase().includes("streaming")){
         if(targeting.streamingAudiences && targeting.streamingAudiences.length > 0){
           audienceTargeting["groups"][0].rules.push({
             type: "BEHAVIOURAL_SEGMENTS",
@@ -1436,7 +1657,6 @@ export default function CampaignWizard() {
       if(targeting.deviceTypes && targeting.deviceTypes.length > 0){
 
         const deviceTypeObj = [];
-
 
         if(targeting.deviceTypes.includes("desktop")){
           deviceTypeObj.push({
@@ -1462,7 +1682,6 @@ export default function CampaignWizard() {
       }
 
       if(targeting.adPositions && targeting.adPositions.length != 3){
-      
         audienceTargeting["groups"][0].rules.push({
           type: "INVENTORY_ATTRIBUTES_SEGMENTS",
           comparison: "IS_ANY_OF",
@@ -1473,7 +1692,6 @@ export default function CampaignWizard() {
             }
           ],
         });
-      
       }
 
 
@@ -1487,7 +1705,14 @@ export default function CampaignWizard() {
         setCPM(newCPM/inventory.selectedCountries.length);
 
         const listOfCities = inventory?.selectedCities || [];
-        const countriesWithoutCities = listOfCities.length ? inventory.selectedCountries.filter(country => !listOfCities.some(city => city.country === country)) : inventory.selectedCountries;
+        const countryData = inventory.selectedCountries;
+        const postalCodes = inventory.targetPostal || [];
+        const latLong = inventory.targetLatLong || [];
+        const countriesWithoutSubCategories = countryData.filter(country => !(
+            listOfCities.some(city => city.country === country) || 
+            postalCodes.some(postal => postal.country === country) || 
+            latLong.some(latLong => latLong.country === country))
+        );
 
 
         const exisintgRules = audienceTargeting["groups"][0].rules;
@@ -1495,11 +1720,17 @@ export default function CampaignWizard() {
         let groupIndex = 0;
 
 
+        console.log("countriesWithoutSubCategories", countriesWithoutSubCategories);
+        console.log("postalCodes", postalCodes);
+        console.log("latLong", latLong);
+        console.log("listOfCities", listOfCities);
 
-        if(countriesWithoutCities.length > 0) {
 
-          if(listOfCities.length > 0) {
-            countriesWithoutCities.forEach(country => {
+
+        if(countriesWithoutSubCategories.length > 0) {
+
+          if(listOfCities.length > 0 || postalCodes.length > 0 || latLong.length > 0) {
+            countriesWithoutSubCategories.forEach(country => {
 
 
               if(!audienceTargeting["groups"][groupIndex]){
@@ -1521,7 +1752,7 @@ export default function CampaignWizard() {
             audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
               type: "LOCATION_COUNTRY",
               comparison: "CONTAIN",
-              countries: countriesWithoutCities,
+              countries: countriesWithoutSubCategories,
             }];
 
           }
@@ -1560,6 +1791,69 @@ export default function CampaignWizard() {
             });
           }
         }
+
+
+        if(postalCodes.length >0 ){
+          
+          const obj = {};
+
+          postalCodes.forEach(postal => {
+            if(obj[postal.country]) {
+              obj[postal.country].push(postal.code);
+            } else {
+              obj[postal.country] = [postal.code];
+            }
+          });
+
+          if(Object.keys(obj).length > 0) {
+            Object.keys(obj).forEach(country => {
+
+              if(!audienceTargeting["groups"][groupIndex]){
+                audienceTargeting["groups"][groupIndex] = {
+                  rules: []
+                }
+              }
+
+              audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
+                "logical": "AND",
+                "type": "LOCATION_POSTALCODE",
+                "country": country,
+                "comparison": "CONTAIN",
+                "data": obj[country].toString(),
+              }];
+              groupIndex++;
+            });
+          }
+        }
+
+
+        if(latLong.length >0 ){
+          const obj = {};
+          latLong.forEach(latLong => {
+            if(obj[latLong.country]) {
+              obj[latLong.country] = {latitude: latLong.latitude, longitude: latLong.longitude, radius: latLong.radius};
+            } else {
+              obj[latLong.country] = {latitude: latLong.latitude, longitude: latLong.longitude, radius: latLong.radius};
+            }
+          });
+          if(Object.keys(obj).length > 0) {
+            Object.keys(obj).forEach(country => {
+              if(!audienceTargeting["groups"][groupIndex]){
+                audienceTargeting["groups"][groupIndex] = {
+                  rules: []
+                }
+              }
+              audienceTargeting["groups"][groupIndex].rules = [...exisintgRules, {
+                logical: 'AND',
+                type: 'LOCATION_LATLONG',
+                comparison: 'WITHIN',
+                data: getLatLongData(parseFloat(obj[country].latitude), parseFloat(obj[country].longitude), parseFloat(obj[country].radius)),
+                }];
+              groupIndex++;
+            });
+          }
+        }
+
       }
 
       setIsLoadingForecast(true);
@@ -1603,17 +1897,8 @@ export default function CampaignWizard() {
         return;
       }
       setCountries(data?.data || []);
+      setPostalCodeCountries(data?.data?.filter(country => country.postalCodeAvailable) || []);
     };
-
-    const fetchCountriesWithPostalCodes = async () => {
-      const { data, error } = await targetingApi.getCountries("postalCode");
-      if (error) {
-        console.error(error);
-        return;
-      }
-      setPostalCodeCountries(data?.data || []);
-    };
-
 
     const fetchPublisherSegments = async () => {
       const { data, error } = await targetingApi.getPublisherSegments();
@@ -1740,7 +2025,6 @@ export default function CampaignWizard() {
       fetchCards(),
       getCreditsDetails(),
       fetchContentLanguage(),
-      fetchCountriesWithPostalCodes()
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -1805,6 +2089,7 @@ export default function CampaignWizard() {
             startTime: campaignStartDate.getHours().toString().padStart(2, "0")+ ":" + campaignStartDate.getMinutes().toString().padStart(2, "0")|| "",
             endTime: campaignEndDate.getHours().toString().padStart(2, "0") + ":" + campaignEndDate.getMinutes().toString().padStart(2, "0") || "",
             selectedHours: hours,
+            timezone: data.data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
           })
           setBudget({
             dailyBudget: data.data.dailyCap ? data.data.dailyCap.toString() : perDay.toString(),
@@ -1818,17 +2103,20 @@ export default function CampaignWizard() {
             let targetingObj = {
               ...targeting
             }
-            if(adGroup.inventoryType === "Podcast"){
+            if(adGroup.inventoryType?.includes("Podcast")){
               
-              targetingObj.inventoryType = "Podcast";
               if(adGroup.podcastTopics && adGroup.podcastTopics.length > 0){
                 targetingObj.podcastTopics = adGroup.podcastTopics;
               }
               if(adGroup.podcastAudiences && adGroup.podcastAudiences.length > 0){
                 targetingObj.podcastAudiences = adGroup.podcastAudiences;
               }
-            }else {
-              targetingObj.inventoryType = "Streaming"
+              if(adGroup.contentLanguage && adGroup.contentLanguage.length > 0){
+                targetingObj.contentLanguages = adGroup.contentLanguage;
+              }
+            }
+            
+            if(adGroup.inventoryType?.includes("Streaming")){
               if(adGroup.streamingTopics && adGroup.streamingTopics.length > 0){
                 targetingObj.streamingTopics = adGroup.streamingTopics;
               }
@@ -1837,6 +2125,7 @@ export default function CampaignWizard() {
               }
             }
 
+            targetingObj.inventoryType = adGroup.inventoryType || "Podcast";
 
             targetingObj = {
               ...targetingObj,
@@ -1863,10 +2152,14 @@ export default function CampaignWizard() {
               })
 
 
+              const selectedPostalCodes = adGroup.locationPostalCode && adGroup.locationPostalCode.length > 0 ? adGroup.locationPostalCode : [];
+              const selectedLatLong = adGroup.locationLatLong && adGroup.locationLatLong.length > 0 ? adGroup.locationLatLong : [];
+
+
 
               onCountryChange([...new Set([...selectedCountriesFromCountry, ...selectedCountriesFromCities])]);
               setTimeout(() => {
-                setInventory((prev) => ({ ...prev, selectedCities: selectedCities }));
+                setInventory((prev) => ({ ...prev, selectedCities: selectedCities, targetPostal:selectedPostalCodes, targetLatLong: selectedLatLong }));
               }, 2000)
 
             }
@@ -1988,6 +2281,7 @@ export default function CampaignWizard() {
             locationTooltip,
             inventoryDone,
             <CampaignInventoryStep
+              existingTargetTypes={existingTargetTypes}
               countries={countries}
               cities={cities}
               data={inventory}
@@ -1996,6 +2290,9 @@ export default function CampaignWizard() {
               isLoading={geoLoading && !geoApplied}
               countryRef={countryRef}
               disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
+              postalCodeCountries={postalCodeCountries}
+              onTargetLatLongChange={onTargetLatLongChange}
+              onTargetPostalChange={onTargetPostalChange}
             />,
           )}
 
@@ -2015,7 +2312,6 @@ export default function CampaignWizard() {
               onChange={setTargeting}
               deviceTypes={deviceTypes}
               disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
-              postalCodeCountries={postalCodeCountries}
             />,
           )}
 
