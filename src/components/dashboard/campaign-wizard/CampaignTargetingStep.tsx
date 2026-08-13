@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Check, Mic, Music, Radio, LayoutGrid, List, Info } from 'lucide-react';
+import { Check, Mic, Music, Radio, LayoutGrid, List, Info, ChevronDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // import { useDevFlags } from '@/contexts/DevFlagsContext';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { SearchableList } from '@/components/ui/searchable-list';
 import type { Column, FilterDef } from '@/components/ui/searchable-list';
+import { SearchableDropdown } from '@/components/ui/searchable-dropdown';
 // import dubaiStarsImg from '@/assets/podcasts/dubai-stars.png';
 // import j2HubImg from '@/assets/podcasts/j2-hub.png';
 import bitesizeBusinessImg from '@/assets/podcasts/bitesize-business.png';
@@ -27,6 +28,7 @@ import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from '@
 const inventoryOptions = [
   { type: 'Podcast', description: 'Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.' },
   { type: 'Streaming', description: 'Connect with 100M+ listeners on top music, radio, CTV and gaming apps, in English or Arabic with powerful precision targeting.' },
+  { type: 'Gaming', description: 'Reach 100M+ gamers across top gaming apps, in English or Arabic with powerful precision targeting.' },
 ] as const;
 
 const adPositionOptions = [
@@ -193,9 +195,6 @@ interface TargetingData {
   selectedShows: string[];
   savedAudiences: string[];
   contentLanguages: string[];
-  postalCodes: { country: string; code: string }[];
-  lat: string;
-  long: string;
 }
 
 interface Props {
@@ -209,13 +208,15 @@ interface Props {
   targetingSegments: TargetingSegment[];
   deviceTypes: TargetingSegment[];
   disabled: boolean;
-  postalCodeCountries: Country[];
 }
 
-export default function CampaignTargetingStep({ data, onChange, contentLanguages, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled, postalCodeCountries }: Props) {
+export default function CampaignTargetingStep({ data, onChange, contentLanguages, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled }: Props) {
   const { isPro } = useSessionFlags();
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
   const [openListId, setOpenListId] = useState<string | null>(null);
+  const [podcastOptionsOpen, setPodcastOptionsOpen] = useState(false);
+  const [streamingOptionsOpen, setStreamingOptionsOpen] = useState(false);
+  const [gamingOptionsOpen, setGamingOptionsOpen] = useState(false);
 
   const handleOpenChange = (listId: string) => (open: boolean) => {
     setOpenListId(open ? listId : null);
@@ -269,6 +270,58 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
     onChange({ ...data, adPositions: next });
   };
 
+  const setInventoryType = (type: string) => {
+    const _type = data.inventoryType.split(',').includes(type) ? data.inventoryType.split(',').filter(t => t !== type).join(',') : [...data.inventoryType.split(','), type].join(',');
+    onChange({ ...data, inventoryType: _type });
+  };
+
+  const isPodcastSelected = data.inventoryType?.includes('Podcast');
+  const isStreamingSelected = data.inventoryType?.includes('Streaming');
+  const isGamingSelected = data.inventoryType?.includes('Gaming');
+
+  const podcastAudienceMap = podcastAudiences.reduce((acc, audience) => {
+    acc[audience.code] = audience.name;
+    return acc;
+  }, {});
+  const contentLanguageMap = contentLanguages.reduce((acc, language) => {
+    acc[language.code] = language.label || language.name;
+    return acc;
+  }, {});
+
+  const streamingAudienceMap = streamingAudiences.reduce((acc, audience) => {
+    acc[audience.value] = audience.label;
+    return acc;
+  }, {});
+
+
+  const togglePodcastAudience = (audience: string) => {
+    const next = data.podcastAudiences.includes(audience)
+      ? data.podcastAudiences.filter((a) => a !== audience)
+      : [...data.podcastAudiences, audience];
+    onChange({ ...data, podcastAudiences: next });
+  };
+
+  const toggleContentLanguage = (language: string) => {
+    const next = data.contentLanguages.includes(language)
+      ? data.contentLanguages.filter((l) => l !== language)
+      : [...data.contentLanguages, language];
+    onChange({ ...data, contentLanguages: next });
+  };
+
+  const toggleStreamingTopic = (topic: string) => {
+    const next = data.streamingTopics.includes(topic)
+      ? data.streamingTopics.filter((t) => t !== topic)
+      : [...data.streamingTopics, topic];
+    onChange({ ...data, streamingTopics: next });
+  };
+
+  const toggleStreamingAudience = (audience: string) => {
+    const next = data.streamingAudiences.includes(audience)
+      ? data.streamingAudiences.filter((a) => a !== audience)
+      : [...data.streamingAudiences, audience];
+    onChange({ ...data, streamingAudiences: next });
+  };
+
   return (
     <div className="space-y-6">
       {/* Inventory Type — Mode Switcher (Pro only) */}
@@ -309,279 +362,349 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
       {/* Mode: Content Categories (Pro only) */}
       {isPro && inventoryMode === 'categories' && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {inventoryOptions.map(({ type, description }) => {
-              const selected = data.inventoryType === type;
-              return (
-                <div
-                  key={type}
-                  onClick={() => toggleInventory(type)}
-                  className={cn(
-                    'border rounded-lg p-4 cursor-pointer transition-all',
-                    selected
-                      ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
-                      : 'border-border hover:border-[#C8E6C9]'
-                  )}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={cn(
-                      'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0',
-                      selected ? 'border-[#C8E6C9] bg-[#E6F4EA]' : 'border-muted-foreground/40'
-                    )}>
-                      {selected && <div className="h-2.5 w-2.5 rounded-full bg-foreground" />}
-                    </div>
-                    <span className="text-sm font-semibold">{type}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+          <div className="grid grid-cols-1 gap-3">
+            <div
+              className={cn(
+                'border rounded-lg p-4 cursor-pointer transition-all',
+                isPodcastSelected
+                  ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                  : 'border-border hover:border-[#C8E6C9]'
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className='flex items-center gap-2' onClick={() => setInventoryType('Podcast')}>
+                  <Checkbox 
+                    checked={isPodcastSelected} 
+                    className='peer shrink-0 rounded-sm border border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-5 w-5'
+                  />
+                  <span className="text-sm font-semibold">Podcast</span>
                 </div>
-              );
-            })}
+                {isPodcastSelected && (
+                  <button
+                    type="button"
+                    aria-label={podcastOptionsOpen ? 'Collapse podcast options' : 'Expand podcast options'}
+                    aria-expanded={podcastOptionsOpen}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-black/5 hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPodcastOptionsOpen((open) => !open);
+                    }}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 transition-transform',
+                        podcastOptionsOpen && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+              {isPodcastSelected && podcastOptionsOpen && (
+                  <div
+                    className="mt-4 space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Label>Podcast Topics</Label>
+                      </div>
+                      {
+                          data.podcastTopics.length > 0 && ( 
+                            <div className="flex flex-wrap gap-1">
+                            {data.podcastTopics?.map((topic) => (
+                              <span key={topic} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                                {topic}  <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleTopic(topic)} />
+                              </span>
+                            ))}
+                            </div>
+                          )
+                        }
+                      <SearchableDropdown
+                        items={podcastTopics?.map((topic) => ({
+                          id: topic,
+                          label: topic,
+                          searchText: topic,
+                        })) || []}
+                        selectedIds={data.podcastTopics || []}
+                        onSelectionChange={(ids) => {
+                          onChange({ ...data, podcastTopics: ids });
+                        }}
+                        selectionMode="multi"
+                        placeholder="Search or select segment"
+                        searchPlaceholder="Search topics..."
+                        emptyMessage="No topics match your search"
+                        disabled={disabled}
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Label>Podcast Audiences</Label>
+                      </div>
+                      {
+                          data.podcastAudiences.length > 0 && ( 
+                            <div className="flex flex-wrap gap-1">
+                            {data.podcastAudiences?.map((audience) => (
+                              <span key={audience} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                                {podcastAudienceMap[audience]}
+                                <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => togglePodcastAudience(audience)} />
+                              </span>
+                            ))}
+                            </div>
+                          )
+                        }
+                      <SearchableDropdown
+                        items={podcastAudiences?.map((audience) => ({
+                          id: audience.code,
+                          label: audience.name,
+                          searchText: audience.name,
+                        })) || []}
+                        selectedIds={data.podcastAudiences || []}
+                        onSelectionChange={(ids) =>
+                          onChange({ ...data, podcastAudiences: ids })
+                        }
+                        selectionMode="multi"
+                        placeholder="Search or select segments"
+                        searchPlaceholder="Search by name"
+                        emptyMessage="No audiences match your search"
+                        disabled={disabled}
+                      />
+                    </div>
+
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Label>Content Languages</Label>
+                      </div>
+                      {
+                        data.contentLanguages.length > 0 && ( 
+                          <div className="flex flex-wrap gap-1">
+                          {data.contentLanguages?.map((language) => (
+                            <span key={language} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                              {contentLanguageMap[language]}
+                              <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleContentLanguage(language)} />
+                            </span>
+                          ))}
+                          </div>
+                        )
+                      }
+                      <SearchableDropdown
+                        items={contentLanguages?.map((language) => ({
+                          id: language.code,
+                          label: language.label || language.name,
+                          searchText: `${language.name} ${language.label || ""} ${language.code}`,
+                        })) || []}
+                        selectedIds={data.contentLanguages || []}
+                        onSelectionChange={(ids) =>
+                          onChange({ ...data, contentLanguages: ids })
+                        }
+                        selectionMode="multi"
+                        placeholder="Search or select segments"
+                        searchPlaceholder="Search by language"
+                        emptyMessage="No languages match your search"
+                        disabled={disabled}
+                      />
+                    </div>
+
+                    <div className="space-y-3 hidden">
+                      <Label>
+                        Saved & Re-targeting Audiences
+                      </Label>
+                      <SearchableList
+                        items={MOCK_SAVED_AUDIENCES}
+                        columns={audienceColumns}
+                        selectionMode="multi"
+                        selectedIds={savedAudiences}
+                        onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
+                        selectAllFiltered
+                        idKey="id"
+                        searchPlaceholder="Search audiences..."
+                        searchableKeys={['name', 'type']}
+                        filters={[
+                          {
+                            key: 'type',
+                            label: 'Type',
+                            options: [
+                              { value: 'retarget', label: 'Retargeting' },
+                              { value: 'saved', label: 'Saved' },
+                            ],
+                          },
+                        ]}
+                        variant="table"
+                        maxHeight="250px"
+                        emptyMessage="No saved audiences"
+                        collapsible
+                        isOpen={openListId === 'saved-audiences-podcast'}
+                        onOpenChange={handleOpenChange('saved-audiences-podcast')}
+                        collapsibleLabel="Select audiences..."
+                        disabled={disabled}
+                      />
+                    </div>
+                  </div>
+              )}
+            </div>
+
+
+            <div
+              className={cn(
+                'border rounded-lg p-4 cursor-pointer transition-all',
+                isStreamingSelected
+                  ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                  : 'border-border hover:border-[#C8E6C9]'
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className='flex items-center gap-2' onClick={() => setInventoryType('Streaming')}>
+                  <Checkbox 
+                    checked={isStreamingSelected} 
+                    className='peer shrink-0 rounded-sm border border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-5 w-5'
+                  />
+                  <span className="text-sm font-semibold">Streaming</span>
+                </div>
+                {isStreamingSelected && (
+                  <button
+                    type="button"
+                    aria-label={streamingOptionsOpen ? 'Collapse streaming options' : 'Expand streaming options'}
+                    aria-expanded={streamingOptionsOpen}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-black/5 hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStreamingOptionsOpen((open) => !open);
+                    }}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 transition-transform',
+                        streamingOptionsOpen && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+              {isStreamingSelected && streamingOptionsOpen && (
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Label>Streaming Topics</Label>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {data.streamingTopics?.map((topic) => (
+                        <span key={topic} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                          {topic} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleStreamingTopic(topic)} />
+                        </span>
+                      ))}
+                    </div>
+                    <SearchableDropdown
+                      items={streamingTopics?.map((topic) => ({
+                        id: topic,
+                        label: topic,
+                        searchText: topic,
+                      })) || []}
+                      selectedIds={data.streamingTopics || []}
+                      onSelectionChange={(ids) =>
+                        onChange({ ...data, streamingTopics: ids })
+                      }
+                      selectionMode="multi"
+                      placeholder="Search or select segments"
+                      searchPlaceholder="Search by genre, mood, or content type..."
+                      emptyMessage="No content matches your search"
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Label>Streaming Audiences</Label>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {data.streamingAudiences?.map((audience) => (
+                        <span key={audience} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                          {streamingAudienceMap[audience]} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleStreamingAudience(audience)} />
+                        </span>
+                      ))}
+                    </div>
+                    <SearchableDropdown
+                      items={streamingAudiences?.map((audience) => ({
+                        id: audience.value,
+                        label: audience.label,
+                        searchText: `${audience.label} ${audience.category || ""}`,
+                      })) || []}
+                      selectedIds={data.streamingAudiences || []}
+                      onSelectionChange={(ids) =>
+                        onChange({ ...data, streamingAudiences: ids })
+                      }
+                      selectionMode="multi"
+                      placeholder="Search or select segments"
+                      searchPlaceholder="Search by category, behavior, or segment..."
+                      emptyMessage="No segments match your search"
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div className="space-y-3 hidden">
+                    <Label>Saved & Re-targeting Audiences</Label>
+                    <SearchableList
+                      items={MOCK_SAVED_AUDIENCES}
+                      columns={audienceColumns}
+                      selectionMode="multi"
+                      selectedIds={savedAudiences}
+                      onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
+                      selectAllFiltered
+                      idKey="id"
+                      searchPlaceholder="Search audiences..."
+                      searchableKeys={['name', 'type']}
+                      filters={[{
+                        key: 'type',
+                        label: 'Type',
+                        options: [
+                          { value: 'retarget', label: 'Retargeting' },
+                          { value: 'saved', label: 'Saved' },
+                        ],
+                      }]}
+                      variant="table"
+                      maxHeight="250px"
+                      emptyMessage="No saved audiences"
+                      collapsible
+                      isOpen={openListId === 'saved-audiences-streaming'}
+                      onOpenChange={handleOpenChange('saved-audiences-streaming')}
+                      collapsibleLabel="Select audiences..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+
+            <div
+              onClick={() => {
+                setInventoryType('Gaming');
+                if (!isGamingSelected) setGamingOptionsOpen(true);
+              }}
+              className={cn(
+                'border rounded-lg p-4 cursor-pointer transition-all',
+                isGamingSelected
+                  ? 'border-[#C8E6C9] bg-[#E6F4EA] ring-1 ring-[#E6F4EA]'
+                  : 'border-border hover:border-[#C8E6C9]'
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className='flex items-center gap-2'>
+                  <Checkbox 
+                    checked={isGamingSelected} 
+                    onChange={() => setInventoryType('Gaming')} 
+                    className='peer shrink-0 rounded-sm border border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-5 w-5'
+                  />
+                  <span className="text-sm font-semibold">Gaming</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+            </div>
+
+
           </div>
 
-          {data.inventoryType === 'Podcast' && (
-            <>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Podcast Topics</Label>
-                </div>
-                <SearchableList
-                  selectionMode="multi"
-                  items={podcastTopics?.map(topic => ({ id: topic, name: topic })) || []}
-                  columns={podcastTopicColumns}
-                  selectedIds={data.podcastTopics}
-                  onSelectionChange={(ids) => {
-                    onChange({ ...data, podcastTopics: ids });
-                  }}
-                  variant="table"
-                  collapsible
-                  isOpen={openListId === 'podcast-topics'}
-                  onOpenChange={handleOpenChange('podcast-topics')}
-                  collapsibleLabel="Search or select segment"
-                  searchPlaceholder="Search topics..."
-                  emptyMessage="No topics match your search"
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Podcast Audiences</Label>
-                </div>
-                <SearchableList
-                  items={podcastAudiences?.map(audience => ({ id: audience.code, name: audience.name })) || []}
-                  columns={podcastAudienceColumns}
-                  selectionMode="multi"
-                  selectedIds={data.podcastAudiences || []}
-                  onSelectionChange={(ids) => onChange({ ...data, podcastAudiences: ids })}
-                  selectAllFiltered
-                  idKey="id"
-                  searchPlaceholder="Search by name"
-                  searchableKeys={['name']}
-                  filters={null}
-                  variant="table"
-                  maxHeight="300px"
-                  collapsible
-                  isOpen={openListId === 'podcast-audiences'}
-                  onOpenChange={handleOpenChange('podcast-audiences')}
-                  collapsibleLabel="Search or select segments"
-                  emptyMessage="No audiences match your search"
-                  disabled={disabled}
-                />
-              </div>
-
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Content Languages</Label>
-                </div>
-                <SearchableList
-                  items={contentLanguages?.map(language => ({ id: language.code, name: language.name, label: language.label})) || []}
-                  columns={contentLanguageColumns}
-                  selectionMode="multi"
-                  selectedIds={data.contentLanguages || []}
-                  onSelectionChange={(ids) => onChange({ ...data, contentLanguages: ids })}
-                  selectAllFiltered
-                  idKey="id"
-                  searchPlaceholder="Search by language"
-                  searchableKeys={['name', 'label']}
-                  filters={null}
-                  variant="table"
-                  maxHeight="300px"
-                  collapsible
-                  isOpen={openListId === 'content-languages'}
-                  onOpenChange={handleOpenChange('content-languages')}
-                  collapsibleLabel="Search or select segments"
-                  emptyMessage="No languages match your search"
-                  disabled={disabled}
-                />
-              </div>
-
-
-
-              <div className='space-y-3'>
-                <div className="flex items-center gap-2">
-                  <Label>Postal Codes</Label>
-                </div>
-                <div className='flex gap-2'>
-                 <select className='border rounded-lg px-3 py-2 cursor-pointer transition-all flex items-center gap-1.5'>
-                  {postalCodeCountries.map((country) => (
-                    <option key={country.code} value={country.code}>{country.name}</option>
-                  ))}
-                 </select>
-
-                <Input
-                  type="text"
-                  placeholder="Enter postal codes..."
-                  value={''}
-                  onChange={(e) => console.log(e.target.value)}
-                />
-                </div>
-                <span className="text-xs text-muted-foreground">Enter postal codes separated by commas</span>
-            </div>
-
-
-            <div className='space-y-3'>
-                <div className="flex items-center gap-2">
-                  <Label>Lat Long</Label>
-                </div>
-                <div className='flex gap-2'>
-                  <Input
-                    type="text"
-                    placeholder="Enter latitude..."
-                    value={data.lat}
-                    onChange={(e) => onChange({ ...data, lat: e.target.value })}
-                  />
-                  <Input
-                    type="text"
-                    placeholder="Enter longitude..."
-                    value={data.long}
-                    onChange={(e) => onChange({ ...data, long: e.target.value })}
-                  />
-                </div>
-                <span className="text-xs text-underline text-blue-800">Select from map</span>
-                
-            </div>
-
-              <div className="space-y-3 hidden">
-                <Label>
-                  Saved & Re-targeting Audiences
-                </Label>
-                <SearchableList
-                  items={MOCK_SAVED_AUDIENCES}
-                  columns={audienceColumns}
-                  selectionMode="multi"
-                  selectedIds={savedAudiences}
-                  onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
-                  selectAllFiltered
-                  idKey="id"
-                  searchPlaceholder="Search audiences..."
-                  searchableKeys={['name', 'type']}
-                  filters={[
-                    {
-                      key: 'type',
-                      label: 'Type',
-                      options: [
-                        { value: 'retarget', label: 'Retargeting' },
-                        { value: 'saved', label: 'Saved' },
-                      ],
-                    },
-                  ]}
-                  variant="table"
-                  maxHeight="250px"
-                  emptyMessage="No saved audiences"
-                  collapsible
-                  isOpen={openListId === 'saved-audiences-podcast'}
-                  onOpenChange={handleOpenChange('saved-audiences-podcast')}
-                  collapsibleLabel="Select audiences..."
-                  disabled={disabled}
-                />
-              </div>
-            </>
-          )}
-
-          {data.inventoryType === 'Streaming' && (
-            <>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Streaming Topics</Label>
-                </div>
-                <SearchableList
-                  items={streamingTopics?.map(topic => ({ id: topic, name: topic })) || []}
-                  columns={streamingTopicsColumns}
-                  selectionMode="multi"
-                  selectedIds={data.streamingTopics || []}
-                  onSelectionChange={(ids) => onChange({ ...data, streamingTopics: ids })}
-                  selectAllFiltered
-                  idKey="id"
-                  searchPlaceholder="Search by genre, mood, or content type..."
-                  searchableKeys={['name']}
-                  variant="table"
-                  maxHeight="300px"
-                  collapsible
-                  isOpen={openListId === 'streaming-topics'}
-                  onOpenChange={handleOpenChange('streaming-topics')}
-                  collapsibleLabel="Search or select segments"
-                  emptyMessage="No content matches your search"
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label>Streaming Audiences</Label>
-                </div>
-                <SearchableList
-                  items={streamingAudiences || []}
-                  columns={streamingAudienceColumns}
-                  selectionMode="multi"
-                  selectedIds={data.streamingAudiences || []}
-                  onSelectionChange={(ids) => {onChange({ ...data, streamingAudiences: ids })}}
-                  selectAllFiltered
-                  idKey="value"
-                  searchPlaceholder="Search by category, behavior, or segment..."
-                  searchableKeys={['label', 'category']}
-                  variant="table"
-                  maxHeight="300px"
-                  collapsible
-                  isOpen={openListId === 'streaming-audiences'}
-                  onOpenChange={handleOpenChange('streaming-audiences')}
-                  collapsibleLabel="Search or select segments"
-                  emptyMessage="No segments match your search"
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="space-y-3 hidden">
-                <Label>Saved & Re-targeting Audiences</Label>
-                <SearchableList
-                  items={MOCK_SAVED_AUDIENCES}
-                  columns={audienceColumns}
-                  selectionMode="multi"
-                  selectedIds={savedAudiences}
-                  onSelectionChange={(ids) => onChange({ ...data, savedAudiences: ids })}
-                  selectAllFiltered
-                  idKey="id"
-                  searchPlaceholder="Search audiences..."
-                  searchableKeys={['name', 'type']}
-                  filters={[{
-                    key: 'type',
-                    label: 'Type',
-                    options: [
-                      { value: 'retarget', label: 'Retargeting' },
-                      { value: 'saved', label: 'Saved' },
-                    ],
-                  }]}
-                  variant="table"
-                  maxHeight="250px"
-                  emptyMessage="No saved audiences"
-                  collapsible
-                  isOpen={openListId === 'saved-audiences-streaming'}
-                  onOpenChange={handleOpenChange('saved-audiences-streaming')}
-                  collapsibleLabel="Select audiences..."
-                />
-              </div>
-            </>
-          )}
         </>
       )}
 
@@ -772,25 +895,31 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
       {isPro && (
         <div className="space-y-3">
           <Label>Device Type</Label>
-          <SearchableList
-            items={deviceTypes.filter(device => device.code === 'MOBILE_AND_TABLETS' || device.code === 'DESKTOPS_AND_LAPTOPS')}
-            columns={deviceColumns}
-            selectionMode="multi"
-            selectedIds={data.deviceTypes}
+          <div className="flex flex-wrap gap-1">
+            {data.deviceTypes?.map((device) => (
+              <span key={device} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
+                {device?.replace(/_/g, ' ')} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleDevice(device)} />
+              </span>
+            ))}
+          </div>
+          <SearchableDropdown
+            items={deviceTypes
+              .filter(
+                (device) =>
+                  device.code === 'MOBILE_AND_TABLETS' ||
+                  device.code === 'DESKTOPS_AND_LAPTOPS',
+              )
+              .map((device) => ({
+                id: device.value,
+                label: device.label,
+                searchText: device.label,
+              }))}
+            selectedIds={data.deviceTypes || []}
             onSelectionChange={(ids) => onChange({ ...data, deviceTypes: ids })}
-            selectAllFiltered
-            idKey="value"
+            selectionMode="multi"
+            placeholder="Select device types..."
             searchPlaceholder="Search device types..."
-            searchableKeys={['label']}
-            defaultSort={{ key: 'label', dir: 'asc' }}
-            pageSize={10}
-            variant="table"
-            maxHeight="350px"
             emptyMessage="No device types match your search"
-            collapsible
-            isOpen={openListId === 'devices'}
-            onOpenChange={handleOpenChange('devices')}
-            collapsibleLabel="Select device types..."
             disabled={disabled}
           />
         </div>

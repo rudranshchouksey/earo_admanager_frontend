@@ -18,6 +18,13 @@ export class ApiAuthError extends Error {
   }
 }
 
+export type ApiResult<T = unknown> = {
+  data: T | null;
+  error: Error | null;
+  status: number;
+  message: string | null;
+};
+
 let refreshPromise: Promise<boolean> | null = null;
 
 async function attemptTokenRefresh(): Promise<boolean> {
@@ -61,13 +68,63 @@ export type RequestConfig = {
   headers?: Record<string, string>;
   skipAuth?: boolean;
   skipRefreshRetry?: boolean;
+  /**
+   * When set (ms), identical requests (method + URL + body + org) within this
+   * window share one network call. In-flight requests are also coalesced.
+   * Omit or set 0 to always hit the network.
+   */
+  dedupingInterval?: number;
 };
 
-/** Core authenticated request handler */
-export async function request<T = unknown>(
+type DedupeEntry = {
+  expiresAt: number;
+  promise?: Promise<ApiResult<unknown>>;
+  result?: ApiResult<unknown>;
+};
+
+const dedupeCache = new Map<string, DedupeEntry>();
+
+function serializeBodyForKey(body: unknown): string {
+  if (body === undefined || body === null) return '';
+  if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    // FormData order/entries are not a stable cache key; skip body hash
+    return '[FormData]';
+  }
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return String(body);
+  }
+}
+
+function buildDedupeKey(
+  method: string,
+  url: string,
+  body: unknown,
+  orgId: string | undefined,
+  skipAuth: boolean,
+): string {
+  return [
+    method,
+    url,
+    serializeBodyForKey(body),
+    orgId ?? '',
+    skipAuth ? '1' : '0',
+  ].join('|');
+}
+
+function pruneDedupeCache(now = Date.now()) {
+  for (const [key, entry] of dedupeCache) {
+    if (!entry.promise && entry.expiresAt <= now) {
+      dedupeCache.delete(key);
+    }
+  }
+}
+
+async function executeRequest<T = unknown>(
   path: string,
   config: RequestConfig = {}
-): Promise<{ data: T | null; error: Error | null; status: number; message: string | null; }> {
+): Promise<ApiResult<T>> {
   const {
     method = 'GET',
     body,
@@ -157,4 +214,60 @@ export async function request<T = unknown>(
 
 
   return { data: responseData as T, error: null, status: responseData.status || res.status, message: responseData?.message?.message || responseData?.message || null };
+}
+
+/** Core authenticated request handler */
+export async function request<T = unknown>(
+  path: string,
+  config: RequestConfig = {}
+): Promise<ApiResult<T>> {
+  const { dedupingInterval, method = 'GET', body, params, skipAuth = false } = config;
+
+  if (!dedupingInterval || dedupingInterval <= 0) {
+    return executeRequest<T>(path, config);
+  }
+
+  const urlObj = new URL(
+    path.startsWith('http') ? path : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`,
+  );
+  if (params) {
+    Object.entries(params).forEach(([key, value]) =>
+      urlObj.searchParams.append(key, String(value)),
+    );
+  }
+
+  const orgId = getStoredSession()?.currentOrganizationId;
+  const key = buildDedupeKey(method, urlObj.toString(), body, orgId, skipAuth);
+  const now = Date.now();
+
+  pruneDedupeCache(now);
+
+  const existing = dedupeCache.get(key);
+  if (existing?.promise) {
+    return existing.promise as Promise<ApiResult<T>>;
+  }
+  if (existing?.result && existing.expiresAt > now) {
+    return existing.result as ApiResult<T>;
+  }
+
+  const promise = executeRequest<T>(path, config)
+    .then((result) => {
+      dedupeCache.set(key, {
+        expiresAt: Date.now() + dedupingInterval,
+        result: result as ApiResult<unknown>,
+      });
+      return result;
+    })
+    .catch((err) => {
+      // Don't cache thrown auth errors as successful results
+      dedupeCache.delete(key);
+      throw err;
+    });
+
+  dedupeCache.set(key, {
+    expiresAt: now + dedupingInterval,
+    promise: promise as Promise<ApiResult<unknown>>,
+  });
+
+  return promise;
 }

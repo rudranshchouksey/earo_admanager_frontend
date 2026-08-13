@@ -13,6 +13,9 @@ export interface AdGroup {
   "demogGender": string,
   "demogAge": [],
   "deviceType": [],
+  "contentLanguage": [],
+  "locationPostalCode": { country: string, code: string }[] | null | [],
+  "locationLatLong": { latitude: number, longitude: number, radius: number, country: string }[] | null | [],
   "podcastTopics": [ ],
   "podcastAudiences": [],
   "streamingTopics": [],
@@ -58,6 +61,7 @@ export interface Campaign {
   deviceType?: string[];
   podcastTopics?: string[];
   podcastAudiences?: string[];
+  contentLanguage?: string[];
   streamingTopics?: string[];
   showsInventory?: string[];
   bannerOne?: string;

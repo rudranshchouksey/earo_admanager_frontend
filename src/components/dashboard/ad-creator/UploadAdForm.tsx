@@ -4,6 +4,8 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { auth } from '@/services/auth';
 import { adsApi } from '@/services/ads';
@@ -13,6 +15,9 @@ import { logger } from "@/lib/logger";
 const MAX_SIZE_MB = 10;
 const MAX_DURATION_SEC = 60;
 const ACCEPTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/ogg'];
+
+const RIGHTS_CONFIRMATION_TEXT =
+  'I confirm that I hold all necessary rights, licenses, and approvals to distribute this audio ad in the selected geographies. I guarantee that this audio does not contain unauthorized voice cloning or impersonation of a real person intended to deceive listeners.';
 
 interface UploadAdFormProps {
   onSaved: () => void;
@@ -29,6 +34,8 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [aiVoiceAnswer, setAiVoiceAnswer] = useState<'no' | 'yes' | null>("no");
   const audioRef = useRef<HTMLAudioElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -96,7 +103,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
   };
 
   const handleSave = async () => {
-    if (!file || !adName.trim()) return;
+    if (!file || !adName.trim() || !rightsConfirmed || !aiVoiceAnswer) return;
 
     const trimmedAdName = adName.trim();
     if (!isValidAdName(trimmedAdName)) {
@@ -140,6 +147,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
         fileUrl: finalAudioUrl,
         duration: duration,
         campaignGoal: goal,
+        isMadeOfAI: aiVoiceAnswer,
       });
       if (dbError){
         toast({ title: 'Error uploading ad', description: uploadAdMessage, variant: 'destructive' });
@@ -267,11 +275,67 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
         </div>
       )}
 
+
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="upload-rights-confirmation"
+            checked={rightsConfirmed}
+            onCheckedChange={(checked) => setRightsConfirmed(checked === true)}
+            className="mt-0.5"
+          />
+          <Label
+            htmlFor="upload-rights-confirmation"
+            className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer"
+          >
+            1. {RIGHTS_CONFIRMATION_TEXT}
+          </Label>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-foreground leading-relaxed">
+            2. Does this audio contain AI-generated synthetic voices or cloned audio?
+          </p>
+          <RadioGroup
+            value={aiVoiceAnswer ?? undefined}
+            onValueChange={(value) => setAiVoiceAnswer(value as 'no' | 'yes')}
+            className="space-y-3"
+          >
+            <div className="flex items-start gap-3">
+              <RadioGroupItem value="no" id="ai-voice-no" className="mt-0.5" />
+              <Label
+                htmlFor="ai-voice-no"
+                className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer"
+              >
+                No, this audio was created entirely without AI voice generation.
+              </Label>
+            </div>
+            <div className="flex items-start gap-3">
+              <RadioGroupItem value="yes" id="ai-voice-yes" className="mt-0.5" />
+              <Label
+                htmlFor="ai-voice-yes"
+                className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer"
+              >
+                Yes, and I acknowledge that it will be publicly labeled as AI-generated in compliance
+                with EU regulations.
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+      </div>
+
       {/* Save */}
       <Button
         className="w-full h-12"
         onClick={handleSave}
-        disabled={!file || !adName.trim() || !isValidAdName(adName.trim()) || isSaving}
+        disabled={
+          !file ||
+          !adName.trim() ||
+          !isValidAdName(adName.trim()) ||
+          !rightsConfirmed ||
+          !aiVoiceAnswer ||
+          isSaving
+        }
       >
         {isSaving ? t('ad_creator.upload.saving') : t('ad_creator.upload.save_ad')}
       </Button>

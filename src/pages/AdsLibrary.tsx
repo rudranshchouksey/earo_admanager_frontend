@@ -442,8 +442,8 @@ export default function AdsLibrary() {
     const ad = params.data as AdData;
     return (
       <div>
-        <p className="font-medium text-foreground truncate max-w-[200px]">{ad.adName}</p>
-        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{ad.campaignGoal ?? '—'}</p>
+        <p className="font-medium text-foreground max-w-[200px]">{ad.adName}</p>
+        <p className="text-xs text-muted-foreground max-w-[200px]">{ad.campaignGoal ?? '—'}</p>
       </div>
     );
   }, []);
@@ -451,7 +451,7 @@ export default function AdsLibrary() {
   const AdTypeRenderer = useCallback((params: ICellRendererParams) => {
     const ad = params.data as AdData;
     return (
-      <p className="text-center text-muted-foreground truncate max-w-[200px]">{ad.jobId ? 'AI' : 'Uploaded'}</p>
+      <p className="text-center text-muted-foreground max-w-[200px]">{ad.jobId ? 'AI' : 'Uploaded'}</p>
     );
   }, []);
 
@@ -468,7 +468,7 @@ export default function AdsLibrary() {
       suppressHeaderMenuButton: true,
     },
     { headerName: '', width: 50, cellRenderer: PlayRenderer, sortable: false, suppressHeaderMenuButton: true },
-    { field: 'adName', headerName: t('ad_creator.ad_name'), flex: 2, minWidth: 160, cellRenderer: NameRenderer, filter: true },
+    { field: 'adName', headerName: t('ad_creator.ad_name'), minWidth: 160, cellRenderer: NameRenderer, filter: true },
     { headerName: 'Ad Type', width: 100, cellRenderer: AdTypeRenderer },
     { field: 'status', headerName: t('campaigns.status'), width: 110, cellRenderer: StatusRenderer },
     {
