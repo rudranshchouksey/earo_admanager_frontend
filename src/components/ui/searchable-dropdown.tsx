@@ -39,7 +39,7 @@ export interface SearchableDropdownProps {
   renderItem?: (item: SearchableDropdownItem, isSelected: boolean) => React.ReactNode;
 }
 
-const DEFAULT_MAX_VISIBLE = 80;
+const DEFAULT_MAX_VISIBLE = 200;
 
 /**
  * Searchable single/multi select dropdown.
