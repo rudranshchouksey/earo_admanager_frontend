@@ -425,6 +425,13 @@ export const auth = {
     return { data, error: null, status: response.status, message: data.message };
   },
 
+  claimShopifyAccountVerify: (token: string) =>
+    request('/api/v1/auth/claimShopifyAccount/verify', {
+      method: 'POST',
+      body: { token },
+      skipAuth: true,
+    }),
+
   resendOtp: (email: string) => 
     request(`/api/v1/auth/resendVerifyEmail`, { params: { email } }),
 

@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
 import VerifyEmail from "./pages/VerifyEmail";
+import ClaimShopifyAccount from "./pages/ClaimShopifyAccount";
 import Support from "./components/dashboard/Support";
 import 'react-quill/dist/quill.snow.css';
 
@@ -35,6 +36,7 @@ const App = () => (
                <Route path="/" element={<Auth />} />
                <Route path="/login" element={<Auth />} />
                <Route path="/verifyEmail" element={<VerifyEmail />} />
+               <Route path="/claimShopifyAccount" element={<ClaimShopifyAccount />} />
                <Route path="/dashboard" element={<Dashboard />}>
                  <Route index element={<DashboardHome />} />
                  <Route path="ads" element={<AdsLibrary />} />
