@@ -26,9 +26,9 @@ import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from '@
 
 
 const inventoryOptions = [
-  { type: 'Podcast', description: 'Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.' },
-  { type: 'Streaming', description: 'Connect with 100M+ listeners on top music, radio, CTV and gaming apps, in English or Arabic with powerful precision targeting.' },
-  { type: 'Gaming', description: 'Reach 100M+ gamers across top gaming apps, in English or Arabic with powerful precision targeting.' },
+  { type: 'Podcast', description: 'Top shows and networks with 300+ contextual targeting options.' },
+  { type: 'Streaming', description: 'Music, radio and CTV apps with genre and mood targeting.' },
+  { type: 'Gaming', description: 'In-game audio across mobile and console gaming environments.' },
 ] as const;
 
 const adPositionOptions = [
@@ -399,7 +399,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                   </button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{inventoryOptions.find(option => option.type === 'Podcast')?.description}</p>
               {isPodcastSelected && podcastOptionsOpen && (
                   <div
                     className="mt-4 space-y-4"
@@ -582,7 +582,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                   </button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{inventoryOptions.find(option => option.type === 'Streaming')?.description}</p>
               {isStreamingSelected && streamingOptionsOpen && (
                 <div className="mt-4 space-y-4">
                   <div className="space-y-3">
@@ -699,7 +699,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                   <span className="text-sm font-semibold">Gaming</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">Reach 60M+ listeners across top shows and networks, with 300+ targeting options to match your message with the right audience.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{inventoryOptions.find(option => option.type === 'Gaming')?.description}</p>
             </div>
 
 
