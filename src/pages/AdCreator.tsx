@@ -558,10 +558,17 @@ export default function AdCreator() {
               let tracks = [];
 
 
-              const recommendation = data.assets?.result.find(
+              let recommendation = data.assets?.result.find(
                 (item) =>
                   item.reference.composition_id === data.data.compositionId,
               );
+
+
+              console.log("recommendation", recommendation);
+              if(!recommendation && data.assets?.result.length > 0){
+                console.log("no recommendation found, using first one");
+                recommendation = data.assets?.result[0];
+              }
 
               if (recommendation) {
                 voices = recommendation.voices;
