@@ -214,6 +214,25 @@ export interface AdDeliveryReportResponse {
     data: AdDeliveryReportData;
 }
 
+export interface ShowNameRow {
+    showName: string;
+    impressions: number;
+    uniqueUsers: number;
+    totalSpend: number;
+    ltr: number;
+    demandECPM?: number;
+}
+
+export interface ShowNameReportData {
+    showData: ShowNameRow[];
+}
+
+export interface ShowNameReportResponse {
+    status: number;
+    message?: string;
+    data: ShowNameReportData;
+}
+
 export interface ImpressionsFilterMetricRow {
     impressions: number;
     percentage: number;
@@ -295,6 +314,7 @@ export const reportsApi = {
     GetCountryCityReport: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<CountryCityReportResponse>('/api/v1/reports/GetCountryCityReport', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
     GetContentInventory: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<ContentInventoryReportResponse>('/api/v1/reports/GetContentInventory', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
     GetAdDelivery: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<AdDeliveryReportResponse>('/api/v1/reports/GetAdDelivery', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
+    GetShowName: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<ShowNameReportResponse>('/api/v1/reports/GetShowName', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
     GetDemographics: ({advertiserId, campaignType = "SPECIFIC", campaignIds, dateRange, from, to}) => request<CampaignReportsResponse>('/api/v1/reports/GetDemographics', { method: 'POST', body: {advertiserId, campaignType, campaignIds, dateRange, from, to} }),
     
 
