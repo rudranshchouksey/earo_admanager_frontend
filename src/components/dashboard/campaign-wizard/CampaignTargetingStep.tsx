@@ -183,6 +183,7 @@ const deviceColumns: Column<DeviceType>[] = [
 ];
 
 interface TargetingData {
+  clientLanguage: string[];
   gender: string;
   ageRanges: string[];
   deviceTypes: string[];
@@ -197,10 +198,13 @@ interface TargetingData {
   contentLanguages: string[];
 }
 
+type TargetingStepSection = 'inventory' | 'audience';
+
 interface Props {
   data: TargetingData;
   onChange: (data: TargetingData) => void;
   contentLanguages: ContentLanguage[];
+  commonLanguages: ContentLanguage[];
   podcastTopics: string[];
   streamingTopics: string[];
   podcastAudiences: PodcastAudience[];
@@ -208,9 +212,11 @@ interface Props {
   targetingSegments: TargetingSegment[];
   deviceTypes: TargetingSegment[];
   disabled: boolean;
+  /** Which fields to render. Defaults to inventory (podcast/streaming/gaming). */
+  section?: TargetingStepSection;
 }
 
-export default function CampaignTargetingStep({ data, onChange, contentLanguages, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled }: Props) {
+export default function CampaignTargetingStep({ data, onChange, contentLanguages, commonLanguages, podcastTopics, streamingTopics, podcastAudiences, streamingAudiences, targetingSegments, deviceTypes, disabled, section = 'inventory' }: Props) {
   const { isPro } = useSessionFlags();
   const [inventoryMode, setInventoryMode] = useState<InventoryMode>('categories');
   const [openListId, setOpenListId] = useState<string | null>(null);
@@ -322,8 +328,23 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
     onChange({ ...data, streamingAudiences: next });
   };
 
+  const toggleClientLanguage = (language: string) => {
+    const next = data.clientLanguage.includes(language)
+      ? data.clientLanguage.filter((l) => l !== language)
+      : [...data.clientLanguage, language];
+    onChange({ ...data, clientLanguage: next });
+  };
+
+
+  const commonLanguageMap = commonLanguages.reduce((acc, language) => {
+    acc[language.code] = language.label || language.name;
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
+      {section === 'inventory' && (
+        <>
       {/* Inventory Type — Mode Switcher (Pro only) */}
       {isPro && (
         <div className="space-y-3 hidden">
@@ -362,7 +383,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
       {/* Mode: Content Categories (Pro only) */}
       {isPro && inventoryMode === 'categories' && (
         <>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3" style={{marginTop: 0}}>
             <div
               className={cn(
                 'border rounded-lg p-4 cursor-pointer transition-all',
@@ -614,35 +635,6 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                     />
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Label>Streaming Audiences</Label>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {data.streamingAudiences?.map((audience) => (
-                        <span key={audience} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
-                          {streamingAudienceMap[audience]} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleStreamingAudience(audience)} />
-                        </span>
-                      ))}
-                    </div>
-                    <SearchableDropdown
-                      items={streamingAudiences?.map((audience) => ({
-                        id: audience.value,
-                        label: audience.label,
-                        searchText: `${audience.label} ${audience.category || ""}`,
-                      })) || []}
-                      selectedIds={data.streamingAudiences || []}
-                      onSelectionChange={(ids) =>
-                        onChange({ ...data, streamingAudiences: ids })
-                      }
-                      selectionMode="multi"
-                      placeholder="Search or select segments"
-                      searchPlaceholder="Search by category, behavior, or segment..."
-                      emptyMessage="No segments match your search"
-                      disabled={disabled}
-                    />
-                  </div>
-
                   <div className="space-y-3 hidden">
                     <Label>Saved & Re-targeting Audiences</Label>
                     <SearchableList
@@ -739,6 +731,73 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
         </div>
       )}
 
+        </>
+      )}
+
+      {section === 'audience' && (
+        <>
+      {/* Streaming Audiences — when Streaming inventory is selected */}
+      {isPro && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Label>Behavioural Audiences</Label>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {data.streamingAudiences?.map((audience) => (
+              <span key={audience} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
+                {streamingAudienceMap[audience]} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleStreamingAudience(audience)} />
+              </span>
+            ))}
+          </div>
+          <SearchableDropdown
+            items={streamingAudiences?.map((audience) => ({
+              id: audience.value,
+              label: audience.label,
+              searchText: `${audience.label} ${audience.category || ""}`,
+            })) || []}
+            selectedIds={data.streamingAudiences || []}
+            onSelectionChange={(ids) =>
+              onChange({ ...data, streamingAudiences: ids })
+            }
+            selectionMode="multi"
+            placeholder="Search or select segments"
+            searchPlaceholder="Search by category, behavior, or segment..."
+            emptyMessage="No segments match your search"
+            disabled={disabled}
+          />
+        </div>
+      )}
+
+      {isPro && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Label>Client Languages</Label>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {data.clientLanguage?.map((language) => (
+              <span key={language} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
+                {commonLanguageMap[language]} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleClientLanguage(language)} />
+              </span>
+            ))}
+          </div>
+          <SearchableDropdown
+            items={commonLanguages?.map((language) => ({
+              id: language.code,
+              label: language.label || language.name,
+              searchText: `${language.name} ${language.label || ""} ${language.code}`,
+            })) || []}
+            selectedIds={data.clientLanguage || []}
+            onSelectionChange={(ids) =>
+              onChange({ ...data, clientLanguage: ids })
+            }
+            selectionMode="multi"
+            placeholder="Search or select languages"
+            searchPlaceholder="Search by language"
+            emptyMessage="No languages match your search"
+            disabled={disabled}
+          />
+        </div>
+      )}
 
       {/* Ad Position — Pro only */}
       {isPro && (
@@ -897,7 +956,7 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
           <Label>Device Type</Label>
           <div className="flex flex-wrap gap-1">
             {data.deviceTypes?.map((device) => (
-              <span key={device} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
+              <span key={device} className="inline-flex items-center gap-1.5 bg-[#E6F4EA] border border-[#C8E6C9] text-foreground text-xs font-medium pl-2 pr-1 h-10 rounded-lg capitalize">
                 {device?.replace(/_/g, ' ')} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleDevice(device)} />
               </span>
             ))}
@@ -923,6 +982,8 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
             disabled={disabled}
           />
         </div>
+      )}
+        </>
       )}
 
     </div>
