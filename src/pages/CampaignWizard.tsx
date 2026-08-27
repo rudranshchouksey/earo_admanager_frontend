@@ -34,6 +34,7 @@ import {
 } from "@/services/targeting";
 import { DAYS_OF_WEEK } from "@/components/dashboard/campaign-wizard/CampaignScheduleStep";
 import { countryCPM } from "@/lib/defaults";
+import { resolveScheduleTimezone, scheduleDateTimeInTimezone } from "@/lib/scheduleTime";
 import { auth } from "@/services/auth";
 import { AdGroup, campaignApi, SavedTransaction } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
@@ -847,13 +848,19 @@ export default function CampaignWizard() {
       const campaignEndTime = schedule.endTime;
 
 
-      const completeStartDate = new Date(campaignStartDate);
-      completeStartDate.setHours(Number(campaignStartTime.split(":")[0]));
-      completeStartDate.setMinutes(Number(campaignStartTime.split(":")[1]));
+      const campaignTimezone = resolveScheduleTimezone(schedule.timezone);
 
-      const completeEndDate = new Date(campaignEndDate);
-      completeEndDate.setHours(Number(campaignEndTime.split(":")[0]));
-      completeEndDate.setMinutes(Number(campaignEndTime.split(":")[1]));
+      const completeStartDate = scheduleDateTimeInTimezone(
+        campaignStartDate,
+        campaignStartTime,
+        campaignTimezone,
+      );
+
+      const completeEndDate = scheduleDateTimeInTimezone(
+        campaignEndDate,
+        campaignEndTime,
+        campaignTimezone,
+      );
 
 
       // if(completeStartDate.getTime() < new Date().getTime()) {
@@ -1060,19 +1067,11 @@ export default function CampaignWizard() {
       return;
     }
 
-    if(!inventory.selectedCountries || inventory.selectedCountries.length === 0){
-      toast({
-        title: "Error",
-        description: "Please select a country",
-        variant: "destructive",
-      });
-      countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-      return;
-    }
 
 
     
     if(!validateLatLong()){
+      setSaving(false);
       return;
     }
 
@@ -1098,14 +1097,19 @@ export default function CampaignWizard() {
       const campaignEndTime = schedule.endTime;
 
 
-      const completeStartDate = new Date(campaignStartDate);
-      completeStartDate.setHours(Number(campaignStartTime.split(":")[0]));
-      completeStartDate.setMinutes(Number(campaignStartTime.split(":")[1]));
+      const campaignTimezone = resolveScheduleTimezone(schedule.timezone);
 
-      const completeEndDate = new Date(campaignEndDate);
-      completeEndDate.setHours(Number(campaignEndTime.split(":")[0]));
-      completeEndDate.setMinutes(Number(campaignEndTime.split(":")[1]));
+      const completeStartDate = scheduleDateTimeInTimezone(
+        campaignStartDate,
+        campaignStartTime,
+        campaignTimezone,
+      );
 
+      const completeEndDate = scheduleDateTimeInTimezone(
+        campaignEndDate,
+        campaignEndTime,
+        campaignTimezone,
+      );
 
       if(completeStartDate.getTime() < new Date().getTime()) {
         toast({
@@ -1151,6 +1155,17 @@ export default function CampaignWizard() {
       }
 
 
+      if(!inventory.selectedCountries || inventory.selectedCountries.length === 0){
+        toast({
+          title: "Error",
+          description: "Please select a country",
+          variant: "destructive",
+        });
+        countryRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        setSaving(false);
+        return;
+      }
+  
       const geoCountries = [];
 
       if(inventory.selectedCountries && inventory.selectedCountries.length > 0) {
