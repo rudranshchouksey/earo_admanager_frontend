@@ -10,6 +10,7 @@ import { AlertDialogHeader } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { logger } from "@/lib/logger";
+import { Textarea } from '@/components/ui/textarea';
 
 
 export const BANNER_TYPES = [
@@ -309,7 +310,8 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
           <Label className="flex items-center gap-2">
           Conversion tracking pixel <span className="text-xs text-muted-foreground font-normal">(optional)</span>
           </Label>
-          <Input
+          <Textarea
+            rows={5}
             placeholder="https://tracker.example.com/pixel?campaign_id=..."
             value={data.impressionPixel}
             onChange={(e) => onChange({ ...data, impressionPixel: e.target.value })}

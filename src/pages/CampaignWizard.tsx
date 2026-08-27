@@ -2304,7 +2304,7 @@ export default function CampaignWizard() {
           )}
 
           {/* Inventory (podcast / streaming / gaming) */}
-          {renderSection(
+          {isPro && renderSection(
             "Inventory",
             inventoryTypeTooltip,
             targetingDone,
@@ -2375,7 +2375,7 @@ export default function CampaignWizard() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                  { isPro ? 8 : 7 }
+                  { isPro ? 8 : 6 }
                 </span>
                 <CardTitle className="text-lg flex items-center gap-2">Payment
 
