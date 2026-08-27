@@ -6,6 +6,20 @@ import Cookies from "js-cookie";
 import { BASE_URL, request } from "./api";
 import { adsApi } from "./ads";
 import { logger } from "@/lib/logger";
+import { trackSignUp, trackLogin } from "@/lib/gtm";
+
+/**
+ * Local copy of the plan derivation in `useSessionFlags.ts`'s `getPlanFromSession()` —
+ * inlined here (rather than imported) to avoid a circular import, since that hook module
+ * itself imports `getStoredSession`/`auth` from this file.
+ */
+function derivePlanForTracking(): string {
+  const session = getStoredSession();
+  const meta = session?.user?.app_metadata;
+  const org = meta?.organizations?.find((o) => o.orgId === session?.currentOrganizationId);
+  if (org?.orgType === "AGENCY") return "agency";
+  return meta?.isPro ? "pro" : "express";
+}
 
 export interface Organizations {
   orgId: string;
@@ -306,6 +320,7 @@ export const auth = {
     if (error || !data?.tokens) return { data, error, status, message };
 
     createSessionAndNotify(data);
+    trackLogin({ method: "email", plan: derivePlanForTracking(), userId: data?.data?.id, orgId: data?.data?.organizations?.[0]?.orgId });
     return { data, error: null, status, message };
   },
 
@@ -330,6 +345,16 @@ export const auth = {
     }
 
     createSessionAndNotify(data);
+    const trackParams = {
+      plan: derivePlanForTracking(),
+      userId: data?.data?.id,
+      orgId: data?.data?.organizations?.[0]?.orgId,
+    };
+    if (data.isNewAccount) {
+      trackSignUp({ method: "google", ...trackParams });
+    } else {
+      trackLogin({ method: "google", ...trackParams });
+    }
     return { data, error: null, status: 200, message };
   },
 
@@ -358,6 +383,12 @@ export const auth = {
     }
 
     createSessionAndNotify(data);
+    trackSignUp({
+      method: "email",
+      plan: derivePlanForTracking(),
+      userId: data?.data?.id,
+      orgId: data?.data?.organizations?.[0]?.orgId,
+    });
 
     return { data, error: null, status, message };
   },
@@ -413,6 +444,7 @@ export const auth = {
 
     setStoredSession(session);
     notify('SIGNED_IN', session);
+    trackLogin({ method: "email", plan: derivePlanForTracking(), userId, orgId: currentOrganizationId });
     return { data: { session }, error: null, status, message };
 
   },
