@@ -132,9 +132,9 @@ Narrow your targeting to specific cities within the selected countries. Leave em
 `;
 
 
-const audienceTooltip = `
+const inventoryTypeTooltip = `
 <div class="p-2">
-Define who hears your ad. Choose between Podcast and Streaming inventory, then apply topic, audience, demographic, and device filters to reach the right listeners.
+Choose where your ad runs. Select Podcast, Streaming, or Gaming inventory, then refine with topics and content filters.
 <br /><br />
 
 <b>Podcast</b><br />
@@ -157,8 +157,19 @@ Serve your ad on music, radio, CTV, and gaming platforms. This offers a larger a
 Limit your ad to streaming audio within specific content categories (e.g., Jazz, Rock, Blues).
 <br /><br />
 
+<b>Gaming</b><br />
+Reach listeners in-game across mobile and console environments.
+
+</div>
+`;
+
+const audienceTooltip = `
+<div class="p-2">
+Define who hears your ad with demographic, device, and audience filters.
+<br /><br />
+
 <b>Streaming audiences</b><br />
-Target listeners based on their interests and behavior (e.g., Car Buyers, Home Owners). This can be combined with topic targeting.
+Target streaming listeners based on their interests and behavior (e.g., Car Buyers, Home Owners). Available when Streaming inventory is selected.
 <br /><br />
 
 <b>Ad position</b><br />
@@ -183,21 +194,6 @@ Restrict delivery to specific device types. Leave all selected unless your produ
 
 const audienceExtensionTooltip = `
   <div class="p-2">
-  Optionally extend your campaign with display banner ads served to listeners across the web—reinforcing your audio message with a visual reminder.
-<br /><br />
-
-<b>Retarget listeners on the web </b><br />
-When enabled, listeners who hear your audio ad will also be shown your display banner as they browse premium websites.
-<br /><br />
-
-<b>Budget increase </b><br />
-Enabling this option adds 20% to your daily budget to cover the cost of display inventory (e.g., +$5/day → $30/day total).
-<br /><br />
-
-<b>Upload display banner </b><br />
-Upload the banner creative required for Audience Extension. Keep your visual consistent with your audio message (same headline and call to action).
-<br /><br />
-
 <b>Impression tracking pixel (optional) </b><br />
 Paste your third-party tracking URL here. It fires on every ad impression, allowing you to verify delivery and attribute results in your own analytics platform.
   </div>
@@ -278,6 +274,7 @@ export default function CampaignWizard() {
     podcastAudiences: [] as string[],
     streamingTopics: [] as string[],
     streamingAudiences: [] as string[],
+    clientLanguage: [] as string[],
     adPositions: ["pre-roll", "mid-roll", "post-roll"] as string[],
     selectedShows: [] as string[],
     savedAudiences: [] as string[],
@@ -336,6 +333,7 @@ export default function CampaignWizard() {
   const [campaignId, setCampaignId] = useState("");
   const [campaignStatus, setCampaignStatus] = useState("");
   const [contentLanguages, setContentLanguages] = useState<ContentLanguage[]>([]);
+  const [commonLanguages, setCommonLanguages] = useState<ContentLanguage[]>([]);
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
 
@@ -642,6 +640,7 @@ export default function CampaignWizard() {
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: payment.cardId ? payment.cardId : null,
+        clientLanguage: targeting.clientLanguage ? targeting.clientLanguage : [],
         contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
         locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
         locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
@@ -954,11 +953,12 @@ export default function CampaignWizard() {
         bannerOne: null,
         bannerTwo: null,
         bannerThree: null,
-        impressionPixel: null,
+        impressionPixel: audienceExtension.impressionPixel ? audienceExtension.impressionPixel : null,
         isSavedCard: false,
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
+        clientLanguage: targeting.clientLanguage ? targeting.clientLanguage : [],
         contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
         locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
         locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
@@ -1204,11 +1204,12 @@ export default function CampaignWizard() {
         bannerOne: null,
         bannerTwo: null,
         bannerThree: null,
-        impressionPixel: null,
+        impressionPixel: audienceExtension.impressionPixel ? audienceExtension.impressionPixel : null,
         isSavedCard: false,
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
         cardId: creditsDetails.availableCredit >= Number(budget.totalBudget) ? null : payment.cardId ? payment.cardId : null,
+        clientLanguage: targeting.clientLanguage ? targeting.clientLanguage : [],
         contentLanguage: targeting.contentLanguages ? targeting.contentLanguages : [],
         locationPostalCode: inventory.targetPostal ? inventory.targetPostal : [],
         locationLatLong: inventory.targetLatLong ? inventory.targetLatLong : []
@@ -2004,6 +2005,20 @@ export default function CampaignWizard() {
       }
     }
 
+    const fetchCommonLanguages = async () => {
+      const { data, error } = await targetingApi.getCommonLanguages();
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if(data?.data && data?.data.length > 0){
+        setCommonLanguages(data?.data?.filter(item => item.label && item.code !== "others" && item.code !== "unknown").map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
+      } else {
+        setCommonLanguages([]);
+      }
+    }
+
     Promise.allSettled([
       fetchCountries(),
       fetchPublisherSegments(),
@@ -2014,6 +2029,7 @@ export default function CampaignWizard() {
       fetchCards(),
       getCreditsDetails(),
       fetchContentLanguage(),
+      fetchCommonLanguages(),
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -2105,9 +2121,14 @@ export default function CampaignWizard() {
               if(adGroup.streamingTopics && adGroup.streamingTopics.length > 0){
                 targetingObj.streamingTopics = adGroup.streamingTopics;
               }
-              if(adGroup.streamingAudiences && adGroup.streamingAudiences.length > 0){
-                targetingObj.streamingAudiences = adGroup.streamingAudiences;
-              }
+            }
+
+            if(adGroup.streamingAudiences && adGroup.streamingAudiences.length > 0){
+              targetingObj.streamingAudiences = adGroup.streamingAudiences;
+            }
+
+            if(adGroup.clientLanguage && adGroup.clientLanguage.length > 0){
+              targetingObj.clientLanguage = adGroup.clientLanguage;
             }
 
             targetingObj.inventoryType = adGroup.inventoryType || "Podcast";
@@ -2118,6 +2139,7 @@ export default function CampaignWizard() {
               gender: adGroup.demogGender || "",
               ageRanges: adGroup.demogAge || [],
               deviceTypes: adGroup.deviceType || [], 
+
             
             }
             setTargeting({...targetingObj});
@@ -2281,18 +2303,41 @@ export default function CampaignWizard() {
             />,
           )}
 
-          {/* Audience */}
-          {renderSection(
-            "Audience",
-            audienceTooltip,
+          {/* Inventory (podcast / streaming / gaming) */}
+          {isPro && renderSection(
+            "Inventory",
+            inventoryTypeTooltip,
             targetingDone,
             <CampaignTargetingStep
+              section="inventory"
               contentLanguages={contentLanguages}
               targetingSegments={targetingSegments}
               podcastTopics={podcastTopics}
               streamingTopics={streamingTopics}
               podcastAudiences={podcastAudiences}
               streamingAudiences={streamingAudiences}
+              commonLanguages={commonLanguages}
+              data={targeting}
+              onChange={setTargeting}
+              deviceTypes={deviceTypes}
+              disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'}
+            />,
+          )}
+
+          {/* Audience */}
+          {renderSection(
+            "Audience",
+            audienceTooltip,
+            targetingDone,
+            <CampaignTargetingStep
+              section="audience"
+              contentLanguages={contentLanguages}
+              targetingSegments={targetingSegments}
+              podcastTopics={podcastTopics}
+              streamingTopics={streamingTopics}
+              podcastAudiences={podcastAudiences}
+              streamingAudiences={streamingAudiences}
+              commonLanguages={commonLanguages}
               data={targeting}
               onChange={setTargeting}
               deviceTypes={deviceTypes}
@@ -2302,13 +2347,13 @@ export default function CampaignWizard() {
 
           {/* Audience Extension — Pro only */}
           {isPro && (
-            <Card className="hidden">
+            <Card className="">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                    6
+                    7
                   </span>
-                  <CardTitle className="text-lg flex items-center gap-2">Audience Extension
+                  <CardTitle className="text-lg flex items-center gap-2">Tracking
                     <MyTooltip html={audienceExtensionTooltip} />
                   </CardTitle>
                 </div>
@@ -2330,7 +2375,7 @@ export default function CampaignWizard() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                  6
+                  { isPro ? 8 : 6 }
                 </span>
                 <CardTitle className="text-lg flex items-center gap-2">Payment
 

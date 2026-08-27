@@ -53,6 +53,8 @@ import {
   CountryCityReportData,
   CountryReportRow,
   CityReportRow,
+  ShowNameReportData,
+  ShowNameRow,
   reportsApi,
 } from '@/services/reports';
 import { appNotifications } from '@/services/appNotifications';
@@ -679,6 +681,20 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
   };
 }
 
+function normalizeShowNameRows(data: ShowNameReportData | null | undefined): ShowNameRow[] {
+  return data?.showData ?? [];
+}
+
+function mapShowNameToChartRow(row: ShowNameRow): LocationChartRow {
+  return {
+    name: row.showName?.trim() || 'Unknown',
+    impressions: row.impressions ?? 0,
+    reach: row.uniqueUsers ?? 0,
+    spent: 0,
+    ltr: row.ltr,
+  };
+}
+
 function dailyRowsToChartPoints(rows: CampaignReportDailyRow[]): ChartDailyPoint[] {
   const map = new Map<string, ChartDailyPoint & { _ltrSum: number; _ltrN: number }>();
 
@@ -908,19 +924,22 @@ function MetricDropdown({
   value,
   onChange,
   extraKeys,
+  keys,
 }: {
   value: MetricKey;
   onChange: (v: MetricKey) => void;
   extraKeys?: MetricKey[];
+  keys?: MetricKey[];
 }) {
-  const keys = extraKeys && extraKeys.length ? [...METRIC_DROPDOWN_KEYS, ...extraKeys] : METRIC_DROPDOWN_KEYS;
+  const baseKeys = keys ?? METRIC_DROPDOWN_KEYS;
+  const allKeys = extraKeys && extraKeys.length ? [...baseKeys, ...extraKeys] : baseKeys;
   return (
     <Select value={value} onValueChange={(v) => onChange(v as MetricKey)}>
       <SelectTrigger className="w-52 h-9 focus:ring-0 focus:ring-offset-0">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {keys.map((k) => (
+        {allKeys.map((k) => (
           <SelectItem key={k} value={k}>
             {METRIC_LABELS[k]}
           </SelectItem>
@@ -931,10 +950,11 @@ function MetricDropdown({
 }
 
 // ─── Shared tooltip that shows ALL metrics for a data point ───
-function AllMetricsTooltip({ active, payload, label, selectedMetric }: any) {
+function AllMetricsTooltip({ active, payload, label, selectedMetric, metricKeys }: any) {
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0].payload as Record<string, any>;
-  const baseKeys: MetricKey[] = [...METRIC_KEYS, ...(row.ltr != null ? ['ltr' as MetricKey] : [])];
+  const defaultKeys: MetricKey[] = [...METRIC_KEYS, ...(row.ltr != null ? ['ltr' as MetricKey] : [])];
+  const baseKeys: MetricKey[] = metricKeys ?? defaultKeys;
   const orderedKeys = selectedMetric && baseKeys.includes(selectedMetric)
     ? [selectedMetric as MetricKey, ...baseKeys.filter(k => k !== selectedMetric)]
     : baseKeys;
@@ -994,6 +1014,7 @@ type ReportLoadingKey =
   | 'countryCity'
   | 'contentInventory'
   | 'adDelivery'
+  | 'showName'
   | 'impressionsFiltered'
   | 'impressionsShare'
   | 'campaignPerformance';
@@ -1005,6 +1026,7 @@ const ALL_REPORT_LOADING: ReportLoadingState = {
   countryCity: true,
   contentInventory: true,
   adDelivery: true,
+  showName: true,
   impressionsFiltered: true,
   impressionsShare: true,
   campaignPerformance: true,
@@ -1015,6 +1037,7 @@ const NO_REPORT_LOADING: ReportLoadingState = {
   countryCity: false,
   contentInventory: false,
   adDelivery: false,
+  showName: false,
   impressionsFiltered: false,
   impressionsShare: false,
   campaignPerformance: false,
@@ -1045,21 +1068,32 @@ function ChartLoadingShell({
 }
 
 // ─── Horizontal bar chart card (reusable) ───
-function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, extraKeys, loading = false }: {
+function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, extraKeys, metricKeys, loading = false }: {
   title: string;
   data: any[];
   selectedMetric: MetricKey;
   onMetricChange: (v: MetricKey) => void;
   extraKeys?: MetricKey[];
+  metricKeys?: MetricKey[];
   loading?: boolean;
 }) {
+  const baseMetricKeys = metricKeys ?? METRIC_KEYS;
+  const tooltipMetricKeys: MetricKey[] = [
+    ...baseMetricKeys,
+    ...((extraKeys ?? []).filter((k) => !baseMetricKeys.includes(k))),
+  ];
   const chartHeight = Math.max(280, data.length * 28);
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <CardTitle className="text-base">{title}</CardTitle>
-          <MetricDropdown value={selectedMetric} onChange={onMetricChange} extraKeys={extraKeys} />
+          <MetricDropdown
+            value={selectedMetric}
+            onChange={onMetricChange}
+            keys={baseMetricKeys}
+            extraKeys={extraKeys}
+          />
         </div>
       </CardHeader>
       <CardContent>
@@ -1072,7 +1106,7 @@ function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, e
               <span className="text-lg font-semibold text-foreground">{data[0].name}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[...METRIC_KEYS, ...((extraKeys ?? []).filter(k => (data[0] as any)[k] != null))].map((key) => {
+              {[...baseMetricKeys, ...((extraKeys ?? []).filter(k => (data[0] as any)[k] != null))].map((key) => {
                 const value = (data[0] as any)[key] as number;
                 return (
                   <div key={key} className="rounded-lg border border-border p-4">
@@ -1092,7 +1126,7 @@ function HorizontalBarChartCard({ title, data, selectedMetric, onMetricChange, e
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis type="number" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
               <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} className="fill-muted-foreground" width={130} />
-              <Tooltip content={<AllMetricsTooltip selectedMetric={selectedMetric} />} cursor={{ fill: 'hsl(var(--muted) / 0.3)' }} />
+              <Tooltip content={<AllMetricsTooltip selectedMetric={selectedMetric} metricKeys={tooltipMetricKeys} />} cursor={{ fill: 'hsl(var(--muted) / 0.3)' }} />
               <Bar
                 dataKey={selectedMetric}
                 name={METRIC_LABELS[selectedMetric]}
@@ -1129,6 +1163,7 @@ export default function Reports() {
   const [countryCityReport, setCountryCityReport] = useState<CountryCityReportData | null>(null);
   const [contentInventoryReport, setContentInventoryReport] = useState<ContentInventoryReportData | null>(null);
   const [adDeliveryReport, setAdDeliveryReport] = useState<AdDeliveryReportData | null>(null);
+  const [showNameReport, setShowNameReport] = useState<ShowNameRow[] | null>(null);
   const [impressionsByFiltered, setImpressionsByFiltered] = useState<ImpressionsByFilteredData | null>(null);
   const [impressionsShareByCampaigns, setImpressionsShareByCampaigns] = useState<CampaignImpressionsShareRow[] | null>(null);
   const [campaignPerformanceRows, setCampaignPerformanceRows] = useState<CampaignActionData[] | null>(null);
@@ -1187,6 +1222,7 @@ export default function Reports() {
   
   const [countryMetric, setCountryMetric] = useState<MetricKey>('impressions');
   const [cityMetric, setCityMetric] = useState<MetricKey>('impressions');
+  const [showNameMetric, setShowNameMetric] = useState<MetricKey>('impressions');
 
   useEffect(() => {
     if (reportMetric === 'impressions') setReportMetric('impressions');
@@ -1203,6 +1239,7 @@ export default function Reports() {
     setCountryCityReport(null);
     setContentInventoryReport(null);
     setAdDeliveryReport(null);
+    setShowNameReport(null);
     setImpressionsByFiltered(null);
     setImpressionsShareByCampaigns(null);
     setCampaignPerformanceRows(null);
@@ -1408,6 +1445,54 @@ export default function Reports() {
     };
 
     loadAdDelivery();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    if (allCampaigns.length === 0) {
+      setShowNameReport(null);
+      setReportLoading((prev) => ({ ...prev, showName: false }));
+      return;
+    }
+
+    let cancelled = false;
+    setReportLoading((prev) => ({ ...prev, showName: true }));
+
+    const loadShowNameReport = async () => {
+      try {
+        const { data: { session: sessionData } } = await auth.getSession();
+        if (!sessionData?.currentAdvertiserId) return;
+
+        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        if (campaignIds.length === 0) return;
+
+        const { data, status, error } = await reportsApi.GetShowName({
+          advertiserId: sessionData.currentAdvertiserId,
+          campaignIds,
+          dateRange: 'CUSTOM',
+          from: dateRange.from.toISOString().substring(0, 10),
+          to: dateRange.to.toISOString().substring(0, 10),
+          campaignType: 'SPECIFIC',
+        });
+
+        if (cancelled) return;
+        if (status !== 200 || error || !data?.data) {
+          logger.error("Error getting show name report", { status, error, message: data?.message });
+          if (error) logger.captureException(error);
+          return;
+        }
+
+        setShowNameReport(normalizeShowNameRows(data.data));
+      } finally {
+        if (!cancelled) {
+          setReportLoading((prev) => ({ ...prev, showName: false }));
+        }
+      }
+    };
+
+    loadShowNameReport();
     return () => {
       cancelled = true;
     };
@@ -2136,6 +2221,16 @@ export default function Reports() {
       .sort((a, b) => b.impressions - a.impressions);
   }, [countryCityReport, cityRows]);
 
+  const showNameRows = useMemo(() => {
+    if (showNameReport?.length) {
+      return showNameReport
+        .map(mapShowNameToChartRow)
+        .sort((a, b) => b.impressions - a.impressions);
+    }
+    if (showNameReport === null) return [];
+    return [];
+  }, [showNameReport]);
+
   const gridColDefs = useMemo<ColDef[]>(() => [
     { field: 'date', headerName: gridGranularity === 'daily' ? 'Date' : gridGranularity === 'weekly' ? 'Week of' : 'Month', width: 130, sort: 'desc' },
     { field: 'campaignName', headerName: 'Campaign', flex: 2, minWidth: 150 },
@@ -2643,6 +2738,16 @@ export default function Reports() {
                 onMetricChange={setCityMetric}
                 extraKeys={['ltr']}
                 loading={reportLoading.countryCity}
+              />
+
+              <HorizontalBarChartCard
+                title="Show names"
+                data={showNameRows}
+                selectedMetric={showNameMetric}
+                onMetricChange={setShowNameMetric}
+                metricKeys={['impressions', 'reach']}
+                extraKeys={['ltr']}
+                loading={reportLoading.showName}
               />
 
               {/* ─── Pie Charts: Content & Inventory ─── */}

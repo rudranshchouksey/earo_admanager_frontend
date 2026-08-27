@@ -10,6 +10,7 @@ import { AlertDialogHeader } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { logger } from "@/lib/logger";
+import { Textarea } from '@/components/ui/textarea';
 
 
 export const BANNER_TYPES = [
@@ -174,7 +175,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
   return (
     <div className="space-y-6">
       {/* Toggle */}
-      <div className="flex items-center justify-between">
+      {/* <div className="flex items-center justify-between hidden">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-muted-foreground" />
@@ -192,7 +193,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
 
       {data.enabled && (
         <>
-          {/* Budget impact */}
+          
           <div className="bg-muted/50 rounded-lg p-3 text-sm">
             <p className="text-muted-foreground">
               Budget increase: <span className="font-semibold text-foreground">+20%</span>
@@ -202,7 +203,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
             </p>
           </div>
 
-          {/* Banners */}
+          
           <div className="space-y-3">
             <div>
               <Label className="flex items-center gap-2">
@@ -239,7 +240,6 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
             </div>
               )}
 
-            {/* Uploaded banners list */}
             {uploadedBanners.length > 0 && (
               <div className="space-y-2">
                 {uploadedBanners.map(banner => {
@@ -263,7 +263,7 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
             )}
           </div>
 
-          {/* Upload Dialog */}
+        
           <Dialog open={uploadDialogOpen} onOpenChange={(open) => { setUploadDialogOpen(open); if (!open) setSelectedType(null); }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -302,24 +302,24 @@ export default function AudienceExtensionStep({ data, onChange, dailyBudget, dis
               />
             </DialogContent>
           </Dialog>
-
-          {/* Impression Pixel */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Impression Pixel <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <Input
-              placeholder="https://tracker.example.com/pixel?campaign_id=..."
-              value={data.impressionPixel}
-              onChange={(e) => onChange({ ...data, impressionPixel: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Third-party impression tracking URL. Fires on each ad impression for verification.
-            </p>
-          </div>
         </>
-      )}
+      )} */}
+
+      {/* Impression Pixel */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+          Conversion tracking pixel <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Textarea
+            rows={5}
+            placeholder="https://tracker.example.com/pixel?campaign_id=..."
+            value={data.impressionPixel}
+            onChange={(e) => onChange({ ...data, impressionPixel: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Third-party impression tracking URL. Fires on each ad impression for verification.
+          </p>
+        </div>
     </div>
   );
 }

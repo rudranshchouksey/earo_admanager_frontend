@@ -100,7 +100,7 @@ export default function AlertBar() {
   useEffect(() => {
     if (!showCompleteProfileModal) return;
     const fetchCountries = async () => {
-      const { data, error } = await targetingApi.getCountries();
+      const { data, error } = await targetingApi.getCountries("");
       if (error) {
         logger.captureException(error);
         return;

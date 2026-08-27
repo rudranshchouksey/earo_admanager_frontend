@@ -148,6 +148,11 @@ export interface GetContentLanguageResponse {
     data: ContentLanguage[];
     message: string;
 }
+export interface GetCommonLanguagesResponse {
+    status: number;
+    data: ContentLanguage[];
+    message: string;
+}
 export interface ContentLanguage {
     code: string;
     name: string;
@@ -164,6 +169,7 @@ export const targetingApi = {
     getStreamingAudiences: (segmentCode: string, search: string) => request<GetStreamingAudiencesResponse>('/api/v1/campaigns/getStreamingAudiences', { method: 'GET', params: { segmentCode, search: '' } }),
     getTargetingSegments: (ruleType: string, segmentCode: string, search: string) => request<GetTargetingSegmentsResponse>('/api/v1/campaigns/getTargetingSegments', { method: 'POST', body: { ruleType, segmentCode, search: '' } }),
     getContentLanguage: () => request<GetContentLanguageResponse>('/api/v1/campaigns/getContentLanguageTargeting', {method: 'POST'}),
+    getCommonLanguages: () => request<GetCommonLanguagesResponse>('/api/v1/campaigns/getCommonLanguages', {method: 'POST'}),
 
     getInventoryForecast: (req: GetInventoryForecastRequest) => request<GetInventoryForecastResponse>('/api/v1/campaigns/getInventoryForecast', { method: 'POST', body: { ...req } }),
     /** Multipart upload — JSON body cannot carry a File; backend should read the field (e.g. multer `single('file')`). */

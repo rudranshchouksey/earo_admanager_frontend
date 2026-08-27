@@ -313,7 +313,7 @@ export const auth = {
   signInWithGoogle: async (token: string, jobId: string, recommendedVersion: string) => {
     const { data, error, status, message } = await request<any>('/api/v1/auth/google', {
       method: 'POST',
-      body: { token },
+      body: { token, jobId, recommendedVersion },
       skipAuth: true
     });
 
@@ -322,12 +322,12 @@ export const auth = {
     if (error || status !== 200 || !data?.tokens) return { data: data?.data, error, status, message };
 
 
-    if(jobId && recommendedVersion && data.isNewAccount){
-      const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
-      const organizationId = data?.data?.organizations[0]?.orgId;
-      logger.info("advertiserId ", { value: advertiserId });
-      handleLandingPageAudioAdDownload(jobId, recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
-    }
+    // if(jobId && recommendedVersion && data.isNewAccount){
+    //   const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
+    //   const organizationId = data?.data?.organizations[0]?.orgId;
+    //   logger.info("advertiserId ", { value: advertiserId });
+    //   handleLandingPageAudioAdDownload(jobId, recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
+    // }
 
     createSessionAndNotify(data);
     return { data, error: null, status: 200, message };
@@ -350,12 +350,12 @@ export const auth = {
     if (error || !data?.tokens) return { data: null, error, status, message };   
 
 
-    if(params.jobId && data?.data?.organizations[0]?.advertisers && data?.data?.organizations[0]?.advertisers?.length > 0){
-      const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
-      const organizationId = data?.data?.organizations[0]?.orgId;
+    // if(params.jobId && data?.data?.organizations[0]?.advertisers && data?.data?.organizations[0]?.advertisers?.length > 0){
+    //   const advertiserId = data?.data?.organizations[0]?.advertisers[0]?.id;
+    //   const organizationId = data?.data?.organizations[0]?.orgId;
 
-      handleLandingPageAudioAdDownload(params.jobId, params.recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
-    }
+    //   handleLandingPageAudioAdDownload(params.jobId, params.recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
+    // }
 
     createSessionAndNotify(data);
 
