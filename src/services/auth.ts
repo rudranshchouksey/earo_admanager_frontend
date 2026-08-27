@@ -9,16 +9,18 @@ import { logger } from "@/lib/logger";
 import { trackSignUp, trackLogin } from "@/lib/gtm";
 
 /**
- * Local copy of the plan derivation in `useSessionFlags.ts`'s `getPlanFromSession()` —
- * inlined here (rather than imported) to avoid a circular import, since that hook module
- * itself imports `getStoredSession`/`auth` from this file.
+ * Plan derivation for tracking, computed from the fresh signup/login API response —
+ * NOT from stored session state. `createSessionAndNotify` always hardcodes
+ * `app_metadata.isPro: false` (the real value is only set later, post-redirect, via
+ * `auth.setCurrentAdvertiserId`), so reading from `getStoredSession()` synchronously
+ * after login/signup would always report "express" even for real Pro advertisers.
+ * The raw response's `organizations[0].advertisers[0].isPro` (same shape as
+ * `Advertiser.isPro` in `./advertiser`) is accurate at this point, so use that instead.
  */
-function derivePlanForTracking(): string {
-  const session = getStoredSession();
-  const meta = session?.user?.app_metadata;
-  const org = meta?.organizations?.find((o) => o.orgId === session?.currentOrganizationId);
+function derivePlanForTracking(data: any): string {
+  const org = data?.data?.organizations?.[0];
   if (org?.orgType === "AGENCY") return "agency";
-  return meta?.isPro ? "pro" : "express";
+  return org?.advertisers?.[0]?.isPro ? "pro" : "express";
 }
 
 export interface Organizations {
@@ -320,7 +322,7 @@ export const auth = {
     if (error || !data?.tokens) return { data, error, status, message };
 
     createSessionAndNotify(data);
-    trackLogin({ method: "email", plan: derivePlanForTracking(), userId: data?.data?.id, orgId: data?.data?.organizations?.[0]?.orgId });
+    trackLogin({ method: "email", plan: derivePlanForTracking(data), userId: data?.data?.id, orgId: data?.data?.organizations?.[0]?.orgId });
     return { data, error: null, status, message };
   },
 
@@ -346,7 +348,7 @@ export const auth = {
 
     createSessionAndNotify(data);
     const trackParams = {
-      plan: derivePlanForTracking(),
+      plan: derivePlanForTracking(data),
       userId: data?.data?.id,
       orgId: data?.data?.organizations?.[0]?.orgId,
     };
@@ -385,7 +387,7 @@ export const auth = {
     createSessionAndNotify(data);
     trackSignUp({
       method: "email",
-      plan: derivePlanForTracking(),
+      plan: derivePlanForTracking(data),
       userId: data?.data?.id,
       orgId: data?.data?.organizations?.[0]?.orgId,
     });
@@ -444,7 +446,7 @@ export const auth = {
 
     setStoredSession(session);
     notify('SIGNED_IN', session);
-    trackLogin({ method: "email", plan: derivePlanForTracking(), userId, orgId: currentOrganizationId });
+    trackLogin({ method: "email", plan: derivePlanForTracking(data), userId, orgId: currentOrganizationId });
     return { data: { session }, error: null, status, message };
 
   },

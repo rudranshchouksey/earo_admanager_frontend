@@ -151,7 +151,7 @@ export default function AdCreator() {
 
   const [hideTopOptions, setHideTopOptions] = useState(false);
 
-  const getAdStatus = async (jobId: string) => {
+  const getAdStatus = async (jobId: string, adId?: string) => {
     const { status, error, message, data } = await adsApi.checkAdStatus(jobId);
     if (status != 200) {
       logger.error("Get ad status error", { status, error, message, data });
@@ -179,14 +179,14 @@ export default function AdCreator() {
           if (!id && !adGeneratedTrackedRef.current) {
             adGeneratedTrackedRef.current = true;
             trackAdGenerated({
-              adId: jobId,
+              adId,
               adName: typeof data.data.script === "string" ? data.data.script.slice(0, 60) : undefined,
             });
           }
         }
       } else {
         setTimeout(() => {
-          getAdStatus(jobId);
+          getAdStatus(jobId, adId);
         }, 5000);
       }
     }
@@ -253,7 +253,7 @@ export default function AdCreator() {
       const ad = data;
       // setGeneratedAd(ad);
       // setEditedScript(ad.script);
-      getAdStatus(data.data.jobId);
+      getAdStatus(data.data.jobId, data.data.id);
       setJobId(data.data.id);
     } catch (err) {
       logger.captureException(err, { context: "handleGenerate" });
