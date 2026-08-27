@@ -420,7 +420,13 @@ export default function Auth() {
   return (
     <AuthPageBackground>
         <Helmet>
-          <title>EARO | Join</title>
+          <title>
+            {step === "login"
+              ? `EARO | ${t("auth.log_in")}`
+              : step === "signup"
+                ? `EARO | ${t("auth.sign_up")}`
+                : `EARO | ${t("auth.reset_password")}`}
+          </title>
         </Helmet>
 
         <div className="w-full space-y-6">
