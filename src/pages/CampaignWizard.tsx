@@ -194,21 +194,6 @@ Restrict delivery to specific device types. Leave all selected unless your produ
 
 const audienceExtensionTooltip = `
   <div class="p-2">
-  Optionally extend your campaign with display banner ads served to listeners across the web—reinforcing your audio message with a visual reminder.
-<br /><br />
-
-<b>Retarget listeners on the web </b><br />
-When enabled, listeners who hear your audio ad will also be shown your display banner as they browse premium websites.
-<br /><br />
-
-<b>Budget increase </b><br />
-Enabling this option adds 20% to your daily budget to cover the cost of display inventory (e.g., +$5/day → $30/day total).
-<br /><br />
-
-<b>Upload display banner </b><br />
-Upload the banner creative required for Audience Extension. Keep your visual consistent with your audio message (same headline and call to action).
-<br /><br />
-
 <b>Impression tracking pixel (optional) </b><br />
 Paste your third-party tracking URL here. It fires on every ad impression, allowing you to verify delivery and attribute results in your own analytics platform.
   </div>
@@ -968,7 +953,7 @@ export default function CampaignWizard() {
         bannerOne: null,
         bannerTwo: null,
         bannerThree: null,
-        impressionPixel: null,
+        impressionPixel: audienceExtension.impressionPixel ? audienceExtension.impressionPixel : null,
         isSavedCard: false,
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
@@ -1219,7 +1204,7 @@ export default function CampaignWizard() {
         bannerOne: null,
         bannerTwo: null,
         bannerThree: null,
-        impressionPixel: null,
+        impressionPixel: audienceExtension.impressionPixel ? audienceExtension.impressionPixel : null,
         isSavedCard: false,
         discountCoupon: payment.couponCode ? payment.couponCode : null,
         adPosition: targeting.adPositions ? targeting.adPositions : null,
@@ -2026,11 +2011,11 @@ export default function CampaignWizard() {
         console.error(error);
         return;
       }
-      setCommonLanguages(data?.data || []);
+
       if(data?.data && data?.data.length > 0){
-        setContentLanguages(data?.data?.filter(item => item.label).map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
+        setCommonLanguages(data?.data?.filter(item => item.label && item.code !== "others" && item.code !== "unknown").map(item => ({ code: item.code, label: item.label,name: item.name })) || []);
       } else {
-        setContentLanguages([]);
+        setCommonLanguages([]);
       }
     }
 
@@ -2362,13 +2347,13 @@ export default function CampaignWizard() {
 
           {/* Audience Extension — Pro only */}
           {isPro && (
-            <Card className="hidden">
+            <Card className="">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                    6
+                    7
                   </span>
-                  <CardTitle className="text-lg flex items-center gap-2">Audience Extension
+                  <CardTitle className="text-lg flex items-center gap-2">Tracking
                     <MyTooltip html={audienceExtensionTooltip} />
                   </CardTitle>
                 </div>
@@ -2390,7 +2375,7 @@ export default function CampaignWizard() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold shrink-0 bg-foreground text-background">
-                  7
+                  { isPro ? 8 : 7 }
                 </span>
                 <CardTitle className="text-lg flex items-center gap-2">Payment
 

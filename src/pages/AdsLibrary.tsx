@@ -217,7 +217,7 @@ export default function AdsLibrary() {
           // Playback can fail due to CORS, codec, or autoplay policies.
           playingIdRef.current = null;
           setPlayingId(null);
-          toast({ title: t('common.error'), description: 'Unable to play audio preview', variant: 'destructive' });
+          //toast({ title: t('common.error'), description: 'Unable to play audio preview', variant: 'destructive' });
         });
     } else {
       // Older browsers: assume play started.
