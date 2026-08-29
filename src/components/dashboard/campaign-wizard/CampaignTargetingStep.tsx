@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Check, Mic, Music, Radio, LayoutGrid, List, Info, ChevronDown, X } from 'lucide-react';
@@ -85,6 +85,108 @@ const streamingTopicsColumns: Column<{ id: string; name: string }>[] = [
 ];
 
 type InventoryMode = 'categories' | 'topics';
+
+function getLanguageDisplayLabel(language: ContentLanguage): string {
+  return (language.label || language.name).trim() || language.code;
+}
+
+type LanguageGroupIndex = {
+  labelItems: { id: string; label: string; searchText: string }[];
+  codesByLabel: Map<string, string[]>;
+  labelByCode: Map<string, string>;
+};
+
+function buildLanguageGroupIndex(languages: ContentLanguage[]): LanguageGroupIndex {
+  const codesByLabel = new Map<string, string[]>();
+  const labelByCode = new Map<string, string>();
+
+  for (const language of languages) {
+    const label = getLanguageDisplayLabel(language);
+    labelByCode.set(language.code, label);
+    const codes = codesByLabel.get(label) ?? [];
+    if (!codes.includes(language.code)) {
+      codes.push(language.code);
+      codesByLabel.set(label, codes);
+    }
+  }
+
+  const labelItems = [...codesByLabel.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((label) => ({
+      id: label,
+      label,
+      searchText: `${label} ${(codesByLabel.get(label) ?? []).join(" ")}`,
+    }));
+
+  return { labelItems, codesByLabel, labelByCode };
+}
+
+/** Client languages group by base name, e.g. "English/United States" → "English". */
+function getClientLanguageGroupKey(language: ContentLanguage): string {
+  const label = getLanguageDisplayLabel(language);
+  const slashIndex = label.indexOf("/");
+  return (slashIndex >= 0 ? label.slice(0, slashIndex) : label).trim() || label;
+}
+
+function buildClientLanguageGroupIndex(languages: ContentLanguage[]): LanguageGroupIndex {
+  const codesByLabel = new Map<string, string[]>();
+  const labelByCode = new Map<string, string>();
+  const variantLabelsByGroup = new Map<string, Set<string>>();
+
+  for (const language of languages) {
+    const displayLabel = getLanguageDisplayLabel(language);
+    const groupKey = getClientLanguageGroupKey(language);
+    labelByCode.set(language.code, groupKey);
+
+    const codes = codesByLabel.get(groupKey) ?? [];
+    if (!codes.includes(language.code)) {
+      codes.push(language.code);
+      codesByLabel.set(groupKey, codes);
+    }
+
+    const variants = variantLabelsByGroup.get(groupKey) ?? new Set<string>();
+    variants.add(displayLabel);
+    variantLabelsByGroup.set(groupKey, variants);
+  }
+
+  const labelItems = [...codesByLabel.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((groupKey) => ({
+      id: groupKey,
+      label: groupKey,
+      searchText: `${groupKey} ${[...(variantLabelsByGroup.get(groupKey) ?? [])].join(" ")} ${(codesByLabel.get(groupKey) ?? []).join(" ")}`,
+    }));
+
+  return { labelItems, codesByLabel, labelByCode };
+}
+
+function codesToSelectedLabels(codes: string[], labelByCode: Map<string, string>): string[] {
+  const labels = new Set<string>();
+  for (const code of codes) {
+    const label = labelByCode.get(code);
+    if (label) labels.add(label);
+  }
+  return Array.from(labels);
+}
+
+function labelsToCodes(labels: string[], codesByLabel: Map<string, string[]>): string[] {
+  const codes = new Set<string>();
+  for (const label of labels) {
+    for (const code of codesByLabel.get(label) ?? []) {
+      codes.add(code);
+    }
+  }
+  return Array.from(codes);
+}
+
+function removeLanguageLabel(
+  codes: string[],
+  label: string,
+  codesByLabel: Map<string, string[]>,
+): string[] {
+  const toRemove = new Set(codesByLabel.get(label) ?? []);
+  return codes.filter((code) => !toRemove.has(code));
+}
 
 // Extended mock shows
 const MOCK_SHOWS = [];
@@ -289,10 +391,24 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
     acc[audience.code] = audience.name;
     return acc;
   }, {});
-  const contentLanguageMap = contentLanguages.reduce((acc, language) => {
-    acc[language.code] = language.label || language.name;
-    return acc;
-  }, {});
+
+  const contentLanguageGroups = useMemo(
+    () => buildLanguageGroupIndex(contentLanguages),
+    [contentLanguages],
+  );
+  const commonLanguageGroups = useMemo(
+    () => buildClientLanguageGroupIndex(commonLanguages),
+    [commonLanguages],
+  );
+
+  const selectedContentLanguageLabels = useMemo(
+    () => codesToSelectedLabels(data.contentLanguages, contentLanguageGroups.labelByCode),
+    [data.contentLanguages, contentLanguageGroups.labelByCode],
+  );
+  const selectedClientLanguageLabels = useMemo(
+    () => codesToSelectedLabels(data.clientLanguage, commonLanguageGroups.labelByCode),
+    [data.clientLanguage, commonLanguageGroups.labelByCode],
+  );
 
   const streamingAudienceMap = streamingAudiences.reduce((acc, audience) => {
     acc[audience.value] = audience.label;
@@ -307,11 +423,15 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
     onChange({ ...data, podcastAudiences: next });
   };
 
-  const toggleContentLanguage = (language: string) => {
-    const next = data.contentLanguages.includes(language)
-      ? data.contentLanguages.filter((l) => l !== language)
-      : [...data.contentLanguages, language];
-    onChange({ ...data, contentLanguages: next });
+  const removeContentLanguageLabel = (label: string) => {
+    onChange({
+      ...data,
+      contentLanguages: removeLanguageLabel(
+        data.contentLanguages,
+        label,
+        contentLanguageGroups.codesByLabel,
+      ),
+    });
   };
 
   const toggleStreamingTopic = (topic: string) => {
@@ -328,18 +448,16 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
     onChange({ ...data, streamingAudiences: next });
   };
 
-  const toggleClientLanguage = (language: string) => {
-    const next = data.clientLanguage.includes(language)
-      ? data.clientLanguage.filter((l) => l !== language)
-      : [...data.clientLanguage, language];
-    onChange({ ...data, clientLanguage: next });
+  const removeClientLanguageLabel = (label: string) => {
+    onChange({
+      ...data,
+      clientLanguage: removeLanguageLabel(
+        data.clientLanguage,
+        label,
+        commonLanguageGroups.codesByLabel,
+      ),
+    });
   };
-
-
-  const commonLanguageMap = commonLanguages.reduce((acc, language) => {
-    acc[language.code] = language.label || language.name;
-    return acc;
-  }, {});
 
   return (
     <div className="space-y-6">
@@ -499,26 +617,25 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
                         <Label>Content Languages</Label>
                       </div>
                       {
-                        data.contentLanguages.length > 0 && ( 
+                        selectedContentLanguageLabels.length > 0 && ( 
                           <div className="flex flex-wrap gap-1">
-                          {data.contentLanguages?.map((language) => (
-                            <span key={language} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
-                              {contentLanguageMap[language]}
-                              <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleContentLanguage(language)} />
+                          {selectedContentLanguageLabels.map((label) => (
+                            <span key={label} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-white w-auto">
+                              {label}
+                              <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => removeContentLanguageLabel(label)} />
                             </span>
                           ))}
                           </div>
                         )
                       }
                       <SearchableDropdown
-                        items={contentLanguages?.map((language) => ({
-                          id: language.code,
-                          label: language.label || language.name,
-                          searchText: `${language.name} ${language.label || ""} ${language.code}`,
-                        })) || []}
-                        selectedIds={data.contentLanguages || []}
-                        onSelectionChange={(ids) =>
-                          onChange({ ...data, contentLanguages: ids })
+                        items={contentLanguageGroups.labelItems}
+                        selectedIds={selectedContentLanguageLabels}
+                        onSelectionChange={(labels) =>
+                          onChange({
+                            ...data,
+                            contentLanguages: labelsToCodes(labels, contentLanguageGroups.codesByLabel),
+                          })
                         }
                         selectionMode="multi"
                         placeholder="Search or select segments"
@@ -774,21 +891,20 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
             <Label>Client Languages</Label>
           </div>
           <div className="flex flex-wrap gap-1">
-            {data.clientLanguage?.map((language) => (
-              <span key={language} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
-                {commonLanguageMap[language]} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => toggleClientLanguage(language)} />
+            {selectedClientLanguageLabels.map((label) => (
+              <span key={label} className="flex flex-row items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-2 px-2 py-1 rounded-md bg-[#E6F4EA] w-auto">
+                {label} <X className="h-3.5 w-3.5 cursor-pointer" onClick={() => removeClientLanguageLabel(label)} />
               </span>
             ))}
           </div>
           <SearchableDropdown
-            items={commonLanguages?.map((language) => ({
-              id: language.code,
-              label: language.label || language.name,
-              searchText: `${language.name} ${language.label || ""} ${language.code}`,
-            })) || []}
-            selectedIds={data.clientLanguage || []}
-            onSelectionChange={(ids) =>
-              onChange({ ...data, clientLanguage: ids })
+            items={commonLanguageGroups.labelItems}
+            selectedIds={selectedClientLanguageLabels}
+            onSelectionChange={(labels) =>
+              onChange({
+                ...data,
+                clientLanguage: labelsToCodes(labels, commonLanguageGroups.codesByLabel),
+              })
             }
             selectionMode="multi"
             placeholder="Search or select languages"

@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, Wallet, Building2, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { CreditDetails } from "@/services/wallet";
+import { Coupon, CreditDetails } from "@/services/wallet";
 import { SavedTransaction } from "@/services/campaign";
 // import { supabase } from '@/integrations/supabase/client';
 
@@ -23,6 +23,7 @@ interface PaymentData {
 }
 
 interface Props {
+  coupons: Coupon[];
   campaignStatus: string;
   campaignName: string;
   data: PaymentData;
@@ -48,6 +49,7 @@ interface Cards {
 
 export default function CampaignPaymentStep({
   campaignStatus,
+  coupons,
   creditsDetails,
   cards,
   campaignName,
@@ -67,7 +69,25 @@ export default function CampaignPaymentStep({
 
   const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = (existingCouponCode: string | null = null) => {
+
+
+    if(existingCouponCode) {
+
+      if(data.couponCode === existingCouponCode) {
+        toast({
+          title: "Coupon already applied",
+          description: "You have already applied this coupon code.",
+          variant: "destructive",
+        })
+        return;
+      }
+
+      applyCoupon(existingCouponCode);
+      return;
+    }
+
+
 
     if(couponCode.trim() === "") {
       toast({
@@ -79,7 +99,6 @@ export default function CampaignPaymentStep({
     }
 
     if(data.couponCode == couponCode) {
-  
       toast({
         title: "Coupon already applied",
         description: "You have already applied this coupon code.",
@@ -170,6 +189,33 @@ export default function CampaignPaymentStep({
 
       <div className="space-y-2 mt-0 pt-0" style={{ marginTop: 0, paddingTop: 0 }}>
         <Label>Discount Coupon (optional)</Label>
+        {coupons && coupons.length > 0 ? (
+          <div className="space-y-2">
+            {coupons.map((coupon) => (
+              <div key={coupon.id} className="w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors border-border hover:border-[#C8E6C9] cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{coupon.couponCode} · {coupon.discountType === "PERCENT" ? `${coupon.discountValue}% off` : `$${coupon.discountValue} off`}</p>
+                    {
+                      coupon.expiryDate && <p className="text-xs text-muted-foreground">{`Expires on ${new Date(coupon.expiryDate).toDateString()}`}</p>
+                    }
+                    {
+                      Number(coupon.minimumCampaignBudget) > 0 && <p className="text-xs text-muted-foreground">{`Minimum campaign budget: $${coupon.minimumCampaignBudget} ${coupon.minimumBudgetCurrency}`}</p>
+                    }
+                    {
+                      Number(coupon.maxDiscountCap) > 0 && <p className="text-xs text-muted-foreground">{`Maximum discount cap: $${coupon.maxDiscountCap} ${coupon.maxDiscountCurrency}`}</p>
+                    }
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="text-sm text-primary" onClick={() => handleApplyCoupon(coupon.couponCode)}>Apply</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <></>
+        )}
         <div className="flex items-center gap-2">
           <Input
             placeholder="Enter coupon code"
@@ -184,7 +230,7 @@ export default function CampaignPaymentStep({
           />
           <button
             className={`${shouldDisable ? ' cursor-not-allowed opacity-50 bg-primary/50' : 'bg-primary'} text-white px-4 py-2 rounded-md`}
-            onClick={handleApplyCoupon}
+            onClick={() => handleApplyCoupon()}
             disabled={isApplyingCoupon || shouldDisable}
           >
             {isApplyingCoupon ? "Applying..." : "Apply"}
@@ -250,11 +296,11 @@ export default function CampaignPaymentStep({
                 }
               </h6>
               <h6 className="text-xs text-muted-foreground">
-                {data.remainingUsages > 0 ? `${data.remainingUsages} usages remaining` : 'No usages remaining'}
+                {data.remainingUsages > 0 ? `${data.remainingUsages} usages remaining` : ''}
               </h6>
               <h6 className="text-xs text-muted-foreground">
                 {
-                  data.expiryDate ? `Expires on ${new Date(data.expiryDate).toLocaleDateString()}` : ''
+                  data.expiryDate ? `Expires on ${new Date(data.expiryDate).toDateString()}` : ''
                 }
 
               </h6>

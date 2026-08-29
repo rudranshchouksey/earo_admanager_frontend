@@ -153,6 +153,29 @@ export interface GetWalletTransactionsParams {
     search?: string;
 }
 
+export interface MyCouponsResponse {
+    status: number;
+    data: Coupon[];
+}
+
+export interface Coupon {
+    id: string;
+    couponCode: string;
+    discountType: string;
+    discountValue: string;
+    maxDiscountCap: string | null;
+    maxDiscountCurrency: string;
+    currency: string;
+    minimumCampaignBudget: string;
+    minimumBudgetCurrency: string;
+    usageLimit: number;
+    usageLimitCounter: number;
+    perAdvertiserUsageLimit: number;
+    autoApply: boolean;
+    status: string;
+    expiryDate: string | null;
+    startDate: string | null;
+}
 export const walletApi = {
     getCards: () => request<any>('/api/v1/wallet-billing/getCards', { method: 'GET' }),
     getCreditsDetails: (advertiserId: string, organizationId: string) => request<CreditDetailsResponse>('/api/v1/wallet-billing/getAvailableCredit', { method: 'POST', body: {advertiserId: advertiserId, orgId: organizationId} }),
@@ -160,4 +183,5 @@ export const walletApi = {
     getWalletTransactions: (params: GetWalletTransactionsParams) =>
         request<WalletTransactionsResponse>('/api/v1/wallet-billing/getWalletTransactions', { method: 'POST', body: params }),
     downloadInvoice: (invoiceId: string) => downloadCreditInvoice(invoiceId),
+    getMyCoupons: (advertiserId: string) => request<MyCouponsResponse>('/api/v1/wallet-billing/myCoupons', { method: 'POST', body: {advertiserId: advertiserId} }),
 }

@@ -38,7 +38,7 @@ import { resolveScheduleTimezone, scheduleDateTimeInTimezone } from "@/lib/sched
 import { auth } from "@/services/auth";
 import { AdGroup, campaignApi, SavedTransaction } from "@/services/campaign";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
-import { CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
+import { Coupon, CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
 import { adsApi } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import { Helmet } from "react-helmet-async";
@@ -337,6 +337,8 @@ export default function CampaignWizard() {
   const [commonLanguages, setCommonLanguages] = useState<ContentLanguage[]>([]);
 
   const [savedTransaction, setSavedTransaction] = useState<SavedTransaction | null>(null)
+
+  const [myCoupons, setMyCoupons] = useState<Coupon[]>([]);
 
 
   /** Derive per-country targeting mode from stored payload (not persisted as a type field). */
@@ -2034,6 +2036,21 @@ export default function CampaignWizard() {
       }
     }
 
+    const myCoupons = async () => {
+
+      const { data: { session } } = await auth.getSession();
+      if(!session) return;
+      const { data, error } = await walletApi.getMyCoupons(session.currentAdvertiserId || "");
+      if (error) {
+        console.error(error);
+        return;
+      }
+      if(data?.data && data?.data.length > 0){
+        setMyCoupons(data?.data || []);
+      } else {
+        setMyCoupons([]);
+      }
+    }
     Promise.allSettled([
       fetchCountries(),
       fetchPublisherSegments(),
@@ -2045,6 +2062,7 @@ export default function CampaignWizard() {
       getCreditsDetails(),
       fetchContentLanguage(),
       fetchCommonLanguages(),
+      myCoupons()
     ]).then(() => {
       // All data fetching attempts have completed, regardless of success or failure
     });
@@ -2399,7 +2417,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} savedTransaction={savedTransaction} />
+              <CampaignPaymentStep coupons={myCoupons} campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} savedTransaction={savedTransaction} />
             </CardContent>
           </Card>
 
