@@ -32,7 +32,7 @@ export interface SearchableDropdownProps {
   className?: string;
   /**
    * Max rows rendered in the open list. Keeps long lists usable.
-   * Defaults to 80. Selected items are always included when present in the list.
+   * Defaults to 200.
    */
   maxVisibleItems?: number;
   /** Optional custom row content (e.g. flag + name). */
@@ -88,20 +88,10 @@ export function SearchableDropdown({
     });
   }, [items, query]);
 
-  // Cap DOM nodes; pin selected matches so multi-select stays discoverable.
   const visibleItems = useMemo(() => {
     if (filteredItems.length <= maxVisibleItems) return filteredItems;
-
-    const pinned: SearchableDropdownItem[] = [];
-    const rest: SearchableDropdownItem[] = [];
-    for (const item of filteredItems) {
-      if (selectedSet.has(item.id)) pinned.push(item);
-      else rest.push(item);
-    }
-
-    const remaining = Math.max(0, maxVisibleItems - pinned.length);
-    return [...pinned, ...rest.slice(0, remaining)];
-  }, [filteredItems, maxVisibleItems, selectedSet]);
+    return filteredItems.slice(0, maxVisibleItems);
+  }, [filteredItems, maxVisibleItems]);
 
   const hiddenCount = Math.max(0, filteredItems.length - visibleItems.length);
 
