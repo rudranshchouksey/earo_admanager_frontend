@@ -22,7 +22,7 @@ import AudienceExtensionStep from "@/components/dashboard/campaign-wizard/Audien
 import type { AudienceExtensionData, BannerSlot } from "@/components/dashboard/campaign-wizard/AudienceExtensionStep";
 import CampaignLaunchModal from "@/components/dashboard/campaign-wizard/CampaignLaunchModal";
 import { useSessionFlags, getPlanFromSession } from "@/hooks/useSessionFlags";
-import { trackPurchase } from "@/lib/gtm";
+import { trackPurchase, trackNewCampaign, trackSaveDraft } from "@/lib/gtm";
 import {
   City,
   Country,
@@ -236,6 +236,16 @@ export default function CampaignWizard() {
   const { id } = useParams<{ id: string }>();
   const [saving, setSaving] = useState(false);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
+
+  const newCampaignTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!id && !newCampaignTrackedRef.current) {
+      newCampaignTrackedRef.current = true;
+      trackNewCampaign();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [setup, setSetup] = useState<{
     audioId: string;
@@ -675,6 +685,7 @@ export default function CampaignWizard() {
       const {data, error, message, status} = await campaignApi.draftCampaign(campaignObj);
 
       if(status === 200) {
+        trackSaveDraft({ campaignId: id || data?.id, campaignName: setup.campaignName });
         toast({
           title: "Draft Saved",
         })

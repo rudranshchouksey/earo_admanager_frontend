@@ -6,6 +6,22 @@ import Cookies from "js-cookie";
 import { BASE_URL, request } from "./api";
 import { adsApi } from "./ads";
 import { logger } from "@/lib/logger";
+import { trackSignUp, trackLogin } from "@/lib/gtm";
+
+/**
+ * Plan derivation for tracking, computed from the fresh signup/login API response —
+ * NOT from stored session state. `createSessionAndNotify` always hardcodes
+ * `app_metadata.isPro: false` (the real value is only set later, post-redirect, via
+ * `auth.setCurrentAdvertiserId`), so reading from `getStoredSession()` synchronously
+ * after login/signup would always report "express" even for real Pro advertisers.
+ * The raw response's `organizations[0].advertisers[0].isPro` (same shape as
+ * `Advertiser.isPro` in `./advertiser`) is accurate at this point, so use that instead.
+ */
+function derivePlanForTracking(data: any): string {
+  const org = data?.data?.organizations?.[0];
+  if (org?.orgType === "AGENCY") return "agency";
+  return org?.advertisers?.[0]?.isPro ? "pro" : "express";
+}
 
 export interface Organizations {
   orgId: string;
@@ -306,6 +322,7 @@ export const auth = {
     if (error || !data?.tokens) return { data, error, status, message };
 
     createSessionAndNotify(data);
+    trackLogin({ method: "email", plan: derivePlanForTracking(data), userId: data?.data?.id, orgId: data?.data?.organizations?.[0]?.orgId });
     return { data, error: null, status, message };
   },
 
@@ -330,6 +347,16 @@ export const auth = {
     // }
 
     createSessionAndNotify(data);
+    const trackParams = {
+      plan: derivePlanForTracking(data),
+      userId: data?.data?.id,
+      orgId: data?.data?.organizations?.[0]?.orgId,
+    };
+    if (data.isNewAccount) {
+      trackSignUp({ method: "google", ...trackParams });
+    } else {
+      trackLogin({ method: "google", ...trackParams });
+    }
     return { data, error: null, status: 200, message };
   },
 
@@ -358,6 +385,12 @@ export const auth = {
     // }
 
     createSessionAndNotify(data);
+    trackSignUp({
+      method: "email",
+      plan: derivePlanForTracking(data),
+      userId: data?.data?.id,
+      orgId: data?.data?.organizations?.[0]?.orgId,
+    });
 
     return { data, error: null, status, message };
   },
@@ -413,6 +446,7 @@ export const auth = {
 
     setStoredSession(session);
     notify('SIGNED_IN', session);
+    trackLogin({ method: "email", plan: derivePlanForTracking(data), userId, orgId: currentOrganizationId });
     return { data: { session }, error: null, status, message };
 
   },
