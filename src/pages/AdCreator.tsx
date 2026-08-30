@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ import {
 import { Button } from "@/components/ui/button";
 import * as Sentry from "@sentry/react";
 import { logger } from "@/lib/logger";
+import { trackNewAudioAd, trackGenerateAd, trackAdGenerated } from "@/lib/gtm";
 
 const PAGE_SIZE = 5;
 
@@ -72,6 +73,17 @@ export default function AdCreator() {
   const { t } = useTranslation();
   const { isPro } = useSessionFlags();
   const { id } = useParams<{ id: string }>();
+
+  const newAdTrackedRef = useRef(false);
+  const adGeneratedTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!id && !newAdTrackedRef.current) {
+      newAdTrackedRef.current = true;
+      trackNewAudioAd();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [mode, setMode] = useState<AdMode>("ai");
   const [generatedAd, setGeneratedAd] = useState<AdStatusResponse | null>(null);
@@ -139,7 +151,7 @@ export default function AdCreator() {
 
   const [hideTopOptions, setHideTopOptions] = useState(false);
 
-  const getAdStatus = async (jobId: string) => {
+  const getAdStatus = async (jobId: string, adId?: string) => {
     const { status, error, message, data } = await adsApi.checkAdStatus(jobId);
     if (status != 200) {
       logger.error("Get ad status error", { status, error, message, data });
@@ -164,10 +176,17 @@ export default function AdCreator() {
           setGeneratedAd(data.data);
           setEditedScript(data.data.script);
           setType("SCRIPT");
+          if (!id && !adGeneratedTrackedRef.current) {
+            adGeneratedTrackedRef.current = true;
+            trackAdGenerated({
+              adId,
+              adName: typeof data.data.script === "string" ? data.data.script.slice(0, 60) : undefined,
+            });
+          }
         }
       } else {
         setTimeout(() => {
-          getAdStatus(jobId);
+          getAdStatus(jobId, adId);
         }, 5000);
       }
     }
@@ -189,6 +208,7 @@ export default function AdCreator() {
       });
       return;
     }
+    trackGenerateAd({ mode: "legacy", advertiserId });
     setIsGenerating(true);
     setHideTopOptions(true);
     try {
@@ -233,7 +253,7 @@ export default function AdCreator() {
       const ad = data;
       // setGeneratedAd(ad);
       // setEditedScript(ad.script);
-      getAdStatus(data.data.jobId);
+      getAdStatus(data.data.jobId, data.data.id);
       setJobId(data.data.id);
     } catch (err) {
       logger.captureException(err, { context: "handleGenerate" });
@@ -830,6 +850,19 @@ export default function AdCreator() {
     logger.info("setVoxifyAd here ", { _voxifyAd });
 
     setVoxifyAd({ ..._voxifyAd });
+
+    if (!id && !adGeneratedTrackedRef.current) {
+      adGeneratedTrackedRef.current = true;
+      // No user-given ad name exists yet at this point (set later in handleSaveAd) —
+      // derive a short label from the script text, same approach as the landing site's
+      // plainScriptLabel(). This is a derived label, not the final ad name.
+      const derivedLabel = _voxifyAd.recommendations[recommendIndex].script.text
+        ?.replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60);
+      trackAdGenerated({ adId: data.data?.id, adName: derivedLabel || undefined });
+    }
   };
 
   const pollVoxifyJob = async (jobId: string, compositionId?: string) => {
@@ -930,6 +963,8 @@ export default function AdCreator() {
       voxifyGoal,
       plainTextLength: voxifyPlainText?.length,
     });
+
+    trackGenerateAd({ mode: "ai", advertiserId });
 
     setVoxifyGenerating(true);
     setHideTopOptions(true);

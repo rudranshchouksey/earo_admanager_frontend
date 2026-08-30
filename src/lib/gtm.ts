@@ -48,6 +48,97 @@ export interface PurchaseEvent {
  * level) — both are standard GA4 params captured by the existing `ecommerce.items`
  * Data Layer Variable, so no extra DLV is required.
  */
+export function trackNewAudioAd(): void {
+  pushToDataLayer({ event: "app_new_audio_ad" });
+}
+
+export function trackGenerateAd({
+  mode,
+  advertiserId,
+}: {
+  mode: "ai" | "legacy";
+  advertiserId?: string;
+}): void {
+  pushToDataLayer({ event: "app_generate_ad", mode, ...(advertiserId ? { advertiser_id: advertiserId } : {}) });
+}
+
+export function trackAdGenerated({ adId, adName }: { adId?: string; adName?: string } = {}): void {
+  pushToDataLayer({
+    event: "app_ad_generated",
+    ...(adId ? { ad_id: adId } : {}),
+    ...(adName ? { ad_name: adName } : {}),
+  });
+}
+
+export function trackNewCampaign(): void {
+  pushToDataLayer({ event: "app_new_campaign" });
+}
+
+export function trackSaveDraft({
+  campaignId,
+  campaignName,
+}: {
+  campaignId?: string;
+  campaignName?: string;
+} = {}): void {
+  pushToDataLayer({
+    event: "app_save_draft",
+    ...(campaignId ? { campaign_id: campaignId } : {}),
+    ...(campaignName ? { campaign_name: campaignName } : {}),
+  });
+}
+
+export function trackSignUp({
+  method,
+  plan,
+  userId,
+  orgId,
+}: {
+  method: "email" | "google";
+  plan?: string;
+  userId?: string;
+  orgId?: string;
+}): void {
+  pushToDataLayer({
+    event: "sign_up",
+    method,
+    ...(plan ? { plan } : {}),
+    ...(userId ? { user_id: userId } : {}),
+    ...(orgId ? { org_id: orgId } : {}),
+  });
+}
+
+// Bonus GA4-standard event, not one of the 4 named funnel stages but essentially free here.
+export function trackLogin({
+  method,
+  plan,
+  userId,
+  orgId,
+}: {
+  method: "email" | "google";
+  plan?: string;
+  userId?: string;
+  orgId?: string;
+}): void {
+  pushToDataLayer({
+    event: "login",
+    method,
+    ...(plan ? { plan } : {}),
+    ...(userId ? { user_id: userId } : {}),
+    ...(orgId ? { org_id: orgId } : {}),
+  });
+}
+
+// Mirrors the landing site's play_audio event. No matching GTM tag confirmed yet —
+// needs console-side tag/trigger setup, same as sign_up/login/app_ad_generated.
+export function trackPlayAudio({ adId, adName }: { adId?: string; adName?: string } = {}): void {
+  pushToDataLayer({
+    event: "app_play_audio",
+    ...(adId ? { ad_id: adId } : {}),
+    ...(adName ? { ad_name: adName } : {}),
+  });
+}
+
 export function trackPurchase({
   transactionId,
   value,

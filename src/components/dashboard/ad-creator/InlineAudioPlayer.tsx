@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
+import { trackPlayAudio } from '@/lib/gtm';
 
 /** All inline WaveSurfer instances — pause others before playing one. */
 const inlineWaveSurferInstances = new Set<WaveSurfer>();
@@ -35,6 +36,8 @@ function pauseAllDomHtmlMedia() {
 interface InlineAudioPlayerProps {
   audioUrl: string;
   playerWidthFull?: boolean;
+  adId?: string;
+  adName?: string;
 }
 
 const formatTime = (seconds: number) => {
@@ -56,7 +59,7 @@ const formatTime = (seconds: number) => {
   return parts.join(':');
 };
 
-export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false }: InlineAudioPlayerProps) {
+export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false, adId, adName }: InlineAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentSec, setCurrentSec] = useState(0);
@@ -64,6 +67,8 @@ export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false }:
   const [waveError, setWaveError] = useState<string | null>(null);
   const waveSurferRef = useRef<WaveSurfer | null>(null);
   const waveformElRef = useRef<HTMLDivElement | null>(null);
+  const trackingRef = useRef({ adId, adName });
+  trackingRef.current = { adId, adName };
 
   useEffect(() => {
     const container = waveformElRef.current;
@@ -109,7 +114,12 @@ export default function InlineAudioPlayer({ audioUrl, playerWidthFull = false }:
       })
     );
 
-    unsubscribers.push(ws.on('play', () => setIsPlaying(true)));
+    unsubscribers.push(
+      ws.on('play', () => {
+        setIsPlaying(true);
+        trackPlayAudio(trackingRef.current);
+      })
+    );
     unsubscribers.push(ws.on('pause', () => setIsPlaying(false)));
     unsubscribers.push(
       ws.on('finish', () => {

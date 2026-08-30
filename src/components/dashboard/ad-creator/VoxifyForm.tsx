@@ -314,6 +314,8 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 <InlineAudioPlayer
                   audioUrl={recommendation.sourceUrl}
                   playerWidthFull={true}
+                  adId={recommendation.id}
+                  adName={recommendation.script.name}
                 />
                 <div className="flex gap-2 md:max-w-sm">
                   <button
