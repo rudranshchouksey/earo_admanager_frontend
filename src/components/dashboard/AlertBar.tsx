@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { organizationApi, OrganizationDetails } from "@/services/organization";
 import { Country, targetingApi } from "@/services/targeting";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
+import { resolveCountryFromGeo } from "@/services/geo";
 import {
   INDUSTRY_CATEGORIES,
   IndustryCategoryKey,
@@ -41,6 +42,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { logger } from "@/lib/logger";
+import { advertiserApi } from "@/services/advertiser";
 
 interface AlertItem {
   id: string;
@@ -111,9 +113,10 @@ export default function AlertBar() {
   }, [showCompleteProfileModal]);
 
   useEffect(() => {
-    if (!showCompleteProfileModal || country) return;
-    if (geoData?.country) setCountry(geoData.country);
-  }, [showCompleteProfileModal, country, geoData?.country]);
+    if (!showCompleteProfileModal || country || countries.length === 0 || !geoData) return;
+    const resolved = resolveCountryFromGeo(countries, geoData);
+    if (resolved) setCountry(resolved);
+  }, [showCompleteProfileModal, country, countries, geoData]);
 
   const industryKey = (industry in INDUSTRY_CATEGORIES ? industry : DEFAULT_INDUSTRY_CATEGORY) as IndustryCategoryKey;
   const subIndustryOptions = INDUSTRY_CATEGORIES[industryKey]?.industries ?? INDUSTRY_CATEGORIES[DEFAULT_INDUSTRY_CATEGORY].industries;
@@ -299,6 +302,33 @@ export default function AlertBar() {
     });
 
 
+    const advertiserDetails = await advertiserApi.getAdvertisers(
+      orgnaizationDetails?.id,
+      1,
+      1
+    );
+
+    if (advertiserDetails.status !== 200) {
+      toast({
+        title: "Error",
+        description: advertiserDetails.message || "Failed to load advertiser details",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const advertiser = advertiserDetails.data.data[0];
+
+    if (advertiser) {
+      await advertiserApi.updateAdvertiser({
+        advertiserId: advertiser.id,
+        industry,
+        subIndustry,
+        status: "ACTIVE",
+        extId: advertiser.extId,
+        advertiserName: advertiser.advertiserName,
+      });
+    }
     localStorage.removeItem('complete-profile-'+userId);
     localStorage.setItem("complete-profile-" + userId, "true");
 
