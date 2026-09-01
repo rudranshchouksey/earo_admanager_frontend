@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getGeoData } from '@/services/geo';
-import type { GeoData } from '@/types/landing';
+import { getGeoData, type GeoData } from '@/services/geo';
 import { logger } from "@/lib/logger";
 
 const defaultGeoData: GeoData = {
