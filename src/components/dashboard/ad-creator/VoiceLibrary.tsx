@@ -172,7 +172,7 @@ export default function VoiceLibrary({
       else setLoadingMore(true);
 
       try {
-        const { status, error, data } = await adsApi.searchVoices(
+        const { status, error, data } = await adsApi.searchVoxifyVoices(
           buildVoiceSearchPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
         );
 

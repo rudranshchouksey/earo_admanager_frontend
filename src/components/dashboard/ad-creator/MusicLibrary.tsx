@@ -128,7 +128,7 @@ export default function MusicLibrary({
       else setLoadingMore(true);
 
       try {
-        const { status, error, data } = await adsApi.searchMusics(
+        const { status, error, data } = await adsApi.searchVoxifyMusics(
           buildMusicPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
         );
 
