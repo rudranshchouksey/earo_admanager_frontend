@@ -152,19 +152,24 @@ export function SearchableDropdown({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white" align="start">
+      <PopoverContent
+        className="z-[100] w-[var(--radix-popover-trigger-width)] p-0 bg-white"
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         {/* shouldFilter=false: we filter ourselves (cmdk default is slow for large lists) */}
-        <Command shouldFilter={false} className="bg-white">
+        <Command shouldFilter={false} className="overflow-visible bg-white">
           <CommandInput
             placeholder={searchPlaceholder}
             value={query}
             onValueChange={setQuery}
           />
-          <CommandList className="max-h-[280px]">
+          <CommandList className="max-h-[280px] overflow-y-auto overscroll-contain">
             {filteredItems.length === 0 ? (
               <CommandEmpty>{emptyMessage}</CommandEmpty>
             ) : (
-              <CommandGroup>
+              <CommandGroup className="overflow-visible">
                 {visibleItems.map((item) => {
                   const isSelected = selectedSet.has(item.id);
                   return (
