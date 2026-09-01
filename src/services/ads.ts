@@ -43,6 +43,44 @@ export interface Voice {
   imageUrl: string;
 }
 
+/** Voice item from POST /api/v1/creatives/searchVoices (library payload). */
+export interface VoiceLibraryVoice {
+  voice_id: string;
+  voice_owner_id: string;
+  name: string;
+  description: string;
+  language: string;
+  accent: string;
+  gender: string;
+  age: string;
+  speech_style: string;
+  speech_rate: number;
+  preview_url: string;
+  category: string;
+  source: string;
+  is_favorite: boolean;
+}
+
+export interface VoiceLibrarySearchData {
+  voices: VoiceLibraryVoice[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface VoiceLibrarySearchResponse {
+  status: number;
+  message: string;
+  /** API returns `{ voices: [...] }`; older shapes may use a bare array. */
+  data: {
+    status: string;
+    items: VoiceLibraryVoice[];
+    total: number;
+    limit: number;
+    offset?: number;
+  };
+}
+
 export interface VoicesResponse {
   status: number;
   message: string;
@@ -58,13 +96,7 @@ export interface VoicesResponse {
 export interface MusicsResponse {
   status: number;
   message: string;
-  data: Music[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  data:   {status: string, items: Music[], total: number, limit: number, offset?: number};
 }
 
 export interface VoiceResponse {
@@ -80,18 +112,22 @@ export interface MusicResponse {
 }
 
 export interface Music {
-  id: string;
-  externalId: string;
-  title: string;
-  artist: string;
-  audioUrl: string;
-  imageUrl: string | null;
+  track_id: string;
+  "title": "10 Minutes",
+  artist_name: string;
   genres: string[];
   moods: string[];
-  use_cases: string[];
   instruments: string[];
-  rhythms: string[];
-  tracks: MusicTrack[];
+  tags: string[];
+  tempo: number;
+  tempo_bucket: string;
+  start_key: string;
+  end_key: string;
+  duration_secs: number;
+  preview_url: string;
+  source: string;
+  provider: string;
+  is_favorite: boolean;
 }
 export interface MusicTrack {
   id: string;
@@ -128,6 +164,43 @@ export interface voiceFilter {
   query?: string;
   age?: string;
   useCase?: string;
+}
+
+export interface SearchVoicesPayload {
+  source?: string[];
+  language?: string[];
+  accent?: string[];
+  gender?: string[];
+  age?: string[];
+  speech_style?: string[];
+  q?: string;
+  favorites?: boolean;
+  facets?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchMusicsPayload {
+  source?: string[];
+  genre?: string[];
+  mood?: string[];
+  instrument?: string[];
+  tag?: string[];
+  tempo_bucket?: string[];
+  bpm_min?: number;
+  bpm_max?: number;
+  start_key?: string;
+  end_key?: string;
+  duration_min?: number;
+  duration_max?: number;
+  artist?: string;
+  q?: string;
+  favorites?: boolean;
+  facets?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface AdStatusResponse {
@@ -549,6 +622,18 @@ export const adsApi = {
     request<MusicsResponse>("/api/v1/creatives/searchMusics", {
       method: "POST",
       body: filter,
+    }),
+
+  searchVoices: (payload: SearchVoicesPayload) =>
+    request<VoiceLibrarySearchResponse>("/api/v1/creatives/searchVoices", {
+      method: "POST",
+      body: payload,
+    }),
+
+  searchMusics: (payload: SearchMusicsPayload) =>
+    request<MusicsResponse>("/api/v1/creatives/searchMusics", {
+      method: "POST",
+      body: payload,
     }),
 
   getVoice: (externalId: string) =>

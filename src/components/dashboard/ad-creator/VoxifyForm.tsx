@@ -34,6 +34,8 @@ import { Slider } from "@/components/ui/slider";
 import { DialogContent, Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import BusinessHelperModal from "@/components/modals/BusinessHelperModal";
+import VoiceLibrary from "./VoiceLibrary";
+import MusicLibrary from "./MusicLibrary";
 
 
 interface VoxifyFormProps {
@@ -177,6 +179,126 @@ function VoiceFilterControls({
   );
 }
 
+const MusicCard = ({ track, isSelected, onSelect }: { track: VoxifyTrack, isSelected: boolean, onSelect: () => void }) => {
+  return (
+    <div key={track?.track_id} className="w-full">
+      <div
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+          isSelected
+            ? "bg-primary/10 border border-primary/30"
+            : "bg-muted/30 border border-transparent hover:bg-muted/50",
+        )}
+      >
+        <span
+          className={cn(
+            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+            isSelected
+              ? "border-primary"
+              : "border-muted-foreground/40",
+          )}
+          onClick={() => {
+            onSelect();
+          }}
+        >
+          {isSelected && (
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          )}
+        </span>
+        <div className="h-11 w-11 shrink-0 rounded-md bg-muted flex items-center justify-center">
+          <Music className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+            <span className="text-xs font-medium text-foreground shrink-0">
+              {track?.title}
+            </span>
+            <p className="text-[10px] max-w-[200px] text-muted-foreground truncate capitalize">
+              {`${track?.genres.join(" · ")}`}
+            </p>
+          </div>
+          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
+            {track?.artist_name}
+          </p>
+        </div>
+        <div
+          className="shrink-0"
+          onClick={(e) => e.preventDefault()}
+        >
+          <InlineAudioPlayer
+            audioUrl={track?.preview_url}
+            playerWidthFull={true}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const VoiceCard = ({ voice, isSelected, onSelect }: { voice: VoxifyVoice, isSelected: boolean, onSelect: () => void }) => {
+  return (
+    <div key={voice?.voice_id} className="w-full">
+      <div
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+          isSelected
+            ? "bg-primary/10 border border-primary/30"
+            : "bg-muted/30 border border-transparent hover:bg-muted/50",
+        )}
+      >
+        <span
+          className={cn(
+            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+            isSelected
+              ? "border-primary"
+              : "border-muted-foreground/40",
+          )}
+          onClick={() => {
+            onSelect();
+          }}
+        >
+          {isSelected && (
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          )}
+        </span>
+        <Avatar className="h-11 w-11 shrink-0 rounded-lg bg-transparent [&_img]:mix-blend-multiply">
+          <AvatarImage
+            src={null}
+            alt={voice?.name}
+            className="object-cover bg-transparent"
+          />
+          <AvatarFallback className="text-[10px] font-medium bg-transparent text-foreground rounded-lg">
+            {voice?.name.slice(0, 2)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+            <span className="text-xs font-medium text-foreground shrink-0">
+              {voice?.name}
+            </span>
+            <p className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate capitalize">
+              {`${voice?.labels.gender} · ${voice?.labels.age} · ${voice?.labels.accent}`}
+            </p>
+          </div>
+          <p className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate capitalize">
+            {voice?.labels.description}
+          </p>
+        </div>
+        <div
+          className="shrink-0"
+          onClick={(e) => e.preventDefault()}
+        >
+          <InlineAudioPlayer
+            audioUrl={voice?.preview_url}
+            playerWidthFull={true}
+          />
+        </div>
+      </div>
+    </div>
+
+  );
+}
+
 function RecommendationCard({ type, recommendation, index, editMode, handleEdit, handleCancelEdit, generateVoxifyAd, regenerateVoxifyAd, updateScript, handleSaveAd }: { type: "PROMPT" | "SCRIPT", recommendation: Recommendation, index: number, editMode: boolean, handleEdit: () => void, handleCancelEdit: () => void, generateVoxifyAd: () => void, regenerateVoxifyAd: (voice: object, track: object, musicVolume: number, voiceVolume: number) => void, updateScript: (script: { text_plain: string, text: string }) => void, handleSaveAd: (id: string, name: string, index: number) => Promise<void> }) {
   const [voiceVolume, setVoiceVolume] = useState(-20);
   const [musicVolume, setMusicVolume] = useState(-28);
@@ -196,6 +318,14 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
   const [isSaving, setIsSaving] = useState(false);
 
   const [tags, setTags] = useState<string[]>([]);
+  const [showVoiceLibraryModal, setShowVoiceLibraryModal] = useState(false);
+  const [showMusicLibraryModal, setShowMusicLibraryModal] = useState(false);
+
+  const [voicePickFromLibrary, setvoicePickFromLibrary] = useState<VoxifyVoice | null>(null);
+  const [musicPickFromLibrary, setmusicPickFromLibrary] = useState<VoxifyTrack | null>(null);
+
+
+
 
   const handleConfirmSave = () => {
     setIsSaving(true);
@@ -267,6 +397,14 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
     })
   };
 
+  const showVoiceLibrary = () => {
+    setShowVoiceLibraryModal(true);
+  };
+
+  const showMusicLibrary = () => {
+    setShowMusicLibraryModal(true);
+  };
+
   return (
     <div key={index}>
     {recommendation.generated ? (
@@ -333,98 +471,83 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
           {editMode ? (
             <div className="hidden sm:grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
+
+                <div className="flex items-center gap-1.5">
+                  <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                    Current voice
+                  </label>
+                </div>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                  <VoiceCard voice={currentVoice} isSelected={selectedVoiceId === currentVoice?.voice_id} onSelect={() => {
+                    setSelectedVoiceId(currentVoice?.voice_id);
+                  }} />
+                </div>
+
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                      Best matched voices
+                      Recommended voices
                     </label>
                     <MyTooltip infoText="Voices are filtered to match your script's language and dialect. The top result is our recommended match for your goal and tone — preview any voice by pressing play. Only voices compatible with your selected language are shown." />
                   </div>
-                  <div className="flex items-center gap-2 hidden">
-                    <VoiceFilterControls
-                      gender={recommendation.voice.labels.gender}
-                      age={recommendation.voice.labels.age}
-                      onGenderChange={() => {}}
-                      onAgeChange={() => {}}
-                    />
-                  </div>
                 </div>
-                <div className="space-y-3">
-                  {recommendation.voices?.map((voice) => (
-                    <div key={voice.voice_id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                          voice.voice_id ===
-                            selectedVoiceId
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                            voice.voice_id ===
-                              selectedVoiceId
-                              ? "border-primary"
-                              : "border-muted-foreground/40",
-                          )}
-                          onClick={() => {
-                            setSelectedVoiceId(voice.voice_id);
-                            setCurrentVoice(voice);
-                          }}
-                        >
-                          {voice.voice_id ===
-                            selectedVoiceId && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </span>
-                        <Avatar className="h-11 w-11 shrink-0 rounded-lg bg-transparent [&_img]:mix-blend-multiply">
-                          <AvatarImage
-                            src={null}
-                            alt={voice.name}
-                            className="object-cover bg-transparent"
-                          />
-                          <AvatarFallback className="text-[10px] font-medium bg-transparent text-foreground rounded-lg">
-                            {voice.name.slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
-                            <span className="text-xs font-medium text-foreground shrink-0">
-                              {voice.name}
-                            </span>
-                            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                              {`${voice.labels.gender} · ${voice.labels.age} · ${voice.labels.accent}`}
-                            </p>
-                            <p className="md:hidden text-[10px] text-muted-foreground truncate capitalize">
-                              {`${voice.labels.gender} · ${voice.labels.age} · ${voice.labels.accent}`}
-                            </p>
-                          </div>
-                          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                            {voice.labels.description}
-                          </p>
-                        </div>
-                        <div
-                          className="shrink-0"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <InlineAudioPlayer
-                            audioUrl={voice.preview_url}
-                            playerWidthFull={true}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                <div className="space-y-3 justify-between">
+                  {recommendation.voices?.filter((voice) => voice.voice_id !== currentVoice?.voice_id).map((voice) => (
+                    <VoiceCard voice={voice} isSelected={selectedVoiceId === voice.voice_id} onSelect={() => {
+                      setSelectedVoiceId(voice.voice_id);
+                    }} />
                   ))}
+                </div>
+
+
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap mt-5">
+                {
+                  voicePickFromLibrary && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                          Voice from library
+                        </label>
+                      </div>
+                        <VoiceCard voice={voicePickFromLibrary} isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id} onSelect={() => {
+                          setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
+                        }} />
+                    </div>
+                  )
+                }
+                    <Button
+                      type="button"
+                      onClick={showVoiceLibrary}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      More voice options
+                    </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
+
+                <div className="flex items-center gap-1.5">
+                  <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                    Current music
+                  </label>
+                </div>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                  <MusicCard track={currentTrack} isSelected={true} onSelect={() => {
+                    setSelectedTrackId(currentTrack?.track_id ?? null);
+                  }} />
+
+
+                </div>
+
+
+
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                      Best matched music
+                      Recommended music
                     </label>
                     <MyTooltip infoText="Tracks are matched to your script's emotional tone and pacing. Background music works best for brand-building and awareness ads — for short, direct-response ads, voice-only is often clearer and more effective." />
                   </div>
@@ -469,66 +592,40 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     </div>
                   </div>
 
-                  {recommendation.tracks?.map((track) => (
-                    <div key={track.track_id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                          track.track_id ===
-                            selectedTrackId
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                            track.track_id ===
-                              selectedTrackId
-                              ? "border-primary"
-                              : "border-muted-foreground/40",
-                          )}
-                          onClick={() => {
-                            setSelectedTrackId(track.track_id);
-                            setCurrentTrack(track);
-                          }}
-                        >
-                          {track.track_id ===
-                            selectedTrackId && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </span>
-                        <div className="h-11 w-11 shrink-0 rounded-md bg-muted flex items-center justify-center">
-                          <Music className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
-                            <span className="text-xs font-medium text-foreground shrink-0">
-                              {track.title}
-                            </span>
-                            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                              {`${track.genres.join(" · ")}`}
-                            </p>
-                            <p className="md:hidden text-[10px] text-muted-foreground truncate capitalize">
-                              {`${track.genres.join(" · ")}`}
-                            </p>
-                          </div>
-                          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                            {track.artist_name}
-                          </p>
-                        </div>
-                        <div
-                          className="shrink-0"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <InlineAudioPlayer
-                            audioUrl={track.preview_url}
-                            playerWidthFull={true}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                  {recommendation.tracks?.filter((track) => track.track_id !== currentTrack?.track_id).map((track) => (
+                    <MusicCard track={track} isSelected={selectedTrackId === track.track_id} onSelect={() => {
+                      setSelectedTrackId(track.track_id);
+                    }} />
                   ))}
+                </div>
+
+
+
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap mt-5">
+                {
+                  musicPickFromLibrary && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap w-full">
+                      <div className="flex items-center gap-1.5">
+                        <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                          Music from library
+                        </label>
+                      </div>
+                        <MusicCard track={musicPickFromLibrary} isSelected={selectedTrackId === musicPickFromLibrary?.track_id} onSelect={() => {
+                          setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
+                          setCurrentTrack(musicPickFromLibrary ?? null);
+                        }} />
+                    </div>
+                  )
+                }
+                    <Button
+                      type="button"
+                      onClick={showMusicLibrary}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      More music options
+                    </Button>
                 </div>
               </div>
 
@@ -702,6 +799,28 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <VoiceLibrary
+      open={showVoiceLibraryModal}
+      onOpenChange={setShowVoiceLibraryModal}
+      onSelect={(voice) => {
+        setSelectedVoiceId(voice.voice_id);
+        setCurrentVoice(voice);
+        setShowVoiceLibraryModal(false);
+        setvoicePickFromLibrary(voice);
+      }}
+    />
+
+    <MusicLibrary
+      open={showMusicLibraryModal}
+      onOpenChange={setShowMusicLibraryModal}
+      selectedTrackId={selectedTrackId}
+      onSelect={(track) => {
+        setSelectedTrackId(track.track_id);
+        setShowMusicLibraryModal(false);
+        setmusicPickFromLibrary(track);
+      }}
+    />
   </div>
   );
 }

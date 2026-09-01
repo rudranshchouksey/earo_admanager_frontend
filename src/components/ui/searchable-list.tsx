@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { Search, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -680,13 +680,16 @@ export function SearchableList<T extends Record<string, any>>({
 
       {/* Footer status bar */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
+        <span className='flex items-center gap-1'>
           {filteredItems.length === total
             ? `${total} item${total !== 1 ? 's' : ''}`
             : `${filteredItems.length} of ${total}`}
           {selectionMode !== 'none' && selectedIds.length > 0 && (
             <> · {selectedIds.length} selected</>
           )}
+          {
+            loadingMore? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null
+          }
         </span>
 
         {paginationMode === 'pagination' && totalPages > 1 && (
