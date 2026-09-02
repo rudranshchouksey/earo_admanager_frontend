@@ -624,17 +624,35 @@ export const adsApi = {
       body: filter,
     }),
 
+
+  searchVoxifyVoices: (payload: SearchVoicesPayload) =>
+      request<VoiceLibrarySearchResponse>("/api/v1/creatives/searchVoxifyVoices", {
+        method: "POST",
+        body: payload,
+      }),
+  
+
   searchVoices: (payload: SearchVoicesPayload) =>
     request<VoiceLibrarySearchResponse>("/api/v1/creatives/searchVoices", {
       method: "POST",
       body: payload,
     }),
 
+
+
+  searchVoxifyMusics: (payload: SearchMusicsPayload) =>
+    request<MusicsResponse>("/api/v1/creatives/searchVoxifyMusics", {
+      method: "POST",
+      body: payload,
+    }),
+
+      
   searchMusics: (payload: SearchMusicsPayload) =>
     request<MusicsResponse>("/api/v1/creatives/searchMusics", {
       method: "POST",
       body: payload,
     }),
+
 
   getVoice: (externalId: string) =>
     request<VoiceResponse>("/api/v1/creatives/searchVoice", {
