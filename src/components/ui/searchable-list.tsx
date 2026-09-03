@@ -66,7 +66,7 @@ export interface SearchableListProps<T> {
   variant?: 'table' | 'list';
   maxHeight?: string;
   emptyMessage?: string;
-
+  showFooterContent?: boolean;
   /** Collapsible trigger — shows a compact bar that expands on click */
   collapsible?: boolean;
   collapsibleIcon?: React.ReactNode;
@@ -115,6 +115,7 @@ export function SearchableList<T extends Record<string, any>>({
   isOpen: controlledIsOpen,
   onOpenChange,
   disabled = false,
+  showFooterContent = true,
 }: SearchableListProps<T>) {
   const [internalIsOpen, setInternalIsOpen] = useState(defaultOpen);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -445,7 +446,7 @@ export function SearchableList<T extends Record<string, any>>({
       {triggerBar}
       <div className={cn('space-y-3', collapsible && 'p-3')}>
       {/* Search + Filters row */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2 p-1">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -680,17 +681,22 @@ export function SearchableList<T extends Record<string, any>>({
 
       {/* Footer status bar */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className='flex items-center gap-1'>
-          {filteredItems.length === total
-            ? `${total} item${total !== 1 ? 's' : ''}`
-            : `${filteredItems.length} of ${total}`}
-          {selectionMode !== 'none' && selectedIds.length > 0 && (
-            <> · {selectedIds.length} selected</>
-          )}
-          {
-            loadingMore? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null
-          }
-        </span>
+        {
+          showFooterContent && (
+            <span className='flex items-center gap-1'>
+            {filteredItems.length === total
+              ? `${total} item${total !== 1 ? 's' : ''}`
+              : `${filteredItems.length} of ${total}`}
+            {selectionMode !== 'none' && selectedIds.length > 0 && (
+              <> · {selectedIds.length} selected</>
+            )}
+            {
+              loadingMore? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null
+            }
+          </span>
+  
+          )
+        }
 
         {paginationMode === 'pagination' && totalPages > 1 && (
           <div className="flex items-center gap-1">

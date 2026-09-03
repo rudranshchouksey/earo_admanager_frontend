@@ -183,55 +183,96 @@ function VoiceFilterControls({
 const MusicCard = ({ track, isSelected, onSelect }: { track: VoxifyTrack, isSelected: boolean, onSelect: () => void }) => {
   return (
     <div key={track?.track_id} className="w-full">
-      <div
-        className={cn(
-          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-          isSelected
-            ? "bg-primary/10 border border-primary/30"
-            : "bg-muted/30 border border-transparent hover:bg-muted/50",
-        )}
-      >
-        <span
+      {
+        track ? (
+          <div
           className={cn(
-            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+            "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
             isSelected
-              ? "border-primary"
-              : "border-muted-foreground/40",
+              ? "bg-primary/10 border border-primary/30"
+              : "bg-muted/30 border border-transparent hover:bg-muted/50",
           )}
-          onClick={() => {
-            onSelect();
-          }}
         >
-          {isSelected && (
-            <span className="h-2 w-2 rounded-full bg-primary" />
-          )}
-        </span>
-        <div className="h-11 w-11 shrink-0 rounded-md bg-muted flex items-center justify-center">
-          <Music className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
-            <span className="text-xs font-medium text-foreground shrink-0">
-              {track?.title}
-            </span>
-            <p className="text-[10px] max-w-[200px] text-muted-foreground truncate capitalize">
-              {`${track?.genres.join(" · ")}`}
+          <span
+            className={cn(
+              "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+              isSelected
+                ? "border-primary"
+                : "border-muted-foreground/40",
+            )}
+            onClick={() => {
+              onSelect();
+            }}
+          >
+            {isSelected && (
+              <span className="h-2 w-2 rounded-full bg-primary" />
+            )}
+          </span>
+          <div className="flex-1 min-w-0 pl-2">
+            <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+              <span className="text-xs font-medium text-foreground shrink-0">
+                {track?.title}
+              </span>
+              <p className="text-[10px] max-w-[200px] text-muted-foreground truncate capitalize">
+                {`${track?.genres.join(" · ")}`}
+              </p>
+            </div>
+            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
+              {track?.artist_name}
             </p>
           </div>
-          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-            {track?.artist_name}
-          </p>
+          <div
+            className="shrink-0"
+            onClick={(e) => e.preventDefault()}
+          >
+            <InlineAudioPlayer
+              audioUrl={track?.preview_url}
+              playerWidthFull={true}
+            />
+          </div>
         </div>
-        <div
-          className="shrink-0"
-          onClick={(e) => e.preventDefault()}
+        ) : (
+          <div
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+            isSelected
+              ? "bg-primary/10 border border-primary/30"
+              : "bg-muted/30 border border-transparent hover:bg-muted/50",
+          )}
         >
-          <InlineAudioPlayer
-            audioUrl={track?.preview_url}
-            playerWidthFull={true}
-          />
+          <span
+            className={cn(
+              "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+              isSelected
+                ? "border-primary"
+                : "border-muted-foreground/40",
+            )}
+            onClick={() => {
+              onSelect();
+            }}
+          >
+            {isSelected && (
+              <span className="h-2 w-2 rounded-full bg-primary" />
+            )}
+          </span>
+          <div className="h-11 w-11 shrink-0 rounded-md bg-primary flex items-center justify-center">
+            <MicOff className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-foreground">
+                No music - Voice only
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
+            Just your script, with no background track. Recommended for 15-second ads and direct-response goals where clarity is the priority.
+            </p>
+          </div>
         </div>
-      </div>
+
+        )
+      }
+
     </div>
   )
 }
@@ -262,17 +303,7 @@ const VoiceCard = ({ voice, isSelected, onSelect }: { voice: VoxifyVoice, isSele
             <span className="h-2 w-2 rounded-full bg-primary" />
           )}
         </span>
-        <Avatar className="h-11 w-11 shrink-0 rounded-lg bg-transparent [&_img]:mix-blend-multiply">
-          <AvatarImage
-            src={null}
-            alt={voice?.name}
-            className="object-cover bg-transparent"
-          />
-          <AvatarFallback className="text-[10px] font-medium bg-transparent text-foreground rounded-lg">
-            {voice?.name.slice(0, 2)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pl-2">
           <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
             <span className="text-xs font-medium text-foreground shrink-0">
               {voice?.name}
@@ -416,17 +447,10 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
     const isInTrackLibrary = musicPickFromLibrary?.track_id === selectedTrackId ? musicPickFromLibrary : null;
 
     const voice = currentVoice.voice_id === selectedVoiceId ? currentVoice : isInVoiceRecommendation ? isInVoiceRecommendation : isInVoiceLibrary ? isInVoiceLibrary : null;
-    const track = currentTrack.track_id === selectedTrackId ? currentTrack : isInTrackRecommendation ? isInTrackRecommendation : isInTrackLibrary ? isInTrackLibrary : null;
+    const track = currentTrack?.track_id === selectedTrackId ? currentTrack : isInTrackRecommendation ? isInTrackRecommendation : isInTrackLibrary ? isInTrackLibrary : null;
 
    console.log(voice, track);
-   if(!track) {
-    toast({
-      title: "Track not found",
-      description: "Please select a track to regenerate the ad",
-      variant: "destructive",
-    })
-    return;
-   }
+
    if(!voice) {
     toast({
       title: "Voice not found",
@@ -543,7 +567,8 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   </label>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
-                  <MusicCard track={currentTrack} isSelected={selectedTrackId === currentTrack?.track_id} onSelect={() => {
+                  <MusicCard track={currentTrack} isSelected={selectedTrackId === currentTrack?.track_id || (selectedTrackId === null && currentTrack === null)} onSelect={() => {
+                    console.log("currentTrack", currentTrack, currentTrack?.track_id);
                     setSelectedTrackId(currentTrack?.track_id ?? null);
                   }} />
 
@@ -559,44 +584,17 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                      null === selectedTrackId
-                        ? "bg-primary/10 border border-primary/30"
-                        : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                        null === selectedTrackId
-                          ? "border-primary"
-                          : "border-muted-foreground/40",
-                      )}
-                      onClick={() => {
-                        setSelectedTrackId(null);
-                        setCurrentTrack(null);
-                      }}
-                    >
-                      {null === selectedTrackId && (
-                        <span className="h-2 w-2 rounded-full bg-primary" />
-                      )}
-                    </span>
-                    <div className="h-11 w-11 shrink-0 rounded-md bg-primary flex items-center justify-center">
-                      <MicOff className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-foreground">
-                          No music - Voice only
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
-                      Just your script, with no background track. Recommended for 15-second ads and direct-response goals where clarity is the priority.
-                      </p>
-                    </div>
-                  </div>
+
+
+                  {
+                    currentTrack  && <MusicCard track={null} isSelected={selectedTrackId === null} onSelect={() => {
+                      console.log("null track");
+                      setSelectedTrackId(null);
+                    }} />
+  
+                  }
+
+
 
                   {recommendation.tracks?.filter((track) => track.track_id !== currentTrack?.track_id).map((track) => (
                     <MusicCard track={track} isSelected={selectedTrackId === track.track_id} onSelect={() => {
@@ -609,7 +607,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
               <div className="space-y-4 col-span-2 sm:grid gap-5 sm:grid-cols-2">
 
-                <div className="flex flex-col md:flex-row items-center justify-end gap-2 flex-wrap mt-5">
+                <div className="flex flex-col md:flex-row items-end justify-end gap-2 flex-wrap mt-5">
                   {
                     voicePickFromLibrary && (
                       <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
@@ -637,7 +635,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
 
 
-                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap mt-5">
+                <div className="flex flex-col md:flex-row items-end justify-between gap-2 flex-wrap mt-5">
                   {
                     musicPickFromLibrary && (
                       <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap w-full">
@@ -740,7 +738,12 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-medium text-foreground truncate flex items-center gap-2">
-                      Music: {recommendation?.track?.title} <MyTooltip infoText="This track was selected to complement the script's pacing and emotional tone. You can swap it in the Edit step, or remove it entirely." />
+                      {
+                        recommendation?.track ? (
+                        <span>Music: + {recommendation?.track?.title}  <MyTooltip infoText="This track was selected to complement the script's pacing and emotional tone. You can swap it in the Edit step, or remove it entirely." /></span>
+                        )
+                        : "No music - Voice only"
+                      } 
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate capitalize">
