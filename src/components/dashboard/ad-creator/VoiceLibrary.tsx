@@ -282,7 +282,7 @@ export default function VoiceLibrary({
           <DialogTitle>Voice library</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0 p-1">
           <VoiceFilterDropdown
             label="Language"
             options={LANGUAGE_OPTIONS}
@@ -322,11 +322,13 @@ export default function VoiceLibrary({
 
         
         <div className="min-h-0 flex-1 overflow-hidden">
-        {loading ? (
+        {/* Keep SearchableList mounted during search fetches so the input query is preserved.
+            Only show a full-page spinner on the initial load / filter remount. */}
+        {!listReady ? (
           <div className="flex h-full min-h-[320px] items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : listReady ? (
+        ) : (
           <SearchableList<VoiceLibraryVoice>
             key={`voice-library-${filtersKey(filters)}`}
             items={voices}
@@ -396,15 +398,16 @@ export default function VoiceLibrary({
                 ) : null}
               </div>
             )}
+            showFooterContent={false}
           />
-        ) : null}
+        )}
         </div>
         </div>
 
           <DialogFooter className="shrink-0 border-t bg-white px-6 py-4 ">
             <div className="flex md:flex-row items-center justify-between w-full">
             <span className="text-sm text-muted-foreground flex items-center">
-              {offsetRef.current + PAGE_SIZE} of {totalCountRef.current} voices found
+              {voices.length} of {totalCountRef.current} voices found
               {
                 loadingMore && (<Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-2" />)
               }

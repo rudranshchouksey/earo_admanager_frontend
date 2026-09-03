@@ -261,12 +261,13 @@ export default function MusicLibrary({
 
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            {loading ? (
+          <div className="min-h-0 flex-1 overflow-hidden pt-1">
+            {/* Keep SearchableList mounted during search fetches so the input query is preserved. */}
+            {!listReady ? (
               <div className="flex h-full min-h-[320px] items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : listReady ? (
+            ) : (
               <SearchableList<Music>
                 key={`music-library-${filtersKey(filters)}`}
                 items={tracks}
@@ -325,8 +326,9 @@ export default function MusicLibrary({
                     ) : null}
                   </div>
                 )}
+                showFooterContent={false}
               />
-            ) : null}
+            )}
           </div>
         </div>
 
@@ -335,7 +337,7 @@ export default function MusicLibrary({
           
           <div className="flex md:flex-row items-center justify-between w-full">
             <span className="text-sm text-muted-foreground flex items-center">
-              {offsetRef.current + PAGE_SIZE} of {totalRef.current} tracks found
+              {tracks.length} of {totalRef.current} tracks found
               {
                 loadingMore && (<Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-2" />)
               }
