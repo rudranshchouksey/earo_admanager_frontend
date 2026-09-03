@@ -266,7 +266,7 @@ export default function VoiceLibrary({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl max-h-[85vh] flex flex-col gap-0 overflow-hidden bg-white p-0"
+        className="max-w-5xl max-h-[85vh] flex flex-col gap-0 overflow-hidden bg-white p-0"
         onInteractOutside={(e) => {
           const target = e.target;
           if (
@@ -288,35 +288,35 @@ export default function VoiceLibrary({
             options={LANGUAGE_OPTIONS}
             selected={filters.language}
             onChange={(ids) => updateFilter("language", ids)}
-            className="w-[130px]"
+            className="w-[160px]"
           />
           <VoiceFilterDropdown
             label="Accent"
             options={ACCENT_OPTIONS}
             selected={filters.accent}
             onChange={(ids) => updateFilter("accent", ids)}
-            className="w-[120px]"
+            className="w-[200px]"
           />
           <VoiceFilterDropdown
             label="Gender"
             options={GENDER_OPTIONS}
             selected={filters.gender}
             onChange={(ids) => updateFilter("gender", ids)}
-            className="w-[120px]"
+            className="w-[160px]"
           />
           <VoiceFilterDropdown
             label="Age"
             options={AGE_OPTIONS}
             selected={filters.age}
             onChange={(ids) => updateFilter("age", ids)}
-            className="w-[110px]"
+            className="w-[160px]"
           />
           <VoiceFilterDropdown
             label="Style"
             options={SPEECH_STYLE_OPTIONS}
             selected={filters.speechStyle}
             onChange={(ids) => updateFilter("speechStyle", ids)}
-            className="w-[110px]"
+            className="w-[160px]"
           />
         </div>
 
@@ -355,7 +355,6 @@ export default function VoiceLibrary({
             pageSize={PAGE_SIZE}
             emptyMessage="No voices found"
             loading={loading}
-            totalCount={totalCountRef.current}
             renderItem={(voice, isSelected) => (
               <div
                 className={cn(
@@ -402,21 +401,28 @@ export default function VoiceLibrary({
         </div>
         </div>
 
-        {
-          selectedVoiceId && (
-            <DialogFooter className="shrink-0 border-t bg-white px-6 py-4">
-            <Button
-              type="button"
-              variant="default"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={!selectedVoiceId}
-              onClick={handleUseVoice}
-            >
-             Use this voice
-            </Button>
-          </DialogFooter>  
-          )
-        }
+          <DialogFooter className="shrink-0 border-t bg-white px-6 py-4 ">
+            <div className="flex md:flex-row items-center justify-between w-full">
+            <span className="text-sm text-muted-foreground flex items-center">
+              {offsetRef.current + PAGE_SIZE} of {totalCountRef.current} voices found
+              {
+                loadingMore && (<Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-2" />)
+              }
+            </span>
+            {selectedVoiceId && (
+              <Button
+                type="button"
+                variant="default"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={!selectedVoiceId}
+                onClick={handleUseVoice}
+              >
+              Use this voice
+              </Button>
+            )}
+            </div>
+
+          </DialogFooter>            
       </DialogContent>
     </Dialog>
   );

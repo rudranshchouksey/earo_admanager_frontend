@@ -220,7 +220,7 @@ export default function MusicLibrary({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl max-h-[85vh] flex flex-col gap-0 overflow-hidden bg-white p-0"
+        className="max-w-5xl max-h-[85vh] flex flex-col gap-0 overflow-hidden bg-white p-0"
         onInteractOutside={(e) => {
           const target = e.target;
           if (
@@ -242,21 +242,21 @@ export default function MusicLibrary({
               options={GENRE_OPTIONS}
               selected={filters.genre}
               onChange={(ids) => updateFilter("genre", ids)}
-              className="w-[200px]"
+              className="w-[240px]"
             />
             <MusicFilterDropdown
               label="Mood"
               options={MOOD_OPTIONS}
               selected={filters.mood}
               onChange={(ids) => updateFilter("mood", ids)}
-              className="w-[200px]"
+              className="w-[240px]"
             />
             <MusicFilterDropdown
               label="Instrument"
               options={INSTRUMENT_OPTIONS}
               selected={filters.instrument}
               onChange={(ids) => updateFilter("instrument", ids)}
-              className="w-[200px]"
+              className="w-[240px]"
             />
 
           </div>
@@ -292,7 +292,6 @@ export default function MusicLibrary({
                 pageSize={PAGE_SIZE}
                 emptyMessage="No tracks found"
                 loading={loading}
-                totalCount={totalRef.current}
                 renderItem={(track, isSelected) => (
                   <div
                     className={cn(
@@ -331,19 +330,32 @@ export default function MusicLibrary({
           </div>
         </div>
 
-        {selectedTrackId && (
+
           <DialogFooter className="shrink-0 border-t bg-white px-6 py-4">
-            <Button
-              type="button"
-              variant="default"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={!selectedTrackId}
-              onClick={handleUseTrack}
-            >
-              Use this track
-            </Button>
-          </DialogFooter>
-        )}
+          
+          <div className="flex md:flex-row items-center justify-between w-full">
+            <span className="text-sm text-muted-foreground flex items-center">
+              {offsetRef.current + PAGE_SIZE} of {totalRef.current} tracks found
+              {
+                loadingMore && (<Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-2" />)
+              }
+            </span>
+
+            {selectedTrackId && (
+              
+              <Button
+                type="button"
+                variant="default"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={!selectedTrackId}
+                onClick={handleUseTrack}
+              >
+                Use this track
+              </Button>
+            )}
+            </div>
+        </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

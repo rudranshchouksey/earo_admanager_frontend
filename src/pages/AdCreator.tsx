@@ -760,6 +760,11 @@ export default function AdCreator() {
         content: "Error generating audio ad",
         variant: "destructive",
       });
+
+      _voxifyAd.recommendations[recommendIndex].generating = false;
+      _voxifyAd.recommendations[recommendIndex].generated = true;
+      setVoxifyAd({ ..._voxifyAd });
+
       return;
     }
 
