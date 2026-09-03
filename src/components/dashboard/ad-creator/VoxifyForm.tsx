@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import BusinessHelperModal from "@/components/modals/BusinessHelperModal";
 import VoiceLibrary from "./VoiceLibrary";
 import MusicLibrary from "./MusicLibrary";
+import { toast } from "@/hooks/use-toast";
 
 
 interface VoxifyFormProps {
@@ -405,6 +406,37 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
     setShowMusicLibraryModal(true);
   };
 
+  const handleRegenerateAd = () => {
+    handleCancelEdit();
+   
+    const isInVoiceRecommendation = recommendation.voices.find((v) => v.voice_id === selectedVoiceId);
+    const isInVoiceLibrary = voicePickFromLibrary?.voice_id === selectedVoiceId ? voicePickFromLibrary : null;
+
+    const isInTrackRecommendation = recommendation.tracks.find((t) => t.track_id === selectedTrackId);
+    const isInTrackLibrary = musicPickFromLibrary?.track_id === selectedTrackId ? musicPickFromLibrary : null;
+
+    const voice = currentVoice.voice_id === selectedVoiceId ? currentVoice : isInVoiceRecommendation ? isInVoiceRecommendation : isInVoiceLibrary ? isInVoiceLibrary : null;
+    const track = currentTrack.track_id === selectedTrackId ? currentTrack : isInTrackRecommendation ? isInTrackRecommendation : isInTrackLibrary ? isInTrackLibrary : null;
+
+   console.log(voice, track);
+   if(!track) {
+    toast({
+      title: "Track not found",
+      description: "Please select a track to regenerate the ad",
+      variant: "destructive",
+    })
+    return;
+   }
+   if(!voice) {
+    toast({
+      title: "Voice not found",
+      description: "Please select a voice to regenerate the ad",
+      variant: "destructive",
+    })
+    return;
+   }
+    regenerateVoxifyAd(voice, track, voiceVolume, musicVolume);
+  }
   return (
     <div key={index}>
     {recommendation.generated ? (
@@ -501,32 +533,6 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   ))}
                 </div>
 
-
-                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap mt-5">
-                {
-                  voicePickFromLibrary && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                          Voice from library
-                        </label>
-                      </div>
-                        <VoiceCard voice={voicePickFromLibrary} isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id} onSelect={() => {
-                          setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
-                        }} />
-                    </div>
-                  )
-                }
-                    <Button
-                      type="button"
-                      onClick={showVoiceLibrary}
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
-                      More voice options
-                    </Button>
-                </div>
               </div>
 
               <div className="space-y-2">
@@ -537,14 +543,12 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   </label>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
-                  <MusicCard track={currentTrack} isSelected={true} onSelect={() => {
+                  <MusicCard track={currentTrack} isSelected={selectedTrackId === currentTrack?.track_id} onSelect={() => {
                     setSelectedTrackId(currentTrack?.track_id ?? null);
                   }} />
 
 
                 </div>
-
-
 
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
@@ -601,35 +605,67 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   ))}
                 </div>
 
+              </div>
+
+              <div className="space-y-4 col-span-2 sm:grid gap-5 sm:grid-cols-2">
+
+                <div className="flex flex-col md:flex-row items-center justify-end gap-2 flex-wrap mt-5">
+                  {
+                    voicePickFromLibrary && (
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                            Voice from library
+                          </label>
+                        </div>
+                          <VoiceCard voice={voicePickFromLibrary} isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id} onSelect={() => {
+                            setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
+                          }} />
+                      </div>
+                    )
+                  }
+                  <Button
+                    type="button"
+                    onClick={showVoiceLibrary}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    More voice options
+                  </Button>
+                </div>
+
 
 
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap mt-5">
-                {
-                  musicPickFromLibrary && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap w-full">
-                      <div className="flex items-center gap-1.5">
-                        <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                          Music from library
-                        </label>
+                  {
+                    musicPickFromLibrary && (
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap w-full">
+                        <div className="flex items-center gap-1.5">
+                          <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                            Music from library
+                          </label>
+                        </div>
+                          <MusicCard track={musicPickFromLibrary} isSelected={selectedTrackId === musicPickFromLibrary?.track_id} onSelect={() => {
+                            setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
+                          }} />
                       </div>
-                        <MusicCard track={musicPickFromLibrary} isSelected={selectedTrackId === musicPickFromLibrary?.track_id} onSelect={() => {
-                          setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
-                          setCurrentTrack(musicPickFromLibrary ?? null);
-                        }} />
-                    </div>
-                  )
-                }
-                    <Button
-                      type="button"
-                      onClick={showMusicLibrary}
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
-                      More music options
-                    </Button>
+                    )
+                  }
+                  <Button
+                    type="button"
+                    onClick={showMusicLibrary}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    More music options
+                  </Button>
                 </div>
+
               </div>
+
+
 
               <div className="space-y-4 col-span-2">
                 <div className="flex items-center gap-1.5">
@@ -677,10 +713,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
               <div className="space-y-4 col-span-2 flex flex-col md:flex-row gap-2 items-end justify-end">
                 <Button onClick={handleCancelEdit} variant="outline">Cancel</Button>
-                <Button onClick={() => {
-                  handleCancelEdit();
-                  regenerateVoxifyAd(currentVoice, currentTrack, voiceVolume, musicVolume)
-                }} variant="default">Regenerate ad</Button>
+                <Button onClick={handleRegenerateAd} variant="default">Regenerate ad</Button>
               </div>
             </div>
           ) : (
@@ -807,7 +840,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
       onOpenChange={setShowVoiceLibraryModal}
       onSelect={(voice) => {
         setSelectedVoiceId(voice.voice_id);
-        setCurrentVoice(voice);
+        //setCurrentVoice(voice);
         setShowVoiceLibraryModal(false);
         setvoicePickFromLibrary(voice);
       }}
