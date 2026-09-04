@@ -208,7 +208,13 @@ export default function CampaignPaymentStep({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="text-sm text-primary" onClick={() => handleApplyCoupon(coupon.couponCode)}>Apply</button>
+                  {
+                    data?.couponCode === coupon.couponCode ? (
+                      <button className="text-sm text-primary" onClick={() => onChange({ ...data, couponCode: "" })}>Remove</button>
+                    ) : (
+                      <button className="text-sm text-primary" onClick={() => handleApplyCoupon(coupon.couponCode)}>Apply</button>
+                    )
+                  }
                 </div>
               </div>
             ))}
