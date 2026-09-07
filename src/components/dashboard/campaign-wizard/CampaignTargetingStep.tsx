@@ -1079,11 +1079,6 @@ export default function CampaignTargetingStep({ data, onChange, contentLanguages
           </div>
           <SearchableDropdown
             items={deviceTypes
-              .filter(
-                (device) =>
-                  device.code === 'MOBILE_AND_TABLETS' ||
-                  device.code === 'DESKTOPS_AND_LAPTOPS',
-              )
               .map((device) => ({
                 id: device.value,
                 label: device.label,

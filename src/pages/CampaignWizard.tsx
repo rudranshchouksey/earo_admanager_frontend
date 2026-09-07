@@ -279,7 +279,7 @@ export default function CampaignWizard() {
   const [targeting, setTargeting] = useState({
     gender: "",
     ageRanges: ["1824", "2124", "2534", "3544", "4554", "5564","6500"] as string[],
-    deviceTypes: ["tablet", "desktop", "phone", "portable_media_player"] as string[],
+    deviceTypes: ["tablet", "desktop", "phone", "portable_media_player", "console", "smart_speaker", "television", "car_browser", "other", "wearable"] as string[],
     inventoryType: "Podcast",
     podcastTopics: [] as string[],
     podcastAudiences: [] as string[],
