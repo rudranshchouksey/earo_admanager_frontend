@@ -14,7 +14,7 @@ import { logger } from "@/lib/logger";
 
 const MAX_SIZE_MB = 10;
 const MAX_DURATION_SEC = 60;
-const ACCEPTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/ogg'];
+const ACCEPTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/ogg', 'audio/x-ms-wma', 'audio/x-aac'];
 
 const RIGHTS_CONFIRMATION_TEXT =
   'I confirm that I hold all necessary rights, licenses, and approvals to distribute this audio ad in the selected geographies. I guarantee that this audio does not contain unauthorized voice cloning or impersonation of a real person intended to deceive listeners.';
@@ -49,7 +49,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
     setError(null);
 
     if (!ACCEPTED_TYPES.includes(selected.type)) {
-      setError('Unsupported format. Please upload MP3, WAV, M4A, or OGG.');
+      setError('Unsupported format. Please upload MP3, WAV, WMA, AAC, or OGG.');
       return;
     }
 
@@ -228,7 +228,7 @@ export default function UploadAdForm({ onSaved }: UploadAdFormProps) {
             <input
               ref={inputRef}
               type="file"
-              accept=".mp3,.wav,.m4a,.ogg,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/ogg"
+              accept=".mp3,.wav,.wma,.aac,.ogg,audio/mpeg,audio/wav,audio/mp4,audio/x-ms-wma,audio/x-aac,audio/ogg"
               className="hidden"
               onChange={handleFileSelect}
             />
