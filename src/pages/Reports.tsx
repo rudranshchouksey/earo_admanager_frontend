@@ -538,7 +538,7 @@ function mapCountryToChartRow(row: CountryReportRow): LocationChartRow {
     name: row.countryName,
     impressions: row.impressions ?? 0,
     reach: row.reach ?? 0,
-    spent: row.totalSpend ?? 0,
+    spent: row["spent"] ?? row["totalSpend"] ?? 0,
   };
 }
 
@@ -558,6 +558,9 @@ function mapImpressionsFilteredToPieSlices<T extends ImpressionsFilterMetricRow>
     .map((row) => ({
       name: getName(row),
       value: row.impressions ?? 0,
+      ltr: row["ltr"] ? Number(row["ltr"]) : 0,
+      reach: row["demandAudioReachUniqueUsers"] ?? row["uniqueUsers"] ?? 0,
+      spent: row["spent"] ?? row["totalSpend"] ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
 }
@@ -651,7 +654,7 @@ function mapAdDeliveryToPieSlices<T extends AdDeliveryMetricRow>(
       name: getName(row),
       value: row.impressions ?? 0,
       reach: row.uniqueUsers ?? 0,
-      spent: row.totalSpend ?? 0,
+      spent: row["spent"] ?? row["totalSpend"] ?? 0,
       ltr: row.ltr ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
@@ -666,7 +669,7 @@ function mapContentInventoryToPieSlices<T extends ContentInventoryMetricRow>(
       name: getName(row),
       value: row.impressions ?? 0,
       reach: row.uniqueUsers ?? 0,
-      spent: row.totalSpend ?? 0,
+      spent: row["spent"] ?? row["totalSpend"] ?? 0,
       ltr: row.ltr ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
@@ -677,7 +680,7 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
     name: formatLocationLabel(row.city),
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
-    spent: row.totalSpend ?? 0,
+    spent: row["spent"] ?? row["totalSpend"] ?? 0,
   };
 }
 
@@ -2049,7 +2052,7 @@ export default function Reports() {
     if (impressionsByFiltered?.genderResult?.length) {
       return mapImpressionsFilteredToPieSlices<GenderFilterRow>(
         impressionsByFiltered.genderResult,
-        (row) => row.genderLabel?.trim() || 'Unknown',
+        (row) => row["requestVariables_aw_0_awz.g_name"]?.trim() || 'Unknown',
       );
     }
     if (impressionsByFiltered === null) return [];
@@ -2414,16 +2417,13 @@ export default function Reports() {
   };
 
   const renderPieChart = (title: string, data: PieChartSlice[], chartLoading: boolean) => {
-    const totalImpressions = data.reduce((a, d) => a + d.value, 0);
-    const ltrRand = seededRandom(seed + title.length * 7 + 31);
     const rows = data.map((d, i) => {
-      const share = totalImpressions > 0 ? d.value / totalImpressions : 0;
       return {
         name: d.name,
         impressions: d.value,
-        reach: d.reach ?? Math.round(kpis.totalReach * share),
-        spend: d.spent ?? kpis.totalSpent * share,
-        ltr: d.ltr ?? 80 + Math.round(ltrRand() * 20),
+        reach: d.reach ? Number(d.reach) : 0,
+        spend: d.spent ? Number(d.spent) : 0,
+        ltr: d.ltr ? Number(d.ltr) : 0,
         color: COLORS[i % COLORS.length],
       };
     });
@@ -2442,8 +2442,8 @@ export default function Reports() {
                 <div className="w-full lg:w-[220px] shrink-0">
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" labelLine={false}>
-                        {data.filter((d,i) => i< 15).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      <Pie data={data.filter((d,index) => index < 15)} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" labelLine={false}>
+                        {data.filter((d,index) => index < 15).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => (v as number).toLocaleString()} />
                     </PieChart>
@@ -2472,7 +2472,7 @@ export default function Reports() {
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend.toFixed(2)}</td>
-                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr}%</td>
+                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr?.toFixed(0)}%</td>
                         </tr>
                       ))}
                     </tbody>
