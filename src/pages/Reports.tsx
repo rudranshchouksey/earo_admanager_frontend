@@ -680,6 +680,7 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
     name: formatLocationLabel(row.city),
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
+    ltr: row.ltr ? Number(row.ltr) : 0,
     spent: row["spent"] ?? row["totalSpend"] ?? 0,
   };
 }
@@ -693,8 +694,8 @@ function mapShowNameToChartRow(row: ShowNameRow): LocationChartRow {
     name: row.showName?.trim() || 'Unknown',
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
-    spent: 0,
-    ltr: row.ltr,
+    spent: row["spent"] ?? row["totalSpend"] ?? 0,
+    ltr: row.ltr ? Number(row.ltr) : 0,
   };
 }
 
@@ -2471,8 +2472,8 @@ export default function Reports() {
                           </td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend.toFixed(2)}</td>
-                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr?.toFixed(0)}%</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend ? Number(r.spend).toFixed(2) : '0.00'}</td>
+                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr ? Number(r.ltr).toFixed(0) : '0'}%</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2745,8 +2746,7 @@ export default function Reports() {
                 data={showNameRows}
                 selectedMetric={showNameMetric}
                 onMetricChange={setShowNameMetric}
-                metricKeys={['impressions', 'reach']}
-                extraKeys={['ltr']}
+                metricKeys={['impressions', 'reach', 'ltr', 'spent']}
                 loading={reportLoading.showName}
               />
 
