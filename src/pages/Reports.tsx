@@ -2471,8 +2471,8 @@ export default function Reports() {
                           </td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend.toFixed(2)}</td>
-                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr?.toFixed(0)}%</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend ? Number(r.spend).toFixed(2) : '0.00'}</td>
+                          <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr ? Number(r.ltr).toFixed(0) : '0'}%</td>
                         </tr>
                       ))}
                     </tbody>
