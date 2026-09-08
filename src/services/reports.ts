@@ -135,6 +135,7 @@ export interface CityReportRow {
     impressions: number;
     uniqueUsers: number;
     totalSpend: number;
+    ltr: number;
 }
 
 export interface CountryCityReportData {

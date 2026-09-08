@@ -680,6 +680,7 @@ function mapCityToChartRow(row: CityReportRow): LocationChartRow {
     name: formatLocationLabel(row.city),
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
+    ltr: row.ltr ? Number(row.ltr) : 0,
     spent: row["spent"] ?? row["totalSpend"] ?? 0,
   };
 }
@@ -693,8 +694,8 @@ function mapShowNameToChartRow(row: ShowNameRow): LocationChartRow {
     name: row.showName?.trim() || 'Unknown',
     impressions: row.impressions ?? 0,
     reach: row.uniqueUsers ?? 0,
-    spent: 0,
-    ltr: row.ltr,
+    spent: row["spent"] ?? row["totalSpend"] ?? 0,
+    ltr: row.ltr ? Number(row.ltr) : 0,
   };
 }
 
@@ -2745,8 +2746,7 @@ export default function Reports() {
                 data={showNameRows}
                 selectedMetric={showNameMetric}
                 onMetricChange={setShowNameMetric}
-                metricKeys={['impressions', 'reach']}
-                extraKeys={['ltr']}
+                metricKeys={['impressions', 'reach', 'ltr', 'spent']}
                 loading={reportLoading.showName}
               />
 
