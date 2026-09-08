@@ -128,6 +128,7 @@ export interface CountryReportRow {
     impressions: number;
     reach: number;
     totalSpend: number;
+    ltr: number;
 }
 
 export interface CityReportRow {
