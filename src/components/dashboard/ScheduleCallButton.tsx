@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 
 const SCHEDULE_CALL_URL =
-  'https://calendar.google.com/calendar/appointments/schedules/AcZssZ1BxiO5AXDsZc314HB2PSw0JZqtLKQ2tN5olAsxXjULC_my-kq3EM2AlEKL4GVjJp-A7ZDrT8X4?gv=true';
+  'https://calendar.google.com/calendar/appointments/schedules/AcZssZ0cLnmNAROdF9lCgMvUkjuSU6tmb5GnLstqwEQ1hM2cFyXBVWgVYg59ZBugPM7_C-yXY9ojMR11?gv=true';
 
 // Below this distance (px) from the bottom of the page, the button fades out
 // entirely so it never sits over a page's own bottom CTA (e.g. Pay & Launch,
