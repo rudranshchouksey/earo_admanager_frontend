@@ -107,9 +107,21 @@ function setStoredSession(session: AuthSession | null) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...session.user, currentOrganizationId: session.currentOrganizationId, currentAdvertiserId: session.currentAdvertiserId }));
 
 }
-export function createSessionAndNotify(data: any) {
+export function createSessionAndNotify(data: any, jobId?: string | null) {
   const currentOrganizationId = data.data.organizations[0].orgId;
   const orgType = data.data.organizations[0].orgType;
+
+  // Tracks "this login/signup came from the landing page's ad-generator handoff"
+  // for exactly one session, so the dashboard onboarding modal (AlertBar) can skip
+  // itself once and become eligible again on the user's next login. Owned here
+  // (not consumed-on-read by AlertBar) so a page refresh right after a
+  // landing-handoff login doesn't cause the modal to reappear.
+  const userId = data.data.id;
+  if (jobId) {
+    localStorage.setItem('landing-handoff-' + userId, 'true');
+  } else {
+    localStorage.removeItem('landing-handoff-' + userId);
+  }
 
   const role = data.data.organizations ? data.data.organizations[0].role : 'VIEWER';
 
@@ -311,7 +323,7 @@ export const auth = {
   },
 
   /** Standard Login */
-  signInWithPassword: async (email: string, password: string) => {
+  signInWithPassword: async (email: string, password: string, jobId?: string | null) => {
 
     const { data, error, status, message } = await request<any>('/api/v1/auth/login', {
       method: 'POST',
@@ -321,7 +333,7 @@ export const auth = {
 
     if (error || !data?.tokens) return { data, error, status, message };
 
-    createSessionAndNotify(data);
+    createSessionAndNotify(data, jobId);
     trackLogin({ method: "email", plan: derivePlanForTracking(data), userId: data?.data?.id, orgId: data?.data?.organizations?.[0]?.orgId });
     return { data, error: null, status, message };
   },
@@ -346,7 +358,7 @@ export const auth = {
     //   handleLandingPageAudioAdDownload(jobId, recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
     // }
 
-    createSessionAndNotify(data);
+    createSessionAndNotify(data, jobId);
     const trackParams = {
       plan: derivePlanForTracking(data),
       userId: data?.data?.id,
@@ -384,7 +396,7 @@ export const auth = {
     //   handleLandingPageAudioAdDownload(params.jobId, params.recommendedVersion, advertiserId, organizationId, data.tokens.accessToken);
     // }
 
-    createSessionAndNotify(data);
+    createSessionAndNotify(data, params.jobId);
     trackSignUp({
       method: "email",
       plan: derivePlanForTracking(data),

@@ -28,6 +28,8 @@ export default function DashboardHome() {
 
   const [isNewUser, setIsNewUser] = useState(false);
   const [isNewWithAd, setIsNewWithAd] = useState(false);
+  const [hasDraftCampaign, setHasDraftCampaign] = useState(false);
+  const [draftCampaignId, setDraftCampaignId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [audioAds, setAudioAds] = useState([]);
 
@@ -82,12 +84,25 @@ export default function DashboardHome() {
 
     const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
     if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
+      // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
+      // "any campaign" check above rather than a second status-filtered fetch. Only
+      // looks at the single latest campaign, so a user with an older live campaign
+      // plus a newer draft would be shown the draft nudge instead of steady-state --
+      // an acceptable simplification since that mix is unlikely this early in a
+      // user's lifecycle.
+      const latestCampaign = campaings.data.data[0];
+      const isDraft = latestCampaign.status?.toString().toUpperCase() === 'DRAFT';
       setIsNewUser(false);
       setIsNewWithAd(false);
+      setHasDraftCampaign(isDraft);
+      setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
       setIsLoading(false);
-      await fetchStats();
+      if (!isDraft) await fetchStats();
       return;
     }
+
+    setHasDraftCampaign(false);
+    setDraftCampaignId(null);
 
     const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
     const hasAudioAds =
@@ -325,8 +340,20 @@ export default function DashboardHome() {
         </div>
       )}
 
-      {/* New User Welcome or Monthly Stats */}
-      {isNewUser ? (
+      {/* New User Welcome, Draft Campaign Nudge, or Monthly Stats */}
+      {hasDraftCampaign ? (
+        <Card className="border-2 border-dashed border-primary/20 rounded-[32px]">
+          <CardContent className="p-5">
+            <h2 className="text-xl font-semibold text-foreground mb-1">Finish your draft campaign</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              You started setting up a campaign — pick up where you left off and launch it.
+            </p>
+            <Button onClick={() => navigate(`/dashboard/campaigns/${draftCampaignId}`)}>
+              Continue campaign
+            </Button>
+          </CardContent>
+        </Card>
+      ) : isNewUser ? (
         <Card className="border-2 border-dashed border-primary/20 rounded-[32px]">
           <CardContent className="p-5">
             <h2 className="text-xl font-semibold text-foreground mb-1">Get Started with Earo</h2>
