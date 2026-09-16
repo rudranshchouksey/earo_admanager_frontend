@@ -271,6 +271,11 @@ export default function AlertBar() {
     if (userId) {
       localStorage.setItem("complete-profile-" + userId, "true");
     }
+    // Keep the alerts list in sync with the flag we just set, same as the other two
+    // dismissal paths (dismiss() below and handleBusinessSubmit()) -- otherwise the
+    // "Complete Profile" banner row lingers for the rest of this session even though
+    // it will correctly stay gone on the next load().
+    setAlerts((prev) => prev.filter((a) => a.id !== "complete-profile"));
     onClose();
   };
 
@@ -410,7 +415,16 @@ export default function AlertBar() {
             onInteractOutside={(e) => e.preventDefault()}
             className="flex flex-col p-0 md:min-w-[700px] max-h-[90dvh] overflow-hidden"
           >
-            {/* Sits outside the scrollable region below so it stays put while step content scrolls. */}
+            <DialogTitle className="sr-only">
+              {step === 1 ? "Complete your profile" : "Welcome to EARO"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {step === 1
+                ? "Tell us about your business to finish setting up your account."
+                : "Get your first audio ad live in minutes."}
+            </DialogDescription>
+            {/* position:absolute already takes this out of flow, so it stays fixed in
+                place while the sibling content below scrolls -- DOM order doesn't matter here. */}
             <Button
               type="button"
               variant="ghost"
@@ -421,7 +435,7 @@ export default function AlertBar() {
             >
               <X className="h-5 w-5" />
             </Button>
-            <DialogDescription className="p-0 flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
               {step == 1 ? (
                 <div className="animate-in fade-in duration-200">
                   <div className="bg-[#00DA88] p-7">
@@ -708,7 +722,7 @@ export default function AlertBar() {
                   </div>
                 </div>
               )}
-            </DialogDescription>
+            </div>
           </DialogContent>
         </Dialog>
       )}
