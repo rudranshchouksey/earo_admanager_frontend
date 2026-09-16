@@ -281,12 +281,6 @@ export default function AlertBar() {
   };
 
 
-  // Note: the onboarding Dialog below is independent of the banner alerts list --
-  // handleBusinessSubmit() filters "complete-profile" out of `alerts` as a side effect
-  // of saving step 1, which can empty the list while step 2 is still meant to be showing.
-  // Don't let that also unmount the (still open) modal.
-  if (alerts.length === 0 && !showCompleteProfileModal) return null;
-
   const visibleAlerts = expanded ? alerts : alerts.slice(0, 2);
   const hiddenCount = alerts.length - 2;
   const hasPendingAd = false;
@@ -348,6 +342,8 @@ export default function AlertBar() {
   };
 
   return (
+    <>
+    {alerts.length > 0 && (
     <div className="border-b border-border bg-background">
       {visibleAlerts.map((alert) => {
         const Icon = iconMap[alert.alert_type] || Info;
@@ -398,6 +394,8 @@ export default function AlertBar() {
           Show {hiddenCount} more
         </button>
       )}
+    </div>
+    )}
       {showCompleteProfileModal && (
         <Dialog
           open={showCompleteProfileModal}
@@ -413,14 +411,16 @@ export default function AlertBar() {
             className="flex flex-col p-0 md:min-w-[700px] max-h-[90dvh] overflow-hidden"
           >
             {/* Sits outside the scrollable region below so it stays put while step content scrolls. */}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={handleDismissModal}
               aria-label="Dismiss"
-              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/10 hover:text-black"
+              className="absolute right-3 top-3 z-10 h-11 w-11 rounded-full text-black/70 hover:bg-black/10 hover:text-black"
             >
               <X className="h-5 w-5" />
-            </button>
+            </Button>
             <DialogDescription className="p-0 flex-1 overflow-y-auto">
               {step == 1 ? (
                 <div className="animate-in fade-in duration-200">
@@ -712,6 +712,6 @@ export default function AlertBar() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </>
   );
 }
