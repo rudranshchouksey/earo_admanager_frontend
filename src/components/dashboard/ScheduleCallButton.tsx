@@ -70,8 +70,14 @@ export default function ScheduleCallButton() {
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="flex h-[90vh] w-[95vw] flex-col overflow-hidden p-0 sm:h-[85vh] sm:max-w-3xl">
-          <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogHeader className="flex flex-row items-center justify-between gap-4 space-y-0 border-b border-border py-4 pl-6 pr-12">
             <DialogTitle>Schedule a call</DialogTitle>
+            {/* Google's booking iframe sends no postMessage on confirmation (cross-origin,
+                verified empirically), so completion can't be auto-detected — the user
+                closes the modal themselves once they're done. */}
+            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+              Booked? Close
+            </Button>
           </DialogHeader>
           <div className="relative flex-1">
             {!iframeLoaded && (
