@@ -44,6 +44,7 @@ import logoFull from '@/assets/logo-full.png';
 import logo from '@/assets/logo.png';
 import { userApi } from '@/services/user';
 import UpgradePlanModal from './UpgradePlanModal';
+import ScheduleCallButton from './ScheduleCallButton';
 import { logger } from "@/lib/logger";
 
 const BREADCRUMB_KEYS: Record<string, string> = {
@@ -643,7 +644,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           requestedForAgency={requestedForAgency}
         />
       )}
-      
+
+      <ScheduleCallButton />
     </div>
   );
 }

@@ -539,6 +539,7 @@ function mapCountryToChartRow(row: CountryReportRow): LocationChartRow {
     impressions: row.impressions ?? 0,
     reach: row.reach ?? 0,
     spent: row["spent"] ?? row["totalSpend"] ?? 0,
+    ltr: row.ltr ? Number(row.ltr) : 0,
   };
 }
 
