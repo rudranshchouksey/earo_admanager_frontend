@@ -1,24 +1,26 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import { podcasts } from '@/components/landing/podcastData';
-import { Eye, DollarSign, MousePointerClick, Target, Volume2, Radio, TrendingUp, Play, Pause, Icon, Info, Loader2 } from 'lucide-react';
+import { Eye, DollarSign, MousePointerClick, Target, Loader2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import StatCard from '@/components/dashboard/StatCard';
-// import { supabase } from '@/integrations/supabase/client';
-// import { useDevFlags } from '@/contexts/DevFlagsContext';
-// import headphoneWoman from '@/assets/images/headphone-woman.png';
+import DashboardHero from '@/components/dashboard/DashboardHero';
+import ReadyAdCard from '@/components/dashboard/ReadyAdCard';
+import DraftCampaignCard, { DraftProgressBar } from '@/components/dashboard/DraftCampaignCard';
+import { NewUserGetStartedCard, NewUserStatsStrip } from '@/components/dashboard/NewUserGetStartedCard';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { toast } from '@/components/ui/use-toast';
 import { auth } from '@/services/auth';
-import { advertiserApi } from '@/services/advertiser';
+import { Advertiser, advertiserApi } from '@/services/advertiser';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { reportsApi } from '@/services/reports';
-import { campaignApi } from '@/services/campaign';
-import { adsApi } from '@/services/ads';
+import { Campaign, campaignApi } from '@/services/campaign';
+import { adsApi, AdData } from '@/services/ads';
+import { userApi } from '@/services/user';
 import { appNotifications } from '@/services/appNotifications';
-import { logger } from "@/lib/logger";
+import { getDraftChecklist, draftChecklistCaption, DraftChecklist } from '@/lib/campaignCompletion';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -30,11 +32,17 @@ export default function DashboardHome() {
   const [isNewWithAd, setIsNewWithAd] = useState(false);
   const [hasDraftCampaign, setHasDraftCampaign] = useState(false);
   const [draftCampaignId, setDraftCampaignId] = useState<string | null>(null);
+  const [draftCampaign, setDraftCampaign] = useState<Campaign | null>(null);
+  const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
+  const [draftCount, setDraftCount] = useState(1);
+  const [advertiserName, setAdvertiserName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [audioAds, setAudioAds] = useState([]);
+  const [audioAds, setAudioAds] = useState<AdData[]>([]);
 
   const { t } = useTranslation();
   const { role } = useSessionFlags();
+  const canEdit = role === 'ADMIN' || role === 'EDITOR' || role === 'EDITOR_RESTRICTED';
+
   const fetchStats = useCallback(async () => {
     const { data: { session } } = await auth.getSession();
     if (!session) return;
@@ -64,6 +72,7 @@ export default function DashboardHome() {
     }
 
     let advertiserId = session.currentAdvertiserId;
+    let advertisersList: Advertiser[] | null = null;
     if (!advertiserId) {
       const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
         await advertiserApi.getAdvertisers(session.currentOrganizationId);
@@ -72,15 +81,30 @@ export default function DashboardHome() {
         setIsLoading(false);
         return;
       }
-      const advertisers = advertisersRes.data;
-      if (advertisers.length > 0) {
-        auth.setCurrentAdvertiserId(advertisers[0].id, advertisers[0].isPro);
-        advertiserId = advertisers[0].id;
+      advertisersList = advertisersRes.data;
+      if (advertisersList.length > 0) {
+        auth.setCurrentAdvertiserId(advertisersList[0].id, advertisersList[0].isPro);
+        advertiserId = advertisersList[0].id;
       } else {
         setIsLoading(false);
         return;
       }
     }
+
+    userApi.getUserProfile().then(({ data, status, error }) => {
+      if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
+    });
+
+    // Best-effort lookup of the current advertiser's display name, reusing the
+    // list already fetched above when we have it instead of refetching.
+    const getAdvertiserDisplayName = async (id: string): Promise<string> => {
+      const list =
+        advertisersList ??
+        (await advertiserApi.getAdvertisers(session.currentOrganizationId).then((r) =>
+          r.status === 200 && !r.error ? r.data.data : [],
+        ));
+      return list.find((a) => a.id === id)?.advertiserName ?? '';
+    };
 
     const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
     if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
@@ -96,6 +120,30 @@ export default function DashboardHome() {
       setIsNewWithAd(false);
       setHasDraftCampaign(isDraft);
       setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
+
+      if (isDraft && latestCampaign.id) {
+        // The list endpoint above only returns a lean field set (it also backs the
+        // paginated campaigns grid, so it deliberately omits audioId/adGroups/
+        // timestamps). The checklist and "last edited" copy need the fuller record,
+        // so fetch it via the same single-campaign endpoint CampaignWizard already
+        // uses to hydrate a draft for editing.
+        const fullRes = await campaignApi.getCampaign({ id: latestCampaign.id, advertiserId });
+        const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
+
+        setDraftCampaign(fullCampaign);
+        setDraftChecklist(getDraftChecklist(fullCampaign));
+
+        const [draftsMeta, advertiserDisplayName] = await Promise.all([
+          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
+          getAdvertiserDisplayName(advertiserId),
+        ]);
+        setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
+        setAdvertiserName(advertiserDisplayName);
+      } else {
+        setDraftCampaign(null);
+        setDraftChecklist(null);
+      }
+
       setIsLoading(false);
       if (!isDraft) await fetchStats();
       return;
@@ -103,6 +151,8 @@ export default function DashboardHome() {
 
     setHasDraftCampaign(false);
     setDraftCampaignId(null);
+    setDraftCampaign(null);
+    setDraftChecklist(null);
 
     const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
     const hasAudioAds =
@@ -133,18 +183,16 @@ export default function DashboardHome() {
       void load();
     });
   }, [load]);
- 
 
-
-  if(isLoading) {
-    return <div className="flex justify-center items-center h-screen">
-      <Loader2 className="w-4 h-4 animate-spin" />
-    </div>
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="w-4 h-4 animate-spin" />
+      </div>
+    );
   }
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
-
-  const greeting = userName ? `Welcome, ${userName}` : 'Welcome';
 
   const steps = [
     { num: 1, title: 'Create your studio-quality ad (free)', desc: 'Describe your brand to instantly generate a perfect AI script, lifelike voice, and music mix. Refine for free until it\'s broadcast-ready.' },
@@ -153,141 +201,80 @@ export default function DashboardHome() {
     { num: 4, title: 'Pay locally and go live', desc: 'Checkout securely using local credit cards, mobile wallets, or bank transfers with no friction. Your campaign goes live in minutes.' },
   ];
 
-  // Inline waveform player component
-  function DashboardAdPlayer({ audioUrl }: { audioUrl: string }) {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [duration, setDuration] = useState(0);
-
-    useEffect(() => {
-      const audio = audioRef.current;
-      if (!audio) return;
-
-      if(audio.duration)
-        setDuration(Math.round(audio.duration));
-      const onTime = () => setProgress((audio.currentTime / audio.duration) * 100);
-      const onEnd = () => { setIsPlaying(false); setProgress(0); };
-      audio.addEventListener('timeupdate', onTime);
-      audio.addEventListener('ended', onEnd);
-      return () => { audio.removeEventListener('timeupdate', onTime); audio.removeEventListener('ended', onEnd); };
-    }, []);
-
-    const togglePlay = () => {
-      const audio = audioRef.current;
-      if (!audio) return;
-      if (isPlaying) audio.pause(); else audio.play();
-      setIsPlaying(!isPlaying);
-      if(audio.duration)
-        setDuration(Math.round(audio.duration));
-    };
-
-    const bars = Array.from({ length: 40 }, (_, i) => ({
-      height: 20 + Math.sin(i * 0.5) * 25 + Math.random() * 30,
-    }));
-
-    const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-    return (
-      <div className="bg-muted/50 rounded-xl px-4 py-3 flex items-center gap-3">
-        <audio ref={audioRef} src={audioUrl} preload="auto" />
-        <Button
-          size="icon"
-          className="rounded-full w-10 h-10 shrink-0 bg-primary hover:bg-primary/90"
-          onClick={togglePlay}
-        >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-        </Button>
-        <div className="flex items-center gap-px h-10 flex-1 min-w-0">
-          {bars.map((bar, i) => {
-            const isActive = (i / bars.length) * 100 <= progress;
-            return (
-              <div
-                key={i}
-                className={`flex-1 rounded-full transition-all duration-150 ${isActive ? 'bg-primary' : 'bg-primary/30'}`}
-                style={{ height: `${bar.height}%` }}
-              />
-            );
-          })}
-        </div>
-      <span className="text-sm text-primary font-medium shrink-0">{formatTime(duration || 0)}</span>
-      </div>
-    );
-  }
-
-  const podcasts = [];
+  const draftSubcopy = draftCampaign
+    ? [
+        draftCampaign.updatedAt ? `Last edited ${formatDistanceToNow(new Date(draftCampaign.updatedAt), { addSuffix: true })}` : null,
+        advertiserName || null,
+        `$${Number(draftCampaign.totalBudget ?? draftCampaign.budget ?? 0).toLocaleString()} budget`,
+      ].filter(Boolean).join(' · ')
+    : '';
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">
-          {isNewWithAd ? greeting : 'Dashboard'}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {isNewWithAd
-            ? 'Edit your audio ad or start creating a campaign.'
-            : 'Welcome back. Here\'s your overview.'}
-        </p>
-      </div>
+      {!isNewUser && !isNewWithAd && !hasDraftCampaign && (
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Welcome back. Here&apos;s your overview.</p>
+        </div>
+      )}
 
-      {/* New With Ad state */}
-      {isNewWithAd && (
-        <>
-           <div className="bg-muted/50 rounded-[32px] p-4">
-            <div className="">
-              {/* Left: Audio Player Card */}
-              {
-                (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
-                  <Card className="border-0 shadow-none rounded-[24px] bg-card">
-                  <CardContent className="p-5 space-y-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Your Brand</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        Share it or edit the ad to change the script or the voice talent.
-                      </p>
-                    </div>
-  
-                    {/* Waveform player */}
-                    <DashboardAdPlayer audioUrl={audioAds?.[0]?.sourceUrl ?? ''} />
-  
-                     {/* Edit / Create Campaign buttons */}
-                     <div className="flex flex-row gap-3">
-                       <Button className="h-10" onClick={() => navigate('/dashboard/campaigns/new')}>
-                         Create Campaign
-                       </Button>
-                     </div>
-                  </CardContent>
-                </Card>  
-                )
-              }
-
-              {/* Right: Podcast Shelf */}
-              <div className="flex  hidden flex-col justify-start pt-2 px-1">
-                <h3 className="text-base font-semibold text-foreground mb-3 leading-snug">
-                  Your ad will sound in podcasts<br />like these:
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  {podcasts.slice(0, 3).map((podcast) => (
-                    <div key={podcast.id} className="flex flex-col">
-                      <img
-                        src={podcast.image}
-                        alt={podcast.name}
-                        className="w-full aspect-square object-cover rounded-xl"
-                      />
-                      <p className="text-xs font-semibold text-foreground mt-1.5 truncate">{podcast.name}</p>
-                      <p className="text-[11px] text-muted-foreground">50,000 daily listeners</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* Draft campaign nudge */}
+      {hasDraftCampaign && draftCampaign && draftChecklist && (
+        <DashboardHero
+          accentClassName="border-l-4 border-l-primary"
+          eyebrow={
+            <>
+              <span>You&apos;re almost there</span>
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-transparent normal-case">
+                Draft
+              </Badge>
+            </>
+          }
+          title={draftCampaign.campaignName || 'Untitled campaign'}
+          subcopy={draftSubcopy}
+          primaryAction={{
+            label: 'Resume campaign',
+            onClick: () => navigate(`/dashboard/campaigns/${draftCampaignId}`),
+          }}
+          secondaryAction={{
+            label: `See all ${draftCount} draft${draftCount === 1 ? '' : 's'}`,
+            onClick: () => navigate('/dashboard/campaigns?status=DRAFT'),
+          }}
+          rightCard={<DraftCampaignCard checklist={draftChecklist} />}
+          belowCard={
+            <div className="px-1 space-y-2">
+              <DraftProgressBar checklist={draftChecklist} />
+              <p className="text-xs text-muted-foreground">{draftChecklistCaption(draftChecklist)}</p>
             </div>
-          </div>
+          }
+        />
+      )}
+
+      {/* Ready ad, no campaign yet */}
+      {!hasDraftCampaign && isNewWithAd && (
+        <>
+          {canEdit && audioAds[0] && (
+            <DashboardHero
+              title="Your ad is ready. Put it on air."
+              subcopy="Pick your listeners, set a budget, launch. About two minutes."
+              primaryAction={{
+                label: 'Create campaign with this ad',
+                onClick: () => navigate(`/dashboard/campaigns/new?audioId=${audioAds[0].id}`),
+              }}
+              secondaryAction={{
+                label: 'Create another ad',
+                onClick: () => navigate('/dashboard/ads/new'),
+              }}
+              rightCard={
+                <ReadyAdCard ad={audioAds[0]} onEditAudio={() => navigate(`/dashboard/ads/${audioAds[0].id}`)} />
+              }
+            />
+          )}
 
           {/* Educational Section */}
           <Card className="border border-border overflow-hidden rounded-[32px]">
             <CardContent className="p-0">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                {/* Left: Image */}
                 <div className="md:col-span-2 relative min-h-[200px] flex items-end justify-start">
                   <img
                     src={'/headphone-woman.png'}
@@ -296,86 +283,44 @@ export default function DashboardHome() {
                   />
                 </div>
 
-                {/* Right: Idea to Airwaves */}
                 <div className="md:col-span-3 p-5 space-y-4">
-                   <h3 className="text-lg font-semibold text-foreground">Idea to airwaves in 4 simple steps</h3>
-                   <div className="space-y-4">
-                     {steps.map((step) => (
-                       <div key={step.num} className="flex items-start gap-3">
-                         <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center shrink-0 mt-0.5">
-                           <span className="text-sm font-semibold text-background">{step.num}</span>
-                         </div>
-                         <div>
-                           <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
-                           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
+                  <h3 className="text-lg font-semibold text-foreground">Idea to airwaves in 4 simple steps</h3>
+                  <div className="space-y-4">
+                    {steps.map((step) => (
+                      <div key={step.num} className="flex items-start gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-sm font-semibold text-background">{step.num}</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </>
       )}
 
-      {/* Primary CTAs — new users only */}
-      {isNewUser && (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="border-2 border-transparent hover:border-primary/20 hover:shadow-md transition-shadow rounded-[32px]">
-            <CardContent className="p-4 space-y-2">
-              <h3 className="text-lg font-semibold text-foreground">Create Campaign</h3>
-              <p className="text-sm text-muted-foreground">Launch your ad across streaming platforms</p>
-              <Button onClick={() => navigate('/dashboard/campaigns/new')}>Create Campaign</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-transparent hover:border-primary/20 hover:shadow-md transition-shadow rounded-[32px]">
-            <CardContent className="p-4 space-y-2">
-              <h3 className="text-lg font-semibold text-foreground">Create Audio Ad</h3>
-              <p className="text-sm text-muted-foreground">Generate an AI-powered audio ad in minutes</p>
-              <Button onClick={() => navigate('/dashboard/ads/new')}>Create Audio Ad</Button>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Brand-new user: no ad, no campaign */}
+      {!hasDraftCampaign && isNewUser && !isNewWithAd && (
+        <DashboardHero
+          eyebrow={<span>{userName ? `Welcome, ${userName}` : 'Welcome'}</span>}
+          title="Get your first audio ad live in minutes."
+          subcopy="Drop your website. We'll write, voice and mix it."
+          primaryAction={{ label: 'Create my audio ad', onClick: () => navigate('/dashboard/ads/new') }}
+          secondaryAction={{ label: 'Or build a campaign first', onClick: () => navigate('/dashboard/campaigns/new') }}
+          rightCard={<NewUserGetStartedCard />}
+          belowCard={<NewUserStatsStrip />}
+          showActions={canEdit}
+        />
       )}
 
-      {/* New User Welcome, Draft Campaign Nudge, or Monthly Stats */}
-      {hasDraftCampaign ? (
-        <Card className="border-2 border-dashed border-primary/20 rounded-[32px]">
-          <CardContent className="p-5">
-            <h2 className="text-xl font-semibold text-foreground mb-1">Finish your draft campaign</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              You started setting up a campaign — pick up where you left off and launch it.
-            </p>
-            <Button onClick={() => navigate(`/dashboard/campaigns/${draftCampaignId}`)}>
-              Continue campaign
-            </Button>
-          </CardContent>
-        </Card>
-      ) : isNewUser ? (
-        <Card className="border-2 border-dashed border-primary/20 rounded-[32px]">
-          <CardContent className="p-5">
-            <h2 className="text-xl font-semibold text-foreground mb-1">Get Started with Earo</h2>
-            <p className="text-sm text-muted-foreground mb-4">Everything you need to launch your first audio campaign.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { icon: Volume2, title: 'Create AI Audio Ads', desc: 'Generate professional audio ads with AI in minutes' },
-                { icon: Radio, title: 'Launch Campaigns', desc: 'Reach listeners on Spotify, Anghami, and more' },
-                { icon: TrendingUp, title: 'Track Performance', desc: 'Monitor impressions, reach, and spend in real time' },
-              ].map((item) => (
-                <div key={item.title} className="flex flex-col items-center text-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <item.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) :(
+      {/* Steady state */}
+      {!isNewUser && !hasDraftCampaign && (
         <>
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>
