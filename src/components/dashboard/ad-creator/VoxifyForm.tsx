@@ -9,6 +9,7 @@ import { useTranslation } from "@/contexts/TranslationContext";
 import Editor from "@/components/sdui/Editor";
 import {
   CircleHelp,
+  Heart,
   InfoIcon,
   LightbulbIcon,
   Loader2,
@@ -17,9 +18,9 @@ import {
   Music,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Recommendation, VoxifyPollResponse, VoxifyVoice, VoxifyTrack } from "@/services/ads";
+import { Recommendation, VoxifyPollResponse, VoxifyVoice, VoxifyTrack, adsApi } from "@/services/ads";
 import InlineAudioPlayer from "./InlineAudioPlayer";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,13 @@ import BusinessHelperModal from "@/components/modals/BusinessHelperModal";
 import VoiceLibrary from "./VoiceLibrary";
 import MusicLibrary from "./MusicLibrary";
 import { toast } from "@/hooks/use-toast";
+import {
+  mapFavTrackToVoxifyTrack,
+  mapFavVoiceToVoxifyVoice,
+  voxifyTrackToFavPayload,
+  voxifyVoiceToFavPayload,
+} from "@/lib/creativeLibraryMappers";
+import { logger } from "@/lib/logger";
 
 
 interface VoxifyFormProps {
@@ -180,9 +188,23 @@ function VoiceFilterControls({
   );
 }
 
-const MusicCard = ({ track, isSelected, onSelect }: { track: VoxifyTrack, isSelected: boolean, onSelect: () => void }) => {
+const MusicCard = ({
+  track,
+  isSelected,
+  onSelect,
+  isFavorite = false,
+  onToggleFavorite,
+  togglingFavorite = false,
+}: {
+  track: VoxifyTrack | null;
+  isSelected: boolean;
+  onSelect: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  togglingFavorite?: boolean;
+}) => {
   return (
-    <div key={track?.track_id} className="w-full">
+    <div key={track?.track_id ?? "no-music"} className="w-full">
       {
         track ? (
           <div
@@ -214,13 +236,39 @@ const MusicCard = ({ track, isSelected, onSelect }: { track: VoxifyTrack, isSele
                 {track?.title}
               </span>
               <p className="text-[10px] max-w-[200px] text-muted-foreground truncate capitalize">
-                {`${track?.genres.join(" · ")}`}
+                {`${(track?.genres ?? []).join(" · ")}`}
               </p>
             </div>
             <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
               {track?.artist_name}
             </p>
           </div>
+          {onToggleFavorite ? (
+            <button
+              type="button"
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              disabled={togglingFavorite}
+              className={cn(
+                "shrink-0 transition-colors",
+                isFavorite ? "text-primary" : "text-muted-foreground hover:text-primary",
+                togglingFavorite && "opacity-50",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite();
+              }}
+            >
+              {togglingFavorite ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Heart className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+              )}
+            </button>
+          ) : isFavorite ? (
+            <div className="text-primary shrink-0" title="Favorite">
+              <Heart className="h-4 w-4" fill="currentColor" />
+            </div>
+          ) : null}
           <div
             className="shrink-0"
             onClick={(e) => e.preventDefault()}
@@ -277,7 +325,21 @@ const MusicCard = ({ track, isSelected, onSelect }: { track: VoxifyTrack, isSele
   )
 }
 
-const VoiceCard = ({ voice, isSelected, onSelect }: { voice: VoxifyVoice, isSelected: boolean, onSelect: () => void }) => {
+const VoiceCard = ({
+  voice,
+  isSelected,
+  onSelect,
+  isFavorite = false,
+  onToggleFavorite,
+  togglingFavorite = false,
+}: {
+  voice: VoxifyVoice;
+  isSelected: boolean;
+  onSelect: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  togglingFavorite?: boolean;
+}) => {
   return (
     <div key={voice?.voice_id} className="w-full">
       <div
@@ -316,6 +378,32 @@ const VoiceCard = ({ voice, isSelected, onSelect }: { voice: VoxifyVoice, isSele
             {voice?.labels.description}
           </p>
         </div>
+        {onToggleFavorite ? (
+          <button
+            type="button"
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            disabled={togglingFavorite}
+            className={cn(
+              "shrink-0 transition-colors",
+              isFavorite ? "text-primary" : "text-muted-foreground hover:text-primary",
+              togglingFavorite && "opacity-50",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+          >
+            {togglingFavorite ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Heart className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+            )}
+          </button>
+        ) : isFavorite ? (
+          <div className="text-primary shrink-0" title="Favorite">
+            <Heart className="h-4 w-4" fill="currentColor" />
+          </div>
+        ) : null}
         <div
           className="shrink-0"
           onClick={(e) => e.preventDefault()}
@@ -327,7 +415,6 @@ const VoiceCard = ({ voice, isSelected, onSelect }: { voice: VoxifyVoice, isSele
         </div>
       </div>
     </div>
-
   );
 }
 
@@ -355,9 +442,133 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
   const [voicePickFromLibrary, setvoicePickFromLibrary] = useState<VoxifyVoice | null>(null);
   const [musicPickFromLibrary, setmusicPickFromLibrary] = useState<VoxifyTrack | null>(null);
+  const [favVoices, setFavVoices] = useState<VoxifyVoice[]>([]);
+  const [favTracks, setFavTracks] = useState<VoxifyTrack[]>([]);
+  const [loadingFavs, setLoadingFavs] = useState(false);
+  const [togglingVoiceId, setTogglingVoiceId] = useState<string | null>(null);
+  const [togglingTrackId, setTogglingTrackId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editMode) return;
 
+    let cancelled = false;
+    const loadFavorites = async () => {
+      setLoadingFavs(true);
+      try {
+        const [voicesRes, tracksRes] = await Promise.all([
+          adsApi.getFavVoices({ page: 1, limit: 20 }),
+          adsApi.getFavTracks({ page: 1, limit: 20 }),
+        ]);
 
+        if (cancelled) return;
 
+        if (voicesRes.status === 200 && Array.isArray(voicesRes.data?.data)) {
+          setFavVoices(voicesRes.data.data.map(mapFavVoiceToVoxifyVoice));
+        } else {
+          setFavVoices([]);
+        }
+
+        if (tracksRes.status === 200 && Array.isArray(tracksRes.data?.data)) {
+          setFavTracks(tracksRes.data.data.map(mapFavTrackToVoxifyTrack));
+        } else {
+          setFavTracks([]);
+        }
+      } catch (err) {
+        logger.warn("Failed to load favorite voices/tracks", { err });
+        if (!cancelled) {
+          setFavVoices([]);
+          setFavTracks([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingFavs(false);
+      }
+    };
+
+    void loadFavorites();
+    return () => {
+      cancelled = true;
+    };
+  }, [editMode]);
+
+  const favVoiceIds = useMemo(
+    () => new Set(favVoices.map((v) => v.voice_id)),
+    [favVoices],
+  );
+  const favTrackIds = useMemo(
+    () => new Set(favTracks.map((t) => t.track_id)),
+    [favTracks],
+  );
+
+  const handleToggleFavVoice = async (voice: VoxifyVoice) => {
+    if (!voice?.voice_id || togglingVoiceId) return;
+    setTogglingVoiceId(voice.voice_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavVoice(
+        voxifyVoiceToFavPayload(voice),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.data.isFavorite) {
+        setFavVoices((prev) => {
+          if (prev.some((v) => v.voice_id === voice.voice_id)) return prev;
+          return [...prev, voice];
+        });
+      } else {
+        setFavVoices((prev) => prev.filter((v) => v.voice_id !== voice.voice_id));
+      }
+    } catch (err) {
+      logger.warn("toggleFavVoice failed", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingVoiceId(null);
+    }
+  };
+
+  const handleToggleFavTrack = async (track: VoxifyTrack) => {
+    if (!track?.track_id || togglingTrackId) return;
+    setTogglingTrackId(track.track_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavTrack(
+        voxifyTrackToFavPayload(track),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.data.isFavorite) {
+        setFavTracks((prev) => {
+          if (prev.some((t) => t.track_id === track.track_id)) return prev;
+          return [...prev, track];
+        });
+      } else {
+        setFavTracks((prev) => prev.filter((t) => t.track_id !== track.track_id));
+      }
+    } catch (err) {
+      logger.warn("toggleFavTrack failed", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingTrackId(null);
+    }
+  };
 
   const handleConfirmSave = () => {
     setIsSaving(true);
@@ -442,14 +653,26 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
    
     const isInVoiceRecommendation = recommendation.voices.find((v) => v.voice_id === selectedVoiceId);
     const isInVoiceLibrary = voicePickFromLibrary?.voice_id === selectedVoiceId ? voicePickFromLibrary : null;
+    const isInFavVoices = favVoices.find((v) => v.voice_id === selectedVoiceId);
 
     const isInTrackRecommendation = recommendation.tracks.find((t) => t.track_id === selectedTrackId);
     const isInTrackLibrary = musicPickFromLibrary?.track_id === selectedTrackId ? musicPickFromLibrary : null;
+    const isInFavTracks = favTracks.find((t) => t.track_id === selectedTrackId);
 
-    const voice = currentVoice.voice_id === selectedVoiceId ? currentVoice : isInVoiceRecommendation ? isInVoiceRecommendation : isInVoiceLibrary ? isInVoiceLibrary : null;
-    const track = currentTrack?.track_id === selectedTrackId ? currentTrack : isInTrackRecommendation ? isInTrackRecommendation : isInTrackLibrary ? isInTrackLibrary : null;
-
-   console.log(voice, track);
+    const voice = currentVoice.voice_id === selectedVoiceId
+      ? currentVoice
+      : isInVoiceRecommendation
+        ? isInVoiceRecommendation
+        : isInVoiceLibrary
+          ? isInVoiceLibrary
+          : isInFavVoices ?? null;
+    const track = currentTrack?.track_id === selectedTrackId
+      ? currentTrack
+      : isInTrackRecommendation
+        ? isInTrackRecommendation
+        : isInTrackLibrary
+          ? isInTrackLibrary
+          : isInFavTracks ?? null;
 
    if(!voice) {
     toast({
@@ -536,9 +759,18 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   </label>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
-                  <VoiceCard voice={currentVoice} isSelected={selectedVoiceId === currentVoice?.voice_id} onSelect={() => {
-                    setSelectedVoiceId(currentVoice?.voice_id);
-                  }} />
+                  {currentVoice && (
+                    <VoiceCard
+                      voice={currentVoice}
+                      isSelected={selectedVoiceId === currentVoice?.voice_id}
+                      isFavorite={favVoiceIds.has(currentVoice.voice_id)}
+                      togglingFavorite={togglingVoiceId === currentVoice.voice_id}
+                      onToggleFavorite={() => void handleToggleFavVoice(currentVoice)}
+                      onSelect={() => {
+                        setSelectedVoiceId(currentVoice?.voice_id);
+                      }}
+                    />
+                  )}
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
@@ -551,9 +783,17 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 </div>
                 <div className="space-y-3 justify-between">
                   {recommendation.voices?.filter((voice) => voice.voice_id !== currentVoice?.voice_id).map((voice) => (
-                    <VoiceCard voice={voice} isSelected={selectedVoiceId === voice.voice_id} onSelect={() => {
-                      setSelectedVoiceId(voice.voice_id);
-                    }} />
+                    <VoiceCard
+                      key={voice.voice_id}
+                      voice={voice}
+                      isSelected={selectedVoiceId === voice.voice_id}
+                      isFavorite={favVoiceIds.has(voice.voice_id)}
+                      togglingFavorite={togglingVoiceId === voice.voice_id}
+                      onToggleFavorite={() => void handleToggleFavVoice(voice)}
+                      onSelect={() => {
+                        setSelectedVoiceId(voice.voice_id);
+                      }}
+                    />
                   ))}
                 </div>
 
@@ -567,10 +807,16 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                   </label>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
-                  <MusicCard track={currentTrack} isSelected={selectedTrackId === currentTrack?.track_id || (selectedTrackId === null && currentTrack === null)} onSelect={() => {
-                    console.log("currentTrack", currentTrack, currentTrack?.track_id);
-                    setSelectedTrackId(currentTrack?.track_id ?? null);
-                  }} />
+                  <MusicCard
+                    track={currentTrack}
+                    isSelected={selectedTrackId === currentTrack?.track_id || (selectedTrackId === null && currentTrack === null)}
+                    isFavorite={!!currentTrack && favTrackIds.has(currentTrack.track_id)}
+                    togglingFavorite={!!currentTrack && togglingTrackId === currentTrack.track_id}
+                    onToggleFavorite={currentTrack ? () => void handleToggleFavTrack(currentTrack) : undefined}
+                    onSelect={() => {
+                      setSelectedTrackId(currentTrack?.track_id ?? null);
+                    }}
+                  />
 
 
                 </div>
@@ -588,7 +834,6 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
                   {
                     currentTrack  && <MusicCard track={null} isSelected={selectedTrackId === null} onSelect={() => {
-                      console.log("null track");
                       setSelectedTrackId(null);
                     }} />
   
@@ -597,9 +842,17 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
 
                   {recommendation.tracks?.filter((track) => track.track_id !== currentTrack?.track_id).map((track) => (
-                    <MusicCard track={track} isSelected={selectedTrackId === track.track_id} onSelect={() => {
-                      setSelectedTrackId(track.track_id);
-                    }} />
+                    <MusicCard
+                      key={track.track_id}
+                      track={track}
+                      isSelected={selectedTrackId === track.track_id}
+                      isFavorite={favTrackIds.has(track.track_id)}
+                      togglingFavorite={togglingTrackId === track.track_id}
+                      onToggleFavorite={() => void handleToggleFavTrack(track)}
+                      onSelect={() => {
+                        setSelectedTrackId(track.track_id);
+                      }}
+                    />
                   ))}
                 </div>
 
@@ -607,18 +860,25 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
               <div className="space-y-4 col-span-2 sm:grid gap-5 sm:grid-cols-2">
 
-                <div className="flex flex-col md:flex-row items-end justify-end gap-2 flex-wrap mt-5">
+                <div className="flex flex-col gap-3 mt-5">
                   {
                     voicePickFromLibrary && (
-                      <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                      <div className="flex flex-col gap-2 w-full">
                         <div className="flex items-center gap-1.5">
                           <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
                             Voice from library
                           </label>
                         </div>
-                          <VoiceCard voice={voicePickFromLibrary} isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id} onSelect={() => {
-                            setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
-                          }} />
+                          <VoiceCard
+                            voice={voicePickFromLibrary}
+                            isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id}
+                            isFavorite={favVoiceIds.has(voicePickFromLibrary.voice_id)}
+                            togglingFavorite={togglingVoiceId === voicePickFromLibrary.voice_id}
+                            onToggleFavorite={() => void handleToggleFavVoice(voicePickFromLibrary)}
+                            onSelect={() => {
+                              setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
+                            }}
+                          />
                       </div>
                     )
                   }
@@ -635,18 +895,25 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
 
 
-                <div className="flex flex-col md:flex-row items-end justify-between gap-2 flex-wrap mt-5">
+                <div className="flex flex-col gap-3 mt-5">
                   {
                     musicPickFromLibrary && (
-                      <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap w-full">
+                      <div className="flex flex-col gap-2 w-full">
                         <div className="flex items-center gap-1.5">
                           <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
                             Music from library
                           </label>
                         </div>
-                          <MusicCard track={musicPickFromLibrary} isSelected={selectedTrackId === musicPickFromLibrary?.track_id} onSelect={() => {
-                            setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
-                          }} />
+                          <MusicCard
+                            track={musicPickFromLibrary}
+                            isSelected={selectedTrackId === musicPickFromLibrary?.track_id}
+                            isFavorite={favTrackIds.has(musicPickFromLibrary.track_id)}
+                            togglingFavorite={togglingTrackId === musicPickFromLibrary.track_id}
+                            onToggleFavorite={() => void handleToggleFavTrack(musicPickFromLibrary)}
+                            onSelect={() => {
+                              setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
+                            }}
+                          />
                       </div>
                     )
                   }

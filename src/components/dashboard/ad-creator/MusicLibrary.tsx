@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Music as MusicIcon } from "lucide-react";
+import { Heart, Loader2, Music as MusicIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { SearchableList } from "@/components/ui/searchable-list";
 import type { Column } from "@/components/ui/searchable-list";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { mapMusicToVoxifyTrack } from "@/lib/creativeLibraryMappers";
-import { adsApi, type Music, type SearchMusicsPayload, type VoxifyTrack } from "@/services/ads";
+import { mapMusicToVoxifyTrack, musicToFavPayload } from "@/lib/creativeLibraryMappers";
+import {
+  adsApi,
+  type FavTrack,
+  type GetFavTracksPayload,
+  type Music,
+  type SearchMusicsPayload,
+  type VoxifyTrack,
+} from "@/services/ads";
 import InlineAudioPlayer from "./InlineAudioPlayer";
 import { logger } from "@/lib/logger";
+import { toast } from "@/hooks/use-toast";
 
 const PAGE_SIZE = 10;
 
@@ -30,6 +39,12 @@ const GENRE_OPTIONS = [{"id":"Acid Jazz","label":"Acid Jazz"},{"id":"Acoustic Bl
 const MOOD_OPTIONS = [{"id":"Abstract","label":"Abstract"},{"id":"Emotional","label":"Emotional"},{"id":"Exotic","label":"Exotic"},{"id":"Neutral","label":"Neutral"},{"id":"Calm / Serene","label":"Calm / Serene"},{"id":"Ethereal / Airy","label":"Ethereal / Airy"},{"id":"Gentle / Soft","label":"Gentle / Soft"},{"id":"Laid-back","label":"Laid-back"},{"id":"Shimmering","label":"Shimmering"},{"id":"Smooth / Flowing","label":"Smooth / Flowing"},{"id":"Aggressive","label":"Aggressive"},{"id":"Anxious / Fear","label":"Anxious / Fear"},{"id":"Dark / Brooding","label":"Dark / Brooding"},{"id":"Dramatic","label":"Dramatic"},{"id":"Intense / Hard","label":"Intense / Hard"},{"id":"Ominous / Looming","label":"Ominous / Looming"},{"id":"Raw / Gritty","label":"Raw / Gritty"},{"id":"Suspense / Tense","label":"Suspense / Tense"},{"id":"Building / Escalating","label":"Building / Escalating"},{"id":"Driving","label":"Driving"},{"id":"Pulsing","label":"Pulsing"},{"id":"Punchy","label":"Punchy"},{"id":"Rowdy / Boisterous","label":"Rowdy / Boisterous"},{"id":"Anthemic","label":"Anthemic"},{"id":"Confident","label":"Confident"},{"id":"Epic","label":"Epic"},{"id":"Majestic","label":"Majestic"},{"id":"Patriotic","label":"Patriotic"},{"id":"Powerful / Strong","label":"Powerful / Strong"},{"id":"Bouncy","label":"Bouncy"},{"id":"Cheesy","label":"Cheesy"},{"id":"Funny / Silly","label":"Funny / Silly"},{"id":"Playful / Whimsical","label":"Playful / Whimsical"},{"id":"Quirky / Kitsch","label":"Quirky / Kitsch"},{"id":"Funky","label":"Funky"},{"id":"Grooving","label":"Grooving"},{"id":"Jazzy","label":"Jazzy"},{"id":"Sophisticated","label":"Sophisticated"},{"id":"Swaggering","label":"Swaggering"},{"id":"Celebration","label":"Celebration"},{"id":"Cool","label":"Cool"},{"id":"Energetic / Lively","label":"Energetic / Lively"},{"id":"Exciting / Rousing","label":"Exciting / Rousing"},{"id":"Feel Good","label":"Feel Good"},{"id":"Fun","label":"Fun"},{"id":"Happy / Bright","label":"Happy / Bright"},{"id":"Hopeful / Optimistic","label":"Hopeful / Optimistic"},{"id":"Joyful","label":"Joyful"},{"id":"Upbeat / Cheerful","label":"Upbeat / Cheerful"},{"id":"Uplifting / Inspiring","label":"Uplifting / Inspiring"},{"id":"Haunting","label":"Haunting"},{"id":"Mysterious","label":"Mysterious"},{"id":"Sneaky","label":"Sneaky"},{"id":"Strange / Weird","label":"Strange / Weird"},{"id":"Beautiful","label":"Beautiful"},{"id":"Passionate","label":"Passionate"},{"id":"Romantic","label":"Romantic"},{"id":"Sensual / Intimate","label":"Sensual / Intimate"},{"id":"Sweet / Warm","label":"Sweet / Warm"},{"id":"Bittersweet","label":"Bittersweet"},{"id":"Moody","label":"Moody"},{"id":"Nostalgic / Reflective","label":"Nostalgic / Reflective"},{"id":"Sad / Melancholic","label":"Sad / Melancholic"}];
 
 const INSTRUMENT_OPTIONS = [{"id":"French Horn","label":"French Horn"},{"id":"Trombone","label":"Trombone"},{"id":"Trumpet / Cornet","label":"Trumpet / Cornet"},{"id":"Tuba","label":"Tuba"},{"id":"Brass","label":"Brass"},{"id":"Percussion","label":"Percussion"},{"id":"Orchestra","label":"Orchestra"},{"id":"Orchestral Noise","label":"Orchestral Noise"},{"id":"Strings","label":"Strings"},{"id":"Woodwind","label":"Woodwind"},{"id":"FX (Clock)","label":"FX (Clock)"},{"id":"FX (Heartbeat)","label":"FX (Heartbeat)"},{"id":"FX (Reverse)","label":"FX (Reverse)"},{"id":"Scratching","label":"Scratching"},{"id":"Stompbox","label":"Stompbox"},{"id":"Vinyl Crackle","label":"Vinyl Crackle"},{"id":"Clavinet","label":"Clavinet"},{"id":"Harpsichord","label":"Harpsichord"},{"id":"Piano","label":"Piano"},{"id":"Rhodes","label":"Rhodes"},{"id":"Congas","label":"Congas"},{"id":"Drum Kit","label":"Drum Kit"},{"id":"Drum Kit - Brushes","label":"Drum Kit - Brushes"},{"id":"Electronic Drums","label":"Electronic Drums"},{"id":"Hand Drum","label":"Hand Drum"},{"id":"Tabla","label":"Tabla"},{"id":"Hammond Organ","label":"Hammond Organ"},{"id":"Organ","label":"Organ"},{"id":"Bells / Tubular Bells","label":"Bells / Tubular Bells"},{"id":"Celeste","label":"Celeste"},{"id":"Gamelan","label":"Gamelan"},{"id":"Glockenspiel","label":"Glockenspiel"},{"id":"Kalimba","label":"Kalimba"},{"id":"Marimba","label":"Marimba"},{"id":"Music Box","label":"Music Box"},{"id":"Steel Drums","label":"Steel Drums"},{"id":"Vibraphone","label":"Vibraphone"},{"id":"Xylophone","label":"Xylophone"},{"id":"Castanets","label":"Castanets"},{"id":"Cowbell","label":"Cowbell"},{"id":"Finger Snaps","label":"Finger Snaps"},{"id":"Hand Claps","label":"Hand Claps"},{"id":"Sleigh Bells","label":"Sleigh Bells"},{"id":"Shaker","label":"Shaker"},{"id":"Tambourine","label":"Tambourine"},{"id":"Accordion / Bandoneon","label":"Accordion / Bandoneon"},{"id":"Harmonica","label":"Harmonica"},{"id":"Melodica","label":"Melodica"},{"id":"Bass - Double","label":"Bass - Double"},{"id":"Cello","label":"Cello"},{"id":"Erhu","label":"Erhu"},{"id":"Violin / Viola","label":"Violin / Viola"},{"id":"Bass - Electric","label":"Bass - Electric"},{"id":"Dobro","label":"Dobro"},{"id":"Guitar - Acoustic","label":"Guitar - Acoustic"},{"id":"Guitar - Electric","label":"Guitar - Electric"},{"id":"Guitar - Lap & Pedal","label":"Guitar - Lap & Pedal"},{"id":"Guitar - Slide","label":"Guitar - Slide"},{"id":"Guitar - Spanish","label":"Guitar - Spanish"},{"id":"Ukulele","label":"Ukulele"},{"id":"Banjo","label":"Banjo"},{"id":"Dulcimer","label":"Dulcimer"},{"id":"Harp","label":"Harp"},{"id":"Koto","label":"Koto"},{"id":"Jaw Harp","label":"Jaw Harp"},{"id":"Lute","label":"Lute"},{"id":"Mandolin","label":"Mandolin"},{"id":"Saz","label":"Saz"},{"id":"Shamisen","label":"Shamisen"},{"id":"Sitar","label":"Sitar"},{"id":"Bass - Synth","label":"Bass - Synth"},{"id":"Keyboard","label":"Keyboard"},{"id":"Synth","label":"Synth"},{"id":"Theremin","label":"Theremin"},{"id":"Pizzicato","label":"Pizzicato"},{"id":"Whistling","label":"Whistling"},{"id":"Bagpipes / Celtic Pipes","label":"Bagpipes / Celtic Pipes"},{"id":"Bassoon","label":"Bassoon"},{"id":"Clarinet","label":"Clarinet"},{"id":"Didgeridoo","label":"Didgeridoo"},{"id":"Duduk","label":"Duduk"},{"id":"Flute / Piccolo","label":"Flute / Piccolo"},{"id":"Oboe / Cor Anglais","label":"Oboe / Cor Anglais"},{"id":"Pan Pipes","label":"Pan Pipes"},{"id":"Recorder","label":"Recorder"},{"id":"Saxophone","label":"Saxophone"},{"id":"Shakuhachi","label":"Shakuhachi"},{"id":"Whistles / Tin / Penny","label":"Whistles / Tin / Penny"},{"id":"Ethnic","label":"Ethnic"}];
+
+function splitCsv(value?: string | null): string[] {
+  if (!value?.trim()) return [];
+  return value.split(",").map((part) => part.trim()).filter(Boolean);
+}
+
 function buildMusicPayload(
   filters: MusicFilters,
   query: string,
@@ -50,8 +65,50 @@ function buildMusicPayload(
   return payload;
 }
 
-function filtersKey(filters: MusicFilters): string {
+function buildFavTracksPayload(
+  filters: MusicFilters,
+  searchQuery: string,
+  offset: number,
+): GetFavTracksPayload {
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const payload: GetFavTracksPayload = {
+    page,
+    limit: PAGE_SIZE,
+  };
+
+  const q = searchQuery.trim();
+  if (q) payload.query = q;
+  if (filters.genre?.length) payload.genre = filters.genre;
+  if (filters.mood?.length) payload.mood = filters.mood.join(",");
+  if (filters.instrument?.length) payload.instrument = filters.instrument;
+
+  return payload;
+}
+
+function mapFavTrackToMusic(track: FavTrack): Music {
+  return {
+    track_id: track.track_id,
+    title: track.title ?? "",
+    artist_name: track.artist ?? "",
+    genres: splitCsv(track.genre),
+    moods: splitCsv(track.mood),
+    instruments: splitCsv(track.instrument),
+    tags: splitCsv(track.tag),
+    tempo: track.bpm ?? 0,
+    tempo_bucket: track.tempo_bucket ?? "",
+    start_key: track.start_key ?? "",
+    end_key: track.end_key ?? "",
+    duration_secs: track.duration ?? 0,
+    preview_url: track.preview_url ?? "",
+    source: track.source ?? "",
+    provider: track.source ?? "",
+    is_favorite: true,
+  };
+}
+
+function filtersKey(filters: MusicFilters, showFavorites: boolean): string {
   return [
+    showFavorites ? "fav" : "all",
     filters.genre?.join(",") ?? "",
     filters.mood?.join(",") ?? "",
     filters.instrument?.join(",") ?? "",
@@ -109,15 +166,31 @@ export default function MusicLibrary({
   const [filters, setFilters] = useState<MusicFilters>(DEFAULT_MUSIC_FILTERS);
   const [listReady, setListReady] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [favTrackIds, setFavTrackIds] = useState<Set<string>>(new Set());
+  const [togglingTrackId, setTogglingTrackId] = useState<string | null>(null);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const showFavoritesRef = useRef(showFavorites);
+  showFavoritesRef.current = showFavorites;
 
   const totalRef = useRef(0);
   const offsetRef = useRef(0);
   const lastQueryRef = useRef("");
   const hasMoreRef = useRef(false);
   const fetchingRef = useRef(false);
+
+  const loadFavoriteIds = useCallback(async () => {
+    try {
+      const { status, data } = await adsApi.getFavTracks({ page: 1, limit: 100 });
+      if (status === 200 && Array.isArray(data?.data)) {
+        setFavTrackIds(new Set(data.data.map((t) => t.track_id)));
+      }
+    } catch (err) {
+      logger.warn("Failed to load favorite track ids", { err });
+    }
+  }, []);
 
   const fetchTracks = useCallback(
     async (opts: { reset: boolean; nextOffset: number; searchQuery: string }) => {
@@ -128,6 +201,39 @@ export default function MusicLibrary({
       else setLoadingMore(true);
 
       try {
+        if (showFavoritesRef.current) {
+          const { status, error, data } = await adsApi.getFavTracks(
+            buildFavTracksPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
+          );
+
+          if (status !== 200 || error || !Array.isArray(data?.data)) {
+            logger.warn("Favorite tracks fetch failed", { status, error });
+            if (opts.reset) setTracks([]);
+            hasMoreRef.current = false;
+            setHasMore(false);
+            return;
+          }
+
+          const next = data.data.map(mapFavTrackToMusic);
+          const total = data.pagination?.total ?? next.length;
+          const nextOffset = opts.nextOffset + next.length;
+
+          totalRef.current = total;
+          offsetRef.current = nextOffset;
+          lastQueryRef.current = opts.searchQuery;
+          setTracks((prev) => (opts.reset ? next : [...prev, ...next]));
+          setFavTrackIds((prev) => {
+            const nextIds = new Set(prev);
+            for (const track of next) nextIds.add(track.track_id);
+            return nextIds;
+          });
+
+          const more = nextOffset < total;
+          hasMoreRef.current = more;
+          setHasMore(more);
+          return;
+        }
+
         const { status, error, data } = await adsApi.searchVoxifyMusics(
           buildMusicPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
         );
@@ -147,6 +253,13 @@ export default function MusicLibrary({
         offsetRef.current = nextOffset;
         lastQueryRef.current = opts.searchQuery;
         setTracks((prev) => (opts.reset ? next : [...prev, ...next]));
+        setFavTrackIds((prev) => {
+          const nextIds = new Set(prev);
+          for (const track of next) {
+            if (track.is_favorite) nextIds.add(track.track_id);
+          }
+          return nextIds;
+        });
 
         const more =
           total != null ? nextOffset < total : next.length >= PAGE_SIZE;
@@ -167,6 +280,9 @@ export default function MusicLibrary({
       setListReady(false);
       setTracks([]);
       setSelectedTrackId(null);
+      setFavTrackIds(new Set());
+      setTogglingTrackId(null);
+      setShowFavorites(false);
       offsetRef.current = 0;
       lastQueryRef.current = "";
       hasMoreRef.current = false;
@@ -177,8 +293,9 @@ export default function MusicLibrary({
     offsetRef.current = 0;
     lastQueryRef.current = "";
     setListReady(false);
+    void loadFavoriteIds();
     void fetchTracks({ reset: true, nextOffset: 0, searchQuery: "" });
-  }, [open, filters, fetchTracks]);
+  }, [open, filters, showFavorites, fetchTracks, loadFavoriteIds]);
 
   const handleQueryChange = useCallback(
     (nextQuery: string) => {
@@ -217,6 +334,46 @@ export default function MusicLibrary({
     onSelect(mapMusicToVoxifyTrack(track));
   };
 
+  const handleToggleFavorite = async (track: Music) => {
+    if (!track?.track_id || togglingTrackId) return;
+    setTogglingTrackId(track.track_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavTrack(
+        musicToFavPayload(track),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFavTrackIds((prev) => {
+        const next = new Set(prev);
+        if (data.data.isFavorite) next.add(track.track_id);
+        else next.delete(track.track_id);
+        return next;
+      });
+
+      if (showFavoritesRef.current && !data.data.isFavorite) {
+        setTracks((prev) => prev.filter((t) => t.track_id !== track.track_id));
+        totalRef.current = Math.max(0, totalRef.current - 1);
+        if (selectedTrackId === track.track_id) setSelectedTrackId(null);
+      }
+    } catch (err) {
+      logger.warn("toggleFavTrack failed in MusicLibrary", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingTrackId(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -236,7 +393,7 @@ export default function MusicLibrary({
             <DialogTitle>Music library</DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-wrap gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <MusicFilterDropdown
               label="Genre"
               options={GENRE_OPTIONS}
@@ -258,18 +415,34 @@ export default function MusicLibrary({
               onChange={(ids) => updateFilter("instrument", ids)}
               className="w-[240px]"
             />
-
+            <div className="flex items-center gap-2 ml-auto pr-1 w-full">
+              <Heart
+                className={cn(
+                  "h-3.5 w-3.5",
+                  showFavorites ? "text-primary" : "text-muted-foreground",
+                )}
+                fill={showFavorites ? "currentColor" : "none"}
+              />
+              <span className="text-sm text-muted-foreground">Favorites</span>
+              <Switch
+                checked={showFavorites}
+                onCheckedChange={(checked) => {
+                  setShowFavorites(checked);
+                  setSelectedTrackId(null);
+                }}
+                size="sm"
+              />
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden pt-1">
-            {/* Keep SearchableList mounted during search fetches so the input query is preserved. */}
             {!listReady ? (
               <div className="flex h-full min-h-[320px] items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <SearchableList<Music>
-                key={`music-library-${filtersKey(filters)}`}
+                key={`music-library-${filtersKey(filters, showFavorites)}`}
                 items={tracks}
                 columns={musicColumns}
                 selectionMode="single"
@@ -279,7 +452,7 @@ export default function MusicLibrary({
                   if (track) setSelectedTrackId(track.track_id);
                 }}
                 idKey="track_id"
-                searchPlaceholder="Search music..."
+                searchPlaceholder={showFavorites ? "Search favorites..." : "Search music..."}
                 searchableKeys={["title", "artist_name"]}
                 useFilterApi
                 onQueryChange={handleQueryChange}
@@ -291,7 +464,7 @@ export default function MusicLibrary({
                 variant="list"
                 maxHeight="calc(85vh - 280px)"
                 pageSize={PAGE_SIZE}
-                emptyMessage="No tracks found"
+                emptyMessage={showFavorites ? "No favorite tracks found" : "No tracks found"}
                 loading={loading}
                 renderItem={(track, isSelected) => (
                   <div
@@ -319,6 +492,31 @@ export default function MusicLibrary({
                           .join(" · ")}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      title={favTrackIds.has(track.track_id) ? "Remove from favorites" : "Add to favorites"}
+                      disabled={togglingTrackId === track.track_id}
+                      className={cn(
+                        "shrink-0 transition-colors",
+                        favTrackIds.has(track.track_id)
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-primary",
+                        togglingTrackId === track.track_id && "opacity-50",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleToggleFavorite(track);
+                      }}
+                    >
+                      {togglingTrackId === track.track_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Heart
+                          className="h-4 w-4"
+                          fill={favTrackIds.has(track.track_id) ? "currentColor" : "none"}
+                        />
+                      )}
+                    </button>
                     {track.preview_url ? (
                       <div onClick={(e) => e.stopPropagation()}>
                         <InlineAudioPlayer audioUrl={track.preview_url} />
@@ -331,7 +529,6 @@ export default function MusicLibrary({
             )}
           </div>
         </div>
-
 
           <DialogFooter className="shrink-0 border-t bg-white px-6 py-4">
           

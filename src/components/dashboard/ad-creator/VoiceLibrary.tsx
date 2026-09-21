@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { SearchableList } from "@/components/ui/searchable-list";
@@ -7,9 +7,14 @@ import type { Column } from "@/components/ui/searchable-list";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { mapVoiceLibraryVoiceToVoxifyVoice } from "@/lib/creativeLibraryMappers";
+import {
+  mapVoiceLibraryVoiceToVoxifyVoice,
+  voiceLibraryVoiceToFavPayload,
+} from "@/lib/creativeLibraryMappers";
 import {
   adsApi,
+  type FavVoice,
+  type GetFavVoicesPayload,
   type SearchVoicesPayload,
   type VoiceLibraryVoice,
   type VoxifyVoice,
@@ -17,6 +22,8 @@ import {
 import InlineAudioPlayer from "./InlineAudioPlayer";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 
 const PAGE_SIZE = 10;
 
@@ -92,8 +99,50 @@ function buildVoiceSearchPayload(
   return payload;
 }
 
-function filtersKey(filters: VoiceFilters): string {
+function buildFavVoicesPayload(
+  filters: VoiceFilters,
+  searchQuery: string,
+  offset: number,
+): GetFavVoicesPayload {
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const payload: GetFavVoicesPayload = {
+    page,
+    limit: PAGE_SIZE,
+  };
+
+  const q = searchQuery.trim();
+  if (q) payload.query = q;
+  if (filters.language?.length) payload.language = filters.language;
+  if (filters.accent?.length) payload.accent = filters.accent.join(",");
+  if (filters.gender?.length) payload.gender = filters.gender;
+  if (filters.age?.length) payload.ageGroup = filters.age;
+  if (filters.speechStyle?.length) payload.style = filters.speechStyle;
+
+  return payload;
+}
+
+function mapFavVoiceToLibraryVoice(voice: FavVoice): VoiceLibraryVoice {
+  return {
+    voice_id: voice.voice_id,
+    voice_owner_id: voice.voice_owner_id,
+    name: voice.name,
+    description: voice.description,
+    language: voice.language,
+    accent: voice.accent,
+    gender: voice.gender,
+    age: voice.age,
+    speech_style: voice.speech_style,
+    speech_rate: voice.speech_rate ?? 0,
+    preview_url: voice.preview_url,
+    category: voice.category,
+    source: voice.source,
+    is_favorite: true,
+  };
+}
+
+function filtersKey(filters: VoiceFilters, showFavorites: boolean): string {
   return [
+    showFavorites ? "fav" : "all",
     filters.language?.join(",") ?? "",
     filters.accent?.join(",") ?? "",
     filters.gender?.join(",") ?? "",
@@ -153,15 +202,31 @@ export default function VoiceLibrary({
   const [filters, setFilters] = useState<VoiceFilters>(DEFAULT_VOICE_FILTERS);
   const [listReady, setListReady] = useState(false);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
+  const [favVoiceIds, setFavVoiceIds] = useState<Set<string>>(new Set());
+  const [togglingVoiceId, setTogglingVoiceId] = useState<string | null>(null);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const showFavoritesRef = useRef(showFavorites);
+  showFavoritesRef.current = showFavorites;
 
   const offsetRef = useRef(0);
   const lastQueryRef = useRef("");
   const hasMoreRef = useRef(false);
   const fetchingRef = useRef(false);
   const totalCountRef = useRef(0);
+
+  const loadFavoriteIds = useCallback(async () => {
+    try {
+      const { status, data } = await adsApi.getFavVoices({ page: 1, limit: 100 });
+      if (status === 200 && Array.isArray(data?.data)) {
+        setFavVoiceIds(new Set(data.data.map((v) => v.voice_id)));
+      }
+    } catch (err) {
+      logger.warn("Failed to load favorite voice ids", { err });
+    }
+  }, []);
 
   const fetchVoices = useCallback(
     async (opts: { reset: boolean; nextOffset: number; searchQuery: string }) => {
@@ -172,6 +237,39 @@ export default function VoiceLibrary({
       else setLoadingMore(true);
 
       try {
+        if (showFavoritesRef.current) {
+          const { status, error, data } = await adsApi.getFavVoices(
+            buildFavVoicesPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
+          );
+
+          if (status !== 200 || error || !Array.isArray(data?.data)) {
+            logger.warn("Favorite voices fetch failed", { status, error });
+            if (opts.reset) setVoices([]);
+            hasMoreRef.current = false;
+            setHasMore(false);
+            return;
+          }
+
+          const next = data.data.map(mapFavVoiceToLibraryVoice);
+          const total = data.pagination?.total ?? next.length;
+          const nextOffset = opts.nextOffset + next.length;
+
+          totalCountRef.current = total;
+          offsetRef.current = nextOffset;
+          lastQueryRef.current = opts.searchQuery;
+          setVoices((prev) => (opts.reset ? next : [...prev, ...next]));
+          setFavVoiceIds((prev) => {
+            const nextIds = new Set(prev);
+            for (const voice of next) nextIds.add(voice.voice_id);
+            return nextIds;
+          });
+
+          const more = nextOffset < total;
+          hasMoreRef.current = more;
+          setHasMore(more);
+          return;
+        }
+
         const { status, error, data } = await adsApi.searchVoxifyVoices(
           buildVoiceSearchPayload(filtersRef.current, opts.searchQuery, opts.nextOffset),
         );
@@ -192,6 +290,13 @@ export default function VoiceLibrary({
         offsetRef.current = nextOffset;
         lastQueryRef.current = opts.searchQuery;
         setVoices((prev) => (opts.reset ? next : [...prev, ...next]));
+        setFavVoiceIds((prev) => {
+          const nextIds = new Set(prev);
+          for (const voice of next) {
+            if (voice.is_favorite) nextIds.add(voice.voice_id);
+          }
+          return nextIds;
+        });
 
         const more =
           total != null ? nextOffset < total : next.length >= PAGE_SIZE;
@@ -211,6 +316,10 @@ export default function VoiceLibrary({
     if (!open) {
       setListReady(false);
       setVoices([]);
+      setSelectedVoiceId(null);
+      setFavVoiceIds(new Set());
+      setTogglingVoiceId(null);
+      setShowFavorites(false);
       offsetRef.current = 0;
       lastQueryRef.current = "";
       hasMoreRef.current = false;
@@ -221,8 +330,9 @@ export default function VoiceLibrary({
     offsetRef.current = 0;
     lastQueryRef.current = "";
     setListReady(false);
+    void loadFavoriteIds();
     void fetchVoices({ reset: true, nextOffset: 0, searchQuery: "" });
-  }, [open, filters, fetchVoices]);
+  }, [open, filters, showFavorites, fetchVoices, loadFavoriteIds]);
 
   const handleQueryChange = useCallback(
     (nextQuery: string) => {
@@ -263,6 +373,46 @@ export default function VoiceLibrary({
     onSelect(mapVoiceLibraryVoiceToVoxifyVoice(voice));
   };
 
+  const handleToggleFavorite = async (voice: VoiceLibraryVoice) => {
+    if (!voice?.voice_id || togglingVoiceId) return;
+    setTogglingVoiceId(voice.voice_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavVoice(
+        voiceLibraryVoiceToFavPayload(voice),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFavVoiceIds((prev) => {
+        const next = new Set(prev);
+        if (data.data.isFavorite) next.add(voice.voice_id);
+        else next.delete(voice.voice_id);
+        return next;
+      });
+
+      if (showFavoritesRef.current && !data.data.isFavorite) {
+        setVoices((prev) => prev.filter((v) => v.voice_id !== voice.voice_id));
+        totalCountRef.current = Math.max(0, totalCountRef.current - 1);
+        if (selectedVoiceId === voice.voice_id) setSelectedVoiceId(null);
+      }
+    } catch (err) {
+      logger.warn("toggleFavVoice failed in VoiceLibrary", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingVoiceId(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -282,7 +432,7 @@ export default function VoiceLibrary({
           <DialogTitle>Voice library</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-2 shrink-0 p-1">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 p-1">
           <VoiceFilterDropdown
             label="Language"
             options={LANGUAGE_OPTIONS}
@@ -318,6 +468,24 @@ export default function VoiceLibrary({
             onChange={(ids) => updateFilter("speechStyle", ids)}
             className="w-[160px]"
           />
+          <div className="flex items-center gap-2 ml-auto pr-1 w-full">
+            <Heart
+              className={cn(
+                "h-3.5 w-3.5",
+                showFavorites ? "text-primary" : "text-muted-foreground",
+              )}
+              fill={showFavorites ? "currentColor" : "none"}
+            />
+            <span className="text-sm text-muted-foreground">Favorites</span>
+            <Switch
+              checked={showFavorites}
+              onCheckedChange={(checked) => {
+                setShowFavorites(checked);
+                setSelectedVoiceId(null);
+              }}
+              size="sm"
+            />
+          </div>
         </div>
 
         
@@ -330,7 +498,7 @@ export default function VoiceLibrary({
           </div>
         ) : (
           <SearchableList<VoiceLibraryVoice>
-            key={`voice-library-${filtersKey(filters)}`}
+            key={`voice-library-${filtersKey(filters, showFavorites)}`}
             items={voices}
             columns={voiceColumns}
             selectionMode="single"
@@ -343,7 +511,7 @@ export default function VoiceLibrary({
               }
             }}
             idKey="voice_id"
-            searchPlaceholder="Search voices..."
+            searchPlaceholder={showFavorites ? "Search favorites..." : "Search voices..."}
             searchableKeys={["name", "language", "accent", "gender", "description"]}
             useFilterApi
             onQueryChange={handleQueryChange}
@@ -355,7 +523,7 @@ export default function VoiceLibrary({
             variant="list"
             maxHeight="calc(85vh - 280px)"
             pageSize={PAGE_SIZE}
-            emptyMessage="No voices found"
+            emptyMessage={showFavorites ? "No favorite voices found" : "No voices found"}
             loading={loading}
             renderItem={(voice, isSelected) => (
               <div
@@ -391,6 +559,31 @@ export default function VoiceLibrary({
                       .join(" · ")}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  title={favVoiceIds.has(voice.voice_id) ? "Remove from favorites" : "Add to favorites"}
+                  disabled={togglingVoiceId === voice.voice_id}
+                  className={cn(
+                    "shrink-0 transition-colors",
+                    favVoiceIds.has(voice.voice_id)
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-primary",
+                    togglingVoiceId === voice.voice_id && "opacity-50",
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleToggleFavorite(voice);
+                  }}
+                >
+                  {togglingVoiceId === voice.voice_id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Heart
+                      className="h-4 w-4"
+                      fill={favVoiceIds.has(voice.voice_id) ? "currentColor" : "none"}
+                    />
+                  )}
+                </button>
                 {voice.preview_url ? (
                   <div onClick={(e) => e.stopPropagation()}>
                     <InlineAudioPlayer audioUrl={voice.preview_url} />
