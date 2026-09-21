@@ -58,11 +58,17 @@ export default function GettingStartedCard({
 }: GettingStartedCardProps) {
   const navigate = useNavigate();
 
-  const doneCount = 1 + (hasAudioAd ? 1 : 0); // step 1 is always done
+  // A draft campaign can exist without an audio ad attached yet (draftChecklist.audioDone
+  // tracks that independently of the standalone `hasAudioAd` flag), so step 2 counts as
+  // done if either is true, and being on the draft path always puts step 3 in progress --
+  // otherwise a draft campaign with no separately-saved ad would show step 3 as locked
+  // and the "resume your draft" checklist below would never render.
+  const step2Done = hasAudioAd || Boolean(hasDraftCampaign && draftChecklist?.audioDone);
+  const doneCount = 1 + (step2Done ? 1 : 0); // step 1 is always done
   const cardTitle = doneCount === 1 ? 'Getting started' : 'Almost there';
 
-  const step2Status: StepStatus = hasAudioAd ? 'done' : 'active';
-  const step3Status: StepStatus = hasAudioAd ? 'active' : 'locked';
+  const step2Status: StepStatus = step2Done ? 'done' : 'active';
+  const step3Status: StepStatus = hasDraftCampaign || hasAudioAd ? 'active' : 'locked';
 
   return (
     <Card className="rounded-[32px] border border-border bg-card">

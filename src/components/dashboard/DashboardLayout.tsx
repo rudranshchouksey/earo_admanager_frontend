@@ -205,7 +205,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setHasAudioAd(res.status === 200 && !res.error && res.data.data.length > 0);
     });
     return () => { cancelled = true; };
-  }, [selectedAdvertiser]);
+    // Re-check on every route change too (not just advertiser switch) -- there's no
+    // "ad created" event to listen for, so this is what catches a brand-new user who
+    // creates their first ad and navigates elsewhere within the same advertiser.
+  }, [selectedAdvertiser, location.pathname]);
 
   useEffect(() => {
     

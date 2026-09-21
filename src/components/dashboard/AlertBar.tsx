@@ -254,17 +254,19 @@ export default function AlertBar() {
         setShowCompleteProfileModal(
           userProfile.data.organizations.length < 2 && !isLandingHandoffSession,
         );
-        allAlerts.push(
-          {
-            id: "complete-profile",
-            title: "Complete Profile",
-            message: "Please complete your profile and company details",
-            alert_type: "error",
-            cta_label: "Complete Profile",
-            cta_url: "/dashboard/account",
-            userId: userProfile.data.id,
-          }
-        );
+        if (!isLandingHandoffSession) {
+          allAlerts.push(
+            {
+              id: "complete-profile",
+              title: "Complete Profile",
+              message: "Please complete your profile and company details",
+              alert_type: "error",
+              cta_label: "Complete Profile",
+              cta_url: "/dashboard/account",
+              userId: userProfile.data.id,
+            }
+          );
+        }
       }
       setAlerts(allAlerts);
     };

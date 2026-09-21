@@ -117,13 +117,14 @@ export default function DashboardHome() {
         // timestamps). The checklist and "last edited" copy need the fuller record,
         // so fetch it via the same single-campaign endpoint CampaignWizard already
         // uses to hydrate a draft for editing.
-        const fullRes = await campaignApi.getCampaign({ id: latestCampaign.id, advertiserId });
+        const [fullRes, draftsMeta] = await Promise.all([
+          campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
+          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
+        ]);
         const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
 
         setDraftCampaign(fullCampaign);
         setDraftChecklist(getDraftChecklist(fullCampaign));
-
-        const draftsMeta = await campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 });
         setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
       } else {
         setDraftCampaign(null);
