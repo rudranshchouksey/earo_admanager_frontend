@@ -781,7 +781,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     <MyTooltip infoText="Voices are filtered to match your script's language and dialect. The top result is our recommended match for your goal and tone — preview any voice by pressing play. Only voices compatible with your selected language are shown." />
                   </div>
                 </div>
-                <div className="space-y-3 justify-between">
+                <div className="space-y-3 justify-between max-h-[350px] overflow-y-auto">
                   {recommendation.voices?.filter((voice) => voice.voice_id !== currentVoice?.voice_id).map((voice) => (
                     <VoiceCard
                       key={voice.voice_id}
@@ -829,7 +829,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                     <MyTooltip infoText="Tracks are matched to your script's emotional tone and pacing. Background music works best for brand-building and awareness ads — for short, direct-response ads, voice-only is often clearer and more effective." />
                   </div>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[350px] overflow-y-auto">
 
 
                   {
