@@ -435,7 +435,7 @@ export default function MusicLibrary({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden pt-1">
+          <div className="min-h-0 flex-1 overflow-hidden">
             {!listReady ? (
               <div className="flex h-full min-h-[320px] items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -480,9 +480,6 @@ export default function MusicLibrary({
                       )}
                     >
                       {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
-                    </div>
-                    <div className="h-9 w-9 shrink-0 rounded-md bg-muted flex items-center justify-center">
-                      <MusicIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-foreground">{track.title}</span>

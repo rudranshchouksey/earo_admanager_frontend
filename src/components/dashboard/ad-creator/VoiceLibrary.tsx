@@ -489,7 +489,7 @@ export default function VoiceLibrary({
         </div>
 
         
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden ">
         {/* Keep SearchableList mounted during search fetches so the input query is preserved.
             Only show a full-page spinner on the initial load / filter remount. */}
         {!listReady ? (
@@ -540,9 +540,6 @@ export default function VoiceLibrary({
                 >
                   {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
                 </div>
-                <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarFallback className="text-xs font-medium">{voice.name.trim().slice(0, 2)}</AvatarFallback>
-                </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-medium text-foreground">{voice.name.trim()}</span>

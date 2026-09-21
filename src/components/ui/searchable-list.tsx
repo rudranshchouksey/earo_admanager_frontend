@@ -520,7 +520,7 @@ export function SearchableList<T extends Record<string, any>>({
       {/* Table variant */}
       {variant === 'table' ? (
         <div className="border rounded-lg overflow-hidden">
-          <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto px-1">
+          <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto px-1 pt-2">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -621,7 +621,7 @@ export function SearchableList<T extends Record<string, any>>({
         </div>
       ) : (
         /* List variant */
-        <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto px-1">
+        <div style={{ maxHeight }} ref={scrollRef} className="overflow-auto px-1 pt-2">
           <div className="space-y-1">
             {loading ? (
               <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>
