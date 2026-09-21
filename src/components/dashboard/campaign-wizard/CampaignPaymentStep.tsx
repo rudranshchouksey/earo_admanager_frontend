@@ -244,35 +244,6 @@ export default function CampaignPaymentStep({
         </div>
       </div>
 
-      {
-        creditsDetails?.creditCycle?.amount > 0  && ( savedTransaction === null) ? (
-          <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
-            <Label className="text-sm font-medium">Pay using your credits</Label>
-            <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium">Available Credits</p>
-                  <h6 className="text-2xl font-bold"> ${creditsDetails.availableCredit.toLocaleString()}</h6>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">After this campaign</p>
-                  <h6 className="text-2xl font-bold text-right text-primary"> {
-                  
-                  (finalAmountAfterCoupon < 0 ? '-$' + (finalAmountAfterCoupon * -1).toLocaleString() : '$'+finalAmountAfterCoupon.toLocaleString())
-                  
-                  }</h6>
-                </div>
-            </div>           
-            {
-                  creditsDetails.availableCredit < totalBudget ? (
-                    <h6 className="text-xs text-destructive flex items-center gap-2">
-                      <TriangleAlert size={16} className="text-destructive" /> This campaign exceeds your available credits
-                    </h6>
-                  ) : <></>
-                }
-          </div>
-        ) :<></>
-      }
-
       <div className="space-y-2 bg-muted p-3 rounded-md">
         <label className="text-sm font-bold text-foreground">
           Charge Summary
@@ -371,6 +342,39 @@ export default function CampaignPaymentStep({
           </div>
         </div>
       </div>
+      {
+        creditsDetails?.creditCycle?.amount > 0  && ( savedTransaction === null) ? (
+          <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
+            <div className="flex flex-col justify-start items-start gap-1 mb-3">
+              <Label className="text-sm font-medium">Pay by invoice</Label>
+              <span className="text-xs text-muted-foreground">Your campaigns are billed at the end of the month. Your credit limit controls how much you can run before payment is due.</span>
+              <label className="text-xs text-muted-foreground">Approved Monthly Credit Limit - ${Number(creditsDetails.creditCycle.amount).toLocaleString()}</label>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2">
+                <div>
+                  <p className="text-sm font-medium">Available Credit Limit</p>
+                  <h6 className="text-2xl font-bold"> ${creditsDetails.availableCredit.toLocaleString()} </h6>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Remaining limit after this campaign</p>
+                  <h6 className="text-2xl font-bold text-right text-primary"> {
+                  
+                  (finalAmountAfterCoupon < 0 ? '-$' + (finalAmountAfterCoupon * -1).toLocaleString() : '$'+finalAmountAfterCoupon.toLocaleString())
+                  
+                  }</h6>
+                </div>
+            </div>           
+            {
+                  creditsDetails.availableCredit < totalBudget ? (
+                    <h6 className="text-xs text-destructive flex items-center gap-2">
+                      <TriangleAlert size={16} className="text-destructive" /> This campaign exceeds your available credits
+                    </h6>
+                  ) : <></>
+                }
+          </div>
+        ) :<></>
+      }
+
 
 
     </div>
