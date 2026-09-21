@@ -264,8 +264,20 @@ export default function AlertBar() {
   const onClose = () => {
     setShowCompleteProfileModal(false);
     setStep(1);
-  
+
   }
+
+  const handleDismissModal = () => {
+    if (userId) {
+      localStorage.setItem("complete-profile-" + userId, "true");
+    }
+    // Keep the alerts list in sync with the flag we just set, same as the other two
+    // dismissal paths (dismiss() below and handleBusinessSubmit()) -- otherwise the
+    // "Complete Profile" banner row lingers for the rest of this session even though
+    // it will correctly stay gone on the next load().
+    setAlerts((prev) => prev.filter((a) => a.id !== "complete-profile"));
+    onClose();
+  };
 
   const dismiss = async (alert: AlertItem) => {
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
@@ -273,8 +285,6 @@ export default function AlertBar() {
     localStorage.setItem(alert.id + "-" + alert.userId, "true");
   };
 
-
-  if (alerts.length === 0) return null;
 
   const visibleAlerts = expanded ? alerts : alerts.slice(0, 2);
   const hiddenCount = alerts.length - 2;
@@ -337,6 +347,8 @@ export default function AlertBar() {
   };
 
   return (
+    <>
+    {alerts.length > 0 && (
     <div className="border-b border-border bg-background">
       {visibleAlerts.map((alert) => {
         const Icon = iconMap[alert.alert_type] || Info;
@@ -387,6 +399,8 @@ export default function AlertBar() {
           Show {hiddenCount} more
         </button>
       )}
+    </div>
+    )}
       {showCompleteProfileModal && (
         <Dialog
           open={showCompleteProfileModal}
@@ -399,9 +413,29 @@ export default function AlertBar() {
             hideCloseButton
             onEscapeKeyDown={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
-            className="p-0 md:min-w-[700px] overflow-y-auto max-h-[90vh]"
+            className="flex flex-col p-0 md:min-w-[700px] max-h-[90dvh] overflow-hidden"
           >
-            <DialogDescription className="p-0">
+            <DialogTitle className="sr-only">
+              {step === 1 ? "Complete your profile" : "Welcome to EARO"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {step === 1
+                ? "Tell us about your business to finish setting up your account."
+                : "Get your first audio ad live in minutes."}
+            </DialogDescription>
+            {/* position:absolute already takes this out of flow, so it stays fixed in
+                place while the sibling content below scrolls -- DOM order doesn't matter here. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleDismissModal}
+              aria-label="Dismiss"
+              className="absolute right-3 top-3 z-10 h-11 w-11 rounded-full text-black/70 hover:bg-black/10 hover:text-black"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 overflow-y-auto">
               {step == 1 ? (
                 <div className="animate-in fade-in duration-200">
                   <div className="bg-[#00DA88] p-7">
@@ -425,7 +459,7 @@ export default function AlertBar() {
                       if (e.key === 'Enter') e.preventDefault();
                     }}
                   >
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="firstName" className="text-xs">
                           First name <sup>*</sup>
@@ -501,7 +535,7 @@ export default function AlertBar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-1 :grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs">Industry</Label>
                         <Select
@@ -646,7 +680,7 @@ export default function AlertBar() {
                       ))}
                     </ul>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -688,10 +722,10 @@ export default function AlertBar() {
                   </div>
                 </div>
               )}
-            </DialogDescription>
+            </div>
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </>
   );
 }
