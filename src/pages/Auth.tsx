@@ -28,6 +28,8 @@ import { logger } from "@/lib/logger";
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const register = searchParams.get("register");
+  const jobId = searchParams.get("jobid");
+  const recommendedVersion = searchParams.get("recommendedVersion");
 
 
   const { t } = useTranslation();
@@ -155,14 +157,6 @@ export default function Auth() {
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
     setIsLoading(true);
     try {
-
-
-      const url = new URL(window.location.href);
-      const jobId = url.searchParams.get("jobid");
-      const recommendedVersion = url.searchParams.get("recommendedVersion");
-
-
-      
       const { credential } = credentialResponse;
       const { error, status, message, data } = await auth.signInWithGoogle(credential, jobId, recommendedVersion);
 
@@ -198,14 +192,6 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-
-
-    const url = new URL(window.location.href);
-    const jobId = url.searchParams.get("jobid");
-    const recommendedVersion = url.searchParams.get("recommendedVersion");
-
-    logger.info("jobId ", { value: jobId });
-    logger.info("recommendedVersion ", { value: recommendedVersion });
 
     const loginSchema = z.object({
       email: z.string().trim().email(t("auth.invalid_email")),
@@ -265,6 +251,7 @@ export default function Auth() {
         const { error, status, message, data } = await auth.signInWithPassword(
           email,
           password,
+          jobId,
         );
 
         if (status !== 200) {

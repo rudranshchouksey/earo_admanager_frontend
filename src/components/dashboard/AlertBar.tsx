@@ -146,6 +146,15 @@ export default function AlertBar() {
       const allAlerts = [];
       setUserId(userProfile.data.id);
 
+      // Set once by auth.ts on a login/signup that came through the landing page's
+      // ad-generator handoff (?jobid=...) -- skip the onboarding modal for this one
+      // session so it doesn't interrupt someone who just generated an ad; it becomes
+      // eligible again on their next login (auth.ts clears/resets the flag on every
+      // login/signup call).
+      const isLandingHandoffSession = !!localStorage.getItem(
+        'landing-handoff-' + userProfile.data.id,
+      );
+
       if (!userProfile.data.isVerified) {
         const hasCancelledVerifyEmail = localStorage.getItem(
           "verify-email-" + userProfile.data.id,
@@ -242,7 +251,9 @@ export default function AlertBar() {
             setSubIndustry(org.subIndustry);
           }
         }
-        setShowCompleteProfileModal(userProfile.data.organizations.length < 2);
+        setShowCompleteProfileModal(
+          userProfile.data.organizations.length < 2 && !isLandingHandoffSession,
+        );
         allAlerts.push(
           {
             id: "complete-profile",
@@ -264,8 +275,20 @@ export default function AlertBar() {
   const onClose = () => {
     setShowCompleteProfileModal(false);
     setStep(1);
-  
+
   }
+
+  const handleDismissModal = () => {
+    if (userId) {
+      localStorage.setItem("complete-profile-" + userId, "true");
+    }
+    // Keep the alerts list in sync with the flag we just set, same as the other two
+    // dismissal paths (dismiss() below and handleBusinessSubmit()) -- otherwise the
+    // "Complete Profile" banner row lingers for the rest of this session even though
+    // it will correctly stay gone on the next load().
+    setAlerts((prev) => prev.filter((a) => a.id !== "complete-profile"));
+    onClose();
+  };
 
   const dismiss = async (alert: AlertItem) => {
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
@@ -274,11 +297,8 @@ export default function AlertBar() {
   };
 
 
-  if (alerts.length === 0) return null;
-
   const visibleAlerts = expanded ? alerts : alerts.slice(0, 2);
   const hiddenCount = alerts.length - 2;
-  const hasPendingAd = false;
 
   const handleBusinessSubmit = async () => {
     setStep(2);
@@ -337,6 +357,8 @@ export default function AlertBar() {
   };
 
   return (
+    <>
+    {alerts.length > 0 && (
     <div className="border-b border-border bg-background">
       {visibleAlerts.map((alert) => {
         const Icon = iconMap[alert.alert_type] || Info;
@@ -387,6 +409,8 @@ export default function AlertBar() {
           Show {hiddenCount} more
         </button>
       )}
+    </div>
+    )}
       {showCompleteProfileModal && (
         <Dialog
           open={showCompleteProfileModal}
@@ -399,9 +423,29 @@ export default function AlertBar() {
             hideCloseButton
             onEscapeKeyDown={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
-            className="p-0 md:min-w-[700px] overflow-y-auto max-h-[90vh]"
+            className="flex flex-col p-0 md:min-w-[700px] max-h-[90dvh] overflow-hidden"
           >
-            <DialogDescription className="p-0">
+            <DialogTitle className="sr-only">
+              {step === 1 ? "Complete your profile" : "Welcome to EARO"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {step === 1
+                ? "Tell us about your business to finish setting up your account."
+                : "Get your first audio ad live in minutes."}
+            </DialogDescription>
+            {/* position:absolute already takes this out of flow, so it stays fixed in
+                place while the sibling content below scrolls -- DOM order doesn't matter here. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleDismissModal}
+              aria-label="Dismiss"
+              className="absolute right-3 top-3 z-10 h-11 w-11 rounded-full text-black/70 hover:bg-black/10 hover:text-black"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 overflow-y-auto">
               {step == 1 ? (
                 <div className="animate-in fade-in duration-200">
                   <div className="bg-[#00DA88] p-7">
@@ -425,7 +469,7 @@ export default function AlertBar() {
                       if (e.key === 'Enter') e.preventDefault();
                     }}
                   >
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="firstName" className="text-xs">
                           First name <sup>*</sup>
@@ -501,7 +545,7 @@ export default function AlertBar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-1 :grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs">Industry</Label>
                         <Select
@@ -575,61 +619,35 @@ export default function AlertBar() {
                 <div className="animate-in fade-in duration-200">
                   <div className="bg-[#00DA88] p-7">
                     <span className="inline-block bg-black text-white text-[11px] font-semibold tracking-wider px-3 py-1.5 rounded-full uppercase">
-                      Step 2 of 2 ·{" "}
-                      {hasPendingAd
-                        ? "Launch your campaign"
-                        : "Welcome to EARO"}
+                      Step 2 of 2 · Welcome to EARO
                     </span>
                     <h2 className="mt-4 text-3xl font-bold leading-tight text-black">
-                      {hasPendingAd
-                        ? "You're one step away from going live"
-                        : "Get your first audio ad live in minutes"}
+                      Get your first audio ad live in minutes
                     </h2>
                     <p className="mt-3 text-sm text-black/70 leading-relaxed">
-                      {hasPendingAd
-                        ? "Your ad is ready. Set up your campaign — schedule, audience, and budget — and launch."
-                        : "Studio-quality. Zero studio fees. AI writes, voices, and mixes — you launch."}
+                      Studio-quality. Zero studio fees. AI writes, voices, and mixes — you launch.
                     </p>
                   </div>
 
                   <div className="p-6 space-y-5">
                     <ul className="space-y-4">
-                      {(hasPendingAd
-                        ? [
-                            {
-                              n: 1,
-                              title: "Confirm your ad",
-                              desc: "We'll pre-select the ad you just created.",
-                            },
-                            {
-                              n: 2,
-                              title: "Set schedule & budget",
-                              desc: "Choose when your campaign runs and how much to spend.",
-                            },
-                            {
-                              n: 3,
-                              title: "Target & launch",
-                              desc: "Pick your locations and audience, then go live.",
-                            },
-                          ]
-                        : [
-                            {
-                              n: 1,
-                              title: "Drop your URL",
-                              desc: "We analyse your site to write a script in your brand voice.",
-                            },
-                            {
-                              n: 2,
-                              title: "Pick a voice & music",
-                              desc: "Choose from 12 voices and a curated music library.",
-                            },
-                            {
-                              n: 3,
-                              title: "Launch a campaign",
-                              desc: "Reach 100M+ listeners across 50K+ podcasts and music streams.",
-                            },
-                          ]
-                      ).map((item) => (
+                      {[
+                        {
+                          n: 1,
+                          title: "Drop your URL",
+                          desc: "We analyse your site to write a script in your brand voice.",
+                        },
+                        {
+                          n: 2,
+                          title: "Pick a voice & music",
+                          desc: "Choose from 12 voices and a curated music library.",
+                        },
+                        {
+                          n: 3,
+                          title: "Launch a campaign",
+                          desc: "Reach 100M+ listeners across 50K+ podcasts and music streams.",
+                        },
+                      ].map((item) => (
                         <li key={item.n} className="flex gap-3">
                           <div className="flex-shrink-0 w-7 h-7 rounded-md bg-[#0A1A3C] text-white text-xs font-semibold flex items-center justify-center">
                             {item.n}
@@ -646,52 +664,36 @@ export default function AlertBar() {
                       ))}
                     </ul>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <Button
                         type="button"
                         variant="outline"
                         className="h-12 font-medium"
                         onClick={() => {
-                          if (hasPendingAd) {
-                            const pendingAdId =
-                              localStorage.getItem("pendingAdId");
-                            localStorage.removeItem("pendingAdId");
-                            localStorage.removeItem("pendingBudget");
-                            localStorage.removeItem("pendingCity");
-                            onClose();
-                            setStep(1);
-                            navigate(`/dashboard/ads/${pendingAdId}`);
-                          } else {
-                            onClose();
-                            setStep(1);
-                          }
+                          onClose();
+                          setStep(1);
                         }}
                       >
-                        {hasPendingAd ? "Edit audio ad" : "I'll explore first"}
+                        I'll explore first
                       </Button>
                       <Button
                         type="button"
                         className="h-12 font-medium"
                         onClick={() => {
                           onClose();
-                          if (hasPendingAd) {
-                            navigate("/dashboard/campaigns/new");
-                          }
                           navigate("/dashboard/ads/new");
                         }}
                       >
-                        {hasPendingAd
-                          ? "Create campaign"
-                          : "Create my audio ad"}
+                        Create my audio ad
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
-            </DialogDescription>
+            </div>
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </>
   );
 }

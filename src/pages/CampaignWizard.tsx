@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
@@ -37,9 +37,10 @@ import { countryCPM } from "@/lib/defaults";
 import { resolveScheduleTimezone, scheduleDateTimeInTimezone } from "@/lib/scheduleTime";
 import { auth } from "@/services/auth";
 import { AdGroup, campaignApi, SavedTransaction } from "@/services/campaign";
+import { adsApi } from "@/services/ads";
+import { DEFAULT_AGE_RANGES, DEFAULT_DEVICE_TYPES, isTargetingSet } from "@/lib/campaignCompletion";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { Coupon, CreditDetails, CreditDetailsResponse, walletApi } from "@/services/wallet";
-import { adsApi } from "@/services/ads";
 import { MyTooltip } from "@/components/ui/MyTooltip";
 import { Helmet } from "react-helmet-async";
 import { paymentApi } from "@/services/payment";
@@ -234,6 +235,7 @@ export default function CampaignWizard() {
   const { isPro, role } = useSessionFlags();
   const isAdminOrEditor = role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED";
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
 
@@ -278,8 +280,8 @@ export default function CampaignWizard() {
   const [geoApplied, setGeoApplied] = useState(false);
   const [targeting, setTargeting] = useState({
     gender: "",
-    ageRanges: ["1824", "2124", "2534", "3544", "4554", "5564","6500"] as string[],
-    deviceTypes: ["tablet", "desktop", "phone", "portable_media_player", "console", "smart_speaker", "television", "car_browser", "other", "wearable"] as string[],
+    ageRanges: [...DEFAULT_AGE_RANGES] as string[],
+    deviceTypes: [...DEFAULT_DEVICE_TYPES] as string[],
     inventoryType: "Podcast",
     podcastTopics: [] as string[],
     podcastAudiences: [] as string[],
@@ -397,7 +399,17 @@ export default function CampaignWizard() {
     inventory.country ||
     (inventory.selectedCountries && inventory.selectedCountries.length > 0)
   );
-  const targetingDone = true;
+  const targetingDone = isTargetingSet({
+    gender: targeting.gender,
+    age: targeting.ageRanges,
+    deviceType: targeting.deviceTypes,
+    podcastTopics: targeting.podcastTopics,
+    podcastAudiences: targeting.podcastAudiences,
+    streamingTopics: targeting.streamingTopics,
+    streamingAudiences: targeting.streamingAudiences,
+    contentLanguage: targeting.contentLanguages,
+    showsInventory: targeting.selectedShows,
+  });
   const budgetDone = Number(budget.totalBudget) > 0;
 
   const forecastTimer = useRef<NodeJS.Timeout | null>(null);
@@ -2080,8 +2092,35 @@ export default function CampaignWizard() {
   }, []);
 
 
+  // Prefill the audio ad from a dashboard "Create campaign with this ad" link
+  // (?audioId=...), for a brand-new campaign only -- editing an existing one
+  // is handled by the id-hydration effect below.
   useEffect(() => {
-    
+    if (id) return;
+    const audioId = searchParams.get('audioId');
+    if (!audioId) return;
+
+    // Attach the audioId immediately -- it comes straight from the URL, so it
+    // doesn't need the network round trip below to succeed.
+    setSetup((prev) => ({ ...prev, audioId }));
+
+    // Best-effort enrichment of the display name only; a failure here must not
+    // silently drop the audioId attached above.
+    (async () => {
+      try {
+        const { data: { session } } = await auth.getSession();
+        const ad = await adsApi.getAd(audioId, session?.currentAdvertiserId || "");
+        const adName = ad?.data?.data?.adName;
+        if (adName) setSetup((prev) => ({ ...prev, adName }));
+      } catch (err) {
+        logger.warn('Failed to fetch ad name for audioId prefill', { error: err });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+
     if(id && id !== "new"){
       // Fetch existing campaign data and populate form for editing
       const getCampaignData = async () => {
