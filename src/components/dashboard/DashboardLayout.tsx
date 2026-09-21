@@ -17,9 +17,11 @@ import {
   CircleHelp,
   ChevronDown,
   BookOpen,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -37,6 +39,7 @@ import { AgencySignup, OnboardingRole } from './AgencySignup';
 import { organizationApi } from '@/services/organization';
 import { toast } from '@/hooks/use-toast';
 import { Advertiser, advertiserApi } from '@/services/advertiser';
+import { adsApi } from '@/services/ads';
 import { appNotifications } from '@/services/appNotifications';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +90,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
+  const [hasAudioAd, setHasAudioAd] = useState(true);
   const { isPro, isAgency, role, isSuperAdmin } = useSessionFlags();
   const { t } = useTranslation();
   const { language, setLanguage } = useDirection();
@@ -192,6 +196,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }, 100);
     }
   }, [selectedAdvertiser])
+
+  useEffect(() => {
+    if (!selectedAdvertiser) return;
+    let cancelled = false;
+    adsApi.getAds({ advertiserId: selectedAdvertiser, page: 1, limit: 1, isSaved: true }).then((res) => {
+      if (cancelled) return;
+      setHasAudioAd(res.status === 200 && !res.error && res.data.data.length > 0);
+    });
+    return () => { cancelled = true; };
+  }, [selectedAdvertiser]);
 
   useEffect(() => {
     
@@ -592,10 +606,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Volume2 className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_ad')}</span>
               </Button>
-              <Button size="sm" className="h-9 gap-2" onClick={navigateToCampaignNew}>
-                <Megaphone className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{t('layout.new_campaign')}</span>
-              </Button>
+              {hasAudioAd ? (
+                <Button size="sm" className="h-9 gap-2" onClick={navigateToCampaignNew}>
+                  <Megaphone className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">{t('layout.new_campaign')}</span>
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {/* Radix disabled buttons swallow pointer/focus events, so the trigger
+                        must be a plain span wrapping the disabled Button, not the button itself. */}
+                    <span tabIndex={0} className="inline-flex">
+                      <Button size="sm" className="h-9 gap-2" disabled>
+                        <Lock className="h-4 w-4 shrink-0" />
+                        <span className="hidden sm:inline">{t('layout.new_campaign')}</span>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Create an audio ad first to unlock campaigns</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           )}
           {/* TODO: Add locale selector */}
