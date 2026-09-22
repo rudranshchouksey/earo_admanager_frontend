@@ -14,12 +14,14 @@ const AD_PILLS = ['Drop your URL', 'Pick voice & music', 'Review & save'];
 interface GettingStartedCardProps {
   hasAudioAd: boolean;
   latestAudioAd?: AdData;
+  hasPaymentMethod: boolean;
   hasDraftCampaign: boolean;
   draftCampaign?: Campaign | null;
   draftChecklist?: DraftChecklist | null;
   draftCampaignId?: string | null;
   draftCount?: number;
   canEdit: boolean;
+  isAdmin: boolean;
 }
 
 export type StepStatus = 'done' | 'active' | 'locked';
@@ -49,26 +51,29 @@ export function StepIcon({ status, number }: { status: StepStatus; number: numbe
 export default function GettingStartedCard({
   hasAudioAd,
   latestAudioAd,
+  hasPaymentMethod,
   hasDraftCampaign,
   draftCampaign,
   draftChecklist,
   draftCampaignId,
   draftCount = 1,
   canEdit,
+  isAdmin,
 }: GettingStartedCardProps) {
   const navigate = useNavigate();
 
   // A draft campaign can exist without an audio ad attached yet (draftChecklist.audioDone
   // tracks that independently of the standalone `hasAudioAd` flag), so step 2 counts as
-  // done if either is true, and being on the draft path always puts step 3 in progress --
-  // otherwise a draft campaign with no separately-saved ad would show step 3 as locked
+  // done if either is true, and being on the draft path always puts step 4 in progress --
+  // otherwise a draft campaign with no separately-saved ad would show step 4 as locked
   // and the "resume your draft" checklist below would never render.
   const step2Done = hasAudioAd || Boolean(hasDraftCampaign && draftChecklist?.audioDone);
-  const doneCount = 1 + (step2Done ? 1 : 0); // step 1 is always done
+  const doneCount = 1 + (step2Done ? 1 : 0) + (hasPaymentMethod ? 1 : 0); // step 1 is always done, out of 4
   const cardTitle = doneCount === 1 ? 'Getting started' : 'Almost there';
 
   const step2Status: StepStatus = step2Done ? 'done' : 'active';
-  const step3Status: StepStatus = hasDraftCampaign || hasAudioAd ? 'active' : 'locked';
+  const step3Status: StepStatus = hasPaymentMethod ? 'done' : step2Done ? 'active' : 'locked';
+  const step4Status: StepStatus = hasDraftCampaign || hasPaymentMethod ? 'active' : 'locked';
 
   return (
     <Card className="rounded-[32px] border border-border bg-card">
@@ -77,9 +82,9 @@ export default function GettingStartedCard({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-lg font-bold text-foreground">{cardTitle}</h2>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-muted-foreground">{doneCount} of 3 complete</span>
+            <span className="text-xs text-muted-foreground">{doneCount} of 4 complete</span>
             <div className="flex items-center gap-1.5">
-              {[0, 1, 2].map((i) => (
+              {[0, 1, 2, 3].map((i) => (
                 <div key={i} className={cn('h-1.5 w-8 rounded-full', i < doneCount ? 'bg-primary' : 'bg-muted')} />
               ))}
             </div>
@@ -149,21 +154,51 @@ export default function GettingStartedCard({
             </div>
           </div>
 
-          {/* Step 3: Launch your first campaign */}
+          {/* Step 3: Add a payment method */}
           <div className="flex gap-4">
             <div className="flex flex-col items-center">
               <StepIcon status={step3Status} number={3} />
+              <div className="w-px flex-1 min-h-[16px] bg-border my-1" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 pb-6">
               <h3 className={cn('text-sm font-semibold', step3Status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
-                Launch your first campaign
+                Add a payment method
               </h3>
-
+              {step3Status === 'done' && <p className="text-xs text-muted-foreground mt-0.5">Done</p>}
               {step3Status === 'locked' && (
                 <p className="text-xs text-muted-foreground mt-0.5">Available after you create an audio ad.</p>
               )}
+              {step3Status === 'active' && (
+                <>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Add a credit card to activate campaigns. You&apos;re only charged for what your campaign
+                    actually spends, up to your daily budget limit.
+                  </p>
+                  {isAdmin && (
+                    <div className="flex flex-wrap items-center gap-3 mt-4">
+                      <Button onClick={() => navigate('/dashboard/account?page=billing')}>Add payment method</Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
-              {step3Status === 'active' && !hasDraftCampaign && (
+          {/* Step 4: Launch your first campaign */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <StepIcon status={step4Status} number={4} />
+            </div>
+            <div className="flex-1">
+              <h3 className={cn('text-sm font-semibold', step4Status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
+                Launch your first campaign
+              </h3>
+
+              {step4Status === 'locked' && (
+                <p className="text-xs text-muted-foreground mt-0.5">Available after you add a payment method.</p>
+              )}
+
+              {step4Status === 'active' && !hasDraftCampaign && (
                 <>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     Pick your listeners, set a budget, launch. About two minutes.
@@ -185,7 +220,7 @@ export default function GettingStartedCard({
                 </>
               )}
 
-              {step3Status === 'active' && hasDraftCampaign && draftChecklist && (
+              {step4Status === 'active' && hasDraftCampaign && draftChecklist && (
                 <div className="mt-3 space-y-3 max-w-md">
                   <p className="text-sm text-muted-foreground">
                     {draftCampaign?.campaignName || 'Untitled campaign'}

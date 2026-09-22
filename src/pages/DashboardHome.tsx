@@ -16,6 +16,7 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { reportsApi } from '@/services/reports';
 import { Campaign, campaignApi } from '@/services/campaign';
 import { adsApi, AdData } from '@/services/ads';
+import { walletApi } from '@/services/wallet';
 import { userApi } from '@/services/user';
 import { appNotifications } from '@/services/appNotifications';
 import { getDraftChecklist, DraftChecklist } from '@/lib/campaignCompletion';
@@ -34,6 +35,7 @@ export default function DashboardHome() {
   const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
   const [draftCount, setDraftCount] = useState(1);
   const [hasNoAdvertisers, setHasNoAdvertisers] = useState(false);
+  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [audioAds, setAudioAds] = useState<AdData[]>([]);
 
@@ -117,15 +119,17 @@ export default function DashboardHome() {
         // timestamps). The checklist and "last edited" copy need the fuller record,
         // so fetch it via the same single-campaign endpoint CampaignWizard already
         // uses to hydrate a draft for editing.
-        const [fullRes, draftsMeta] = await Promise.all([
+        const [fullRes, draftsMeta, cardsRes] = await Promise.all([
           campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
           campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
+          walletApi.getCards(),
         ]);
         const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
 
         setDraftCampaign(fullCampaign);
         setDraftChecklist(getDraftChecklist(fullCampaign));
         setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
+        setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
       } else {
         setDraftCampaign(null);
         setDraftChecklist(null);
@@ -141,19 +145,23 @@ export default function DashboardHome() {
     setDraftCampaign(null);
     setDraftChecklist(null);
 
-    const audioAdsRes = await adsApi.getAds({
-      advertiserId,
-      page: 1,
-      limit: 1,
-      isSaved: true,
-      sortBy: 'createdAt',
-      sortOrder: 'desc',
-    });
+    const [audioAdsRes, cardsRes] = await Promise.all([
+      adsApi.getAds({
+        advertiserId,
+        page: 1,
+        limit: 1,
+        isSaved: true,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      }),
+      walletApi.getCards(),
+    ]);
     const hasAudioAds =
       audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
     if (hasAudioAds) {
       setAudioAds(audioAdsRes.data.data);
     }
+    setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
 
     setIsNewUser(true);
     setIsNewWithAd(hasAudioAds);
@@ -244,12 +252,14 @@ export default function DashboardHome() {
           <GettingStartedCard
             hasAudioAd={isNewWithAd}
             latestAudioAd={audioAds[0]}
+            hasPaymentMethod={hasPaymentMethod}
             hasDraftCampaign={hasDraftCampaign}
             draftCampaign={draftCampaign}
             draftChecklist={draftChecklist}
             draftCampaignId={draftCampaignId}
             draftCount={draftCount}
             canEdit={canEdit}
+            isAdmin={role === 'ADMIN'}
           />
 
           <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
