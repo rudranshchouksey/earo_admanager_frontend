@@ -87,6 +87,8 @@ export interface Campaign {
   reach?: number;
   ltr?: number;
   ecpm?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CampaignsResponse {

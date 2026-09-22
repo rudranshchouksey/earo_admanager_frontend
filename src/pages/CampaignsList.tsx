@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,13 +55,19 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
   );
 };
 
+const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED'];
+
 export default function CampaignsList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const fromUrl = searchParams.get('status');
+    return fromUrl && VALID_STATUS_FILTERS.includes(fromUrl) ? fromUrl : 'all';
+  });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const advertiserIdCacheRef = useRef<string | null>(null);
