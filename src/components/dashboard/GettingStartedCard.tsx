@@ -73,7 +73,10 @@ export default function GettingStartedCard({
 
   const step2Status: StepStatus = step2Done ? 'done' : 'active';
   const step3Status: StepStatus = hasPaymentMethod ? 'done' : step2Done ? 'active' : 'locked';
-  const step4Status: StepStatus = hasDraftCampaign || hasPaymentMethod ? 'active' : 'locked';
+  // Payment can be added independently of ad creation (reachable directly via Account >
+  // Billing), so require step2 too -- otherwise a user who adds a card before ever
+  // creating an ad would see step 4 unlock with no ad to actually launch a campaign with.
+  const step4Status: StepStatus = hasDraftCampaign || (step2Done && hasPaymentMethod) ? 'active' : 'locked';
 
   return (
     <Card className="rounded-[32px] border border-border bg-card">
@@ -195,7 +198,9 @@ export default function GettingStartedCard({
               </h3>
 
               {step4Status === 'locked' && (
-                <p className="text-xs text-muted-foreground mt-0.5">Available after you add a payment method.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {step2Done ? 'Available after you add a payment method.' : 'Available after you create an audio ad.'}
+                </p>
               )}
 
               {step4Status === 'active' && !hasDraftCampaign && (

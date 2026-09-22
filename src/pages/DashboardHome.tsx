@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, DollarSign, MousePointerClick, Target, Loader2 } from 'lucide-react';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
@@ -63,9 +63,20 @@ export default function DashboardHome() {
     setloadingStats(false);
   }, []);
 
+  // Each advertiser switch (or the advertisers/advertiser-selected notifications) fires
+  // a fresh load() call without waiting for any in-flight one to finish. Since this
+  // function does several sequential/parallel awaits, a slower older call can resolve
+  // after a newer one and clobber its state with stale data -- this token makes every
+  // call check it's still the most recent before committing state.
+  const loadRequestIdRef = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    const isStale = () => loadRequestIdRef.current !== requestId;
+
     setIsLoading(true);
     const { data: { session } } = await auth.getSession();
+    if (isStale()) return;
     if (!session) {
       setIsLoading(false);
       return;
@@ -76,6 +87,7 @@ export default function DashboardHome() {
     if (!advertiserId) {
       const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
         await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if (isStale()) return;
       if (advertisersStatus !== 200 || advertisersError) {
         toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
         setIsLoading(false);
@@ -93,12 +105,14 @@ export default function DashboardHome() {
     }
 
     setHasNoAdvertisers(false);
+    setAudioAds([]);
 
     userApi.getUserProfile().then(({ data, status, error }) => {
       if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
     });
 
     const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+    if (isStale()) return;
     if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
       // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
       // "any campaign" check above rather than a second status-filtered fetch. Only
@@ -124,6 +138,7 @@ export default function DashboardHome() {
           campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
           walletApi.getCards(),
         ]);
+        if (isStale()) return;
         const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
 
         setDraftCampaign(fullCampaign);
@@ -156,6 +171,7 @@ export default function DashboardHome() {
       }),
       walletApi.getCards(),
     ]);
+    if (isStale()) return;
     const hasAudioAds =
       audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
     if (hasAudioAds) {
