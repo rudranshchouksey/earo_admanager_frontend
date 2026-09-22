@@ -189,7 +189,7 @@ export default function CampaignPaymentStep({
 
       <div className="space-y-2 mt-0 pt-0" style={{ marginTop: 0, paddingTop: 0 }}>
         <Label>Discount Coupon (optional)</Label>
-        {coupons && coupons.length > 0 ? (
+        {coupons && coupons.length > 0 && (campaignStatus === 'DRAFT')  ? (
           <div className="space-y-2">
             {coupons.map((coupon) => (
               <div key={coupon.id} className="w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors border-border hover:border-[#C8E6C9] cursor-pointer">
@@ -343,7 +343,7 @@ export default function CampaignPaymentStep({
         </div>
       </div>
       {
-        creditsDetails?.creditCycle?.amount > 0  && ( savedTransaction === null) ? (
+        creditsDetails?.creditCycle?.amount > 0  && (campaignStatus === 'DRAFT')  ? (
           <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
             <div className="flex flex-col justify-start items-start gap-1 mb-3">
               <Label className="text-sm font-medium">Pay by invoice</Label>
