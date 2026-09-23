@@ -35,9 +35,12 @@ export default function DashboardAdPlayer({ audioUrl }: { audioUrl: string }) {
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) audio.pause();
-    else audio.play();
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    }
     if (audio.duration) setDuration(Math.round(audio.duration));
   };
 
