@@ -238,8 +238,8 @@ export default function DashboardHome() {
               <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
             </div>
             <div className="lg:col-span-1 space-y-4">
-              <AgencyWhatYouCanDoSection />
               <ReachStatsSection heading="Your clients' reach on Earo" />
+              <AgencyWhatYouCanDoSection />
             </div>
           </div>
         </>
@@ -283,8 +283,8 @@ export default function DashboardHome() {
               />
             </div>
             <div className="lg:col-span-1 space-y-4">
-              <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
               <ReachStatsSection />
+              <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
             </div>
           </div>
         </>
