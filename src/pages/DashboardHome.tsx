@@ -33,7 +33,6 @@ export default function DashboardHome() {
   const [draftCampaignId, setDraftCampaignId] = useState<string | null>(null);
   const [draftCampaign, setDraftCampaign] = useState<Campaign | null>(null);
   const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
-  const [draftCount, setDraftCount] = useState(1);
   const [hasNoAdvertisers, setHasNoAdvertisers] = useState(false);
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -133,9 +132,8 @@ export default function DashboardHome() {
         // timestamps). The checklist and "last edited" copy need the fuller record,
         // so fetch it via the same single-campaign endpoint CampaignWizard already
         // uses to hydrate a draft for editing.
-        const [fullRes, draftsMeta, cardsRes] = await Promise.all([
+        const [fullRes, cardsRes] = await Promise.all([
           campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
-          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
           walletApi.getCards(),
         ]);
         if (isStale()) return;
@@ -143,7 +141,6 @@ export default function DashboardHome() {
 
         setDraftCampaign(fullCampaign);
         setDraftChecklist(getDraftChecklist(fullCampaign));
-        setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
         setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
       } else {
         setDraftCampaign(null);
@@ -236,9 +233,15 @@ export default function DashboardHome() {
             </p>
           </div>
 
-          <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
-          <AgencyWhatYouCanDoSection />
-          <ReachStatsSection heading="Your clients' reach on Earo" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
+            </div>
+            <div className="lg:col-span-1 space-y-4">
+              <AgencyWhatYouCanDoSection />
+              <ReachStatsSection heading="Your clients' reach on Earo" />
+            </div>
+          </div>
         </>
       )}
 
@@ -265,21 +268,25 @@ export default function DashboardHome() {
             </p>
           </div>
 
-          <GettingStartedCard
-            hasAudioAd={isNewWithAd}
-            latestAudioAd={audioAds[0]}
-            hasPaymentMethod={hasPaymentMethod}
-            hasDraftCampaign={hasDraftCampaign}
-            draftCampaign={draftCampaign}
-            draftChecklist={draftChecklist}
-            draftCampaignId={draftCampaignId}
-            draftCount={draftCount}
-            canEdit={canEdit}
-            isAdmin={role === 'ADMIN'}
-          />
-
-          <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
-          <ReachStatsSection />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <GettingStartedCard
+                hasAudioAd={isNewWithAd}
+                latestAudioAd={audioAds[0]}
+                hasPaymentMethod={hasPaymentMethod}
+                hasDraftCampaign={hasDraftCampaign}
+                draftCampaign={draftCampaign}
+                draftChecklist={draftChecklist}
+                draftCampaignId={draftCampaignId}
+                canEdit={canEdit}
+                isAdmin={role === 'ADMIN'}
+              />
+            </div>
+            <div className="lg:col-span-1 space-y-4">
+              <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
+              <ReachStatsSection />
+            </div>
+          </div>
         </>
       )}
 

@@ -8,9 +8,9 @@ export default function AgencyWhatYouCanDoSection() {
   return (
     <div className="space-y-3">
       <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground px-1">
-        What you can do on Earo
+        What you can do
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <Card className="rounded-[24px] border border-border bg-card">
           <CardContent className="p-5 space-y-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">

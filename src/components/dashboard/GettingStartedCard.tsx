@@ -19,7 +19,6 @@ interface GettingStartedCardProps {
   draftCampaign?: Campaign | null;
   draftChecklist?: DraftChecklist | null;
   draftCampaignId?: string | null;
-  draftCount?: number;
   canEdit: boolean;
   isAdmin: boolean;
 }
@@ -56,7 +55,6 @@ export default function GettingStartedCard({
   draftCampaign,
   draftChecklist,
   draftCampaignId,
-  draftCount = 1,
   canEdit,
   isAdmin,
 }: GettingStartedCardProps) {
@@ -238,13 +236,6 @@ export default function GettingStartedCard({
                   {canEdit && (
                     <div className="flex flex-wrap items-center gap-4">
                       <Button onClick={() => navigate(`/dashboard/campaigns/${draftCampaignId}`)}>Resume campaign</Button>
-                      <button
-                        type="button"
-                        className="text-sm font-medium text-primary hover:underline"
-                        onClick={() => navigate('/dashboard/campaigns?status=DRAFT')}
-                      >
-                        See all {draftCount} draft{draftCount === 1 ? '' : 's'}
-                      </button>
                     </div>
                   )}
                 </div>
