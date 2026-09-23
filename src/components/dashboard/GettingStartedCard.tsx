@@ -67,7 +67,7 @@ export default function GettingStartedCard({
   // and the "resume your draft" checklist below would never render.
   const step2Done = hasAudioAd || Boolean(hasDraftCampaign && draftChecklist?.audioDone);
   const doneCount = 1 + (step2Done ? 1 : 0) + (hasPaymentMethod ? 1 : 0); // step 1 is always done, out of 4
-  const cardTitle = doneCount === 1 ? 'Getting started' : 'Almost there';
+  const cardTitle = doneCount === 1 ? 'Getting started' : 'Your progress';
 
   const step2Status: StepStatus = step2Done ? 'done' : 'active';
   const step3Status: StepStatus = hasPaymentMethod ? 'done' : step2Done ? 'active' : 'locked';
