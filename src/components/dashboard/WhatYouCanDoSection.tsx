@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { AudioLines, Megaphone, BarChart3, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface WhatYouCanDoSectionProps {
@@ -17,9 +17,6 @@ export default function WhatYouCanDoSection({ hasAudioAd }: WhatYouCanDoSectionP
       <div className="grid grid-cols-1 gap-4">
         <Card className="rounded-[24px] border border-border bg-card">
           <CardContent className="p-5 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <AudioLines className="h-5 w-5 text-primary" />
-            </div>
             <h3 className="text-sm font-semibold text-foreground">Audio Ads</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               AI-written scripts, professional voice acting and music mixing — all from your URL. No studio needed.
@@ -30,7 +27,7 @@ export default function WhatYouCanDoSection({ hasAudioAd }: WhatYouCanDoSectionP
                 className="text-sm font-medium text-primary hover:underline"
                 onClick={() => navigate('/dashboard/ads/new')}
               >
-                Create your first ad →
+                Create your first ad
               </button>
             ) : (
               <button
@@ -46,9 +43,6 @@ export default function WhatYouCanDoSection({ hasAudioAd }: WhatYouCanDoSectionP
 
         <Card className="rounded-[24px] border border-border bg-card">
           <CardContent className="p-5 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Megaphone className="h-5 w-5 text-primary" />
-            </div>
             <h3 className="text-sm font-semibold text-foreground">Campaigns</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Group ads by goal, set targeting by genre, region and listener profile, and control your daily spend.
@@ -59,7 +53,7 @@ export default function WhatYouCanDoSection({ hasAudioAd }: WhatYouCanDoSectionP
                 className="text-sm font-medium text-primary hover:underline"
                 onClick={() => navigate('/dashboard/campaigns/new')}
               >
-                Create a campaign →
+                Create a campaign
               </button>
             ) : (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -71,9 +65,6 @@ export default function WhatYouCanDoSection({ hasAudioAd }: WhatYouCanDoSectionP
 
         <Card className="rounded-[24px] border border-border bg-card">
           <CardContent className="p-5 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
             <h3 className="text-sm font-semibold text-foreground">Reports</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Track impressions, reach and frequency by publisher, region and time period as your campaigns run.
