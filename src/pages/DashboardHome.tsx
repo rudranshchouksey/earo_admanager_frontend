@@ -132,9 +132,12 @@ export default function DashboardHome() {
         // timestamps). The checklist and "last edited" copy need the fuller record,
         // so fetch it via the same single-campaign endpoint CampaignWizard already
         // uses to hydrate a draft for editing.
-        const [fullRes, cardsRes] = await Promise.all([
+        const [fullRes, cardsRes, audioAdsRes] = await Promise.all([
           campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
           walletApi.getCards(),
+          // So the "Create your first audio ad" step can still show the audio player
+          // (replay/edit) once a draft campaign exists, not just before one does.
+          adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true, sortBy: 'createdAt', sortOrder: 'desc' }),
         ]);
         if (isStale()) return;
         const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
@@ -142,6 +145,9 @@ export default function DashboardHome() {
         setDraftCampaign(fullCampaign);
         setDraftChecklist(getDraftChecklist(fullCampaign));
         setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
+        if (audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0) {
+          setAudioAds(audioAdsRes.data.data);
+        }
       } else {
         setDraftCampaign(null);
         setDraftChecklist(null);
