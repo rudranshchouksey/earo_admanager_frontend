@@ -200,10 +200,10 @@ export default function CampaignPaymentStep({
                       coupon.expiryDate && <p className="text-xs text-muted-foreground">{`Expires on ${new Date(coupon.expiryDate).toDateString()}`}</p>
                     }
                     {
-                      Number(coupon.minimumCampaignBudget) > 0 && <p className="text-xs text-muted-foreground">{`Minimum campaign budget: $${coupon.minimumCampaignBudget} ${coupon.minimumBudgetCurrency}`}</p>
+                      Number(coupon.minimumCampaignBudget) > 0 && <p className="text-xs text-muted-foreground">{`Minimum campaign budget: $${coupon.minimumCampaignBudget}${coupon.minimumBudgetCurrency ? ` ${coupon.minimumBudgetCurrency}` : ""}`}</p>
                     }
                     {
-                      Number(coupon.maxDiscountCap) > 0 && <p className="text-xs text-muted-foreground">{`Maximum discount cap: $${coupon.maxDiscountCap} ${coupon.maxDiscountCurrency}`}</p>
+                      Number(coupon.maxDiscountCap) > 0 && <p className="text-xs text-muted-foreground">{`Maximum discount cap: $${coupon.maxDiscountCap}${coupon.maxDiscountCurrency ? ` ${coupon.maxDiscountCurrency}` : ""}`}</p>
                     }
                   </div>
                 </div>
