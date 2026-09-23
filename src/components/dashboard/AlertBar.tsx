@@ -68,9 +68,9 @@ const colorMap: Record<string, { bg: string; border: string; text: string }> = {
     text: "text-primary",
   },
   warning: {
-    bg: "bg-yellow-500/5",
-    border: "border-yellow-500/15",
-    text: "text-yellow-700",
+    bg: "bg-amber-500/5",
+    border: "border-amber-500/15",
+    text: "text-amber-700",
   },
   error: {
     bg: "bg-destructive/5",
@@ -164,7 +164,7 @@ export default function AlertBar() {
             id: "verify-email",
             title: "Verify Email",
             message: "Please verify your email to continue",
-            alert_type: "error",
+            alert_type: "warning",
             cta_label: "Verify Email",
             cta_url: "/dashboard/verify-email",
             cta_action: async () => {
@@ -254,17 +254,19 @@ export default function AlertBar() {
         setShowCompleteProfileModal(
           userProfile.data.organizations.length < 2 && !isLandingHandoffSession,
         );
-        allAlerts.push(
-          {
-            id: "complete-profile",
-            title: "Complete Profile",
-            message: "Please complete your profile and company details",
-            alert_type: "error",
-            cta_label: "Complete Profile",
-            cta_url: "/dashboard/account",
-            userId: userProfile.data.id,
-          }
-        );
+        if (!isLandingHandoffSession) {
+          allAlerts.push(
+            {
+              id: "complete-profile",
+              title: "Complete Profile",
+              message: "Please complete your profile and company details",
+              alert_type: "error",
+              cta_label: "Complete Profile",
+              cta_url: "/dashboard/account",
+              userId: userProfile.data.id,
+            }
+          );
+        }
       }
       setAlerts(allAlerts);
     };
@@ -366,7 +368,7 @@ export default function AlertBar() {
         return (
           <div
             key={alert.id}
-            className={`flex  items-start md:items-center gap-3 px-4 lg:px-6 py-2.5 border-b last:border-b-0 ${colors.border} ${colors.bg}`}
+            className={`flex flex-wrap items-start md:items-center gap-3 px-4 lg:px-6 py-2.5 border-b last:border-b-0 ${colors.border} ${colors.bg}`}
           >
             <Icon className={`h-4 w-4 shrink-0 ${colors.text}`} />
             <div className="flex-1 flex-col md:flex-row min-w-0 flex items-start md:items-center gap-2">
@@ -377,26 +379,29 @@ export default function AlertBar() {
                 {alert.message}
               </span>
             </div>
-            {alert.cta_label && alert.cta_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs shrink-0"
-                onClick={() =>
-                  alert.cta_action
-                    ? alert.cta_action()
-                    : navigate(alert.cta_url!)
-                }
+            <div className="flex items-center gap-3 shrink-0">
+              {alert.cta_label && alert.cta_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs shrink-0"
+                  onClick={() =>
+                    alert.cta_action
+                      ? alert.cta_action()
+                      : navigate(alert.cta_url!)
+                  }
+                >
+                  {alert.cta_label}
+                </Button>
+              )}
+              <button
+                onClick={() => dismiss(alert)}
+                className="shrink-0 -m-1.5 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Dismiss"
               >
-                {alert.cta_label}
-              </Button>
-            )}
-            <button
-              onClick={() => dismiss(alert)}
-              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         );
       })}
