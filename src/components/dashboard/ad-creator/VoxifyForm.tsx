@@ -9,6 +9,7 @@ import { useTranslation } from "@/contexts/TranslationContext";
 import Editor from "@/components/sdui/Editor";
 import {
   CircleHelp,
+  Heart,
   InfoIcon,
   LightbulbIcon,
   Loader2,
@@ -17,9 +18,9 @@ import {
   Music,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Recommendation, VoxifyPollResponse, VoxifyVoice, VoxifyTrack } from "@/services/ads";
+import { Recommendation, VoxifyPollResponse, VoxifyVoice, VoxifyTrack, adsApi } from "@/services/ads";
 import InlineAudioPlayer from "./InlineAudioPlayer";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,16 @@ import { Slider } from "@/components/ui/slider";
 import { DialogContent, Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import BusinessHelperModal from "@/components/modals/BusinessHelperModal";
+import VoiceLibrary from "./VoiceLibrary";
+import MusicLibrary from "./MusicLibrary";
+import { toast } from "@/hooks/use-toast";
+import {
+  mapFavTrackToVoxifyTrack,
+  mapFavVoiceToVoxifyVoice,
+  voxifyTrackToFavPayload,
+  voxifyVoiceToFavPayload,
+} from "@/lib/creativeLibraryMappers";
+import { logger } from "@/lib/logger";
 
 
 interface VoxifyFormProps {
@@ -177,6 +188,236 @@ function VoiceFilterControls({
   );
 }
 
+const MusicCard = ({
+  track,
+  isSelected,
+  onSelect,
+  isFavorite = false,
+  onToggleFavorite,
+  togglingFavorite = false,
+}: {
+  track: VoxifyTrack | null;
+  isSelected: boolean;
+  onSelect: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  togglingFavorite?: boolean;
+}) => {
+  return (
+    <div key={track?.track_id ?? "no-music"} className="w-full">
+      {
+        track ? (
+          <div
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+            isSelected
+              ? "bg-primary/10 border border-primary/30"
+              : "bg-muted/30 border border-transparent hover:bg-muted/50",
+          )}
+        >
+          <span
+            className={cn(
+              "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+              isSelected
+                ? "border-primary"
+                : "border-muted-foreground/40",
+            )}
+            onClick={() => {
+              onSelect();
+            }}
+          >
+            {isSelected && (
+              <span className="h-2 w-2 rounded-full bg-primary" />
+            )}
+          </span>
+          <div className="flex-1 min-w-0 pl-2">
+            <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+              <span className="text-xs font-medium text-foreground shrink-0">
+                {track?.title}
+              </span>
+              <p className="text-[10px] max-w-[200px] text-muted-foreground truncate capitalize">
+                {`${(track?.genres ?? []).join(" · ")}`}
+              </p>
+            </div>
+            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
+              {track?.artist_name}
+            </p>
+          </div>
+          {onToggleFavorite ? (
+            <button
+              type="button"
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              disabled={togglingFavorite}
+              className={cn(
+                "shrink-0 transition-colors",
+                isFavorite ? "text-primary" : "text-muted-foreground hover:text-primary",
+                togglingFavorite && "opacity-50",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite();
+              }}
+            >
+              {togglingFavorite ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Heart className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+              )}
+            </button>
+          ) : isFavorite ? (
+            <div className="text-primary shrink-0" title="Favorite">
+              <Heart className="h-4 w-4" fill="currentColor" />
+            </div>
+          ) : null}
+          <div
+            className="shrink-0"
+            onClick={(e) => e.preventDefault()}
+          >
+            <InlineAudioPlayer
+              audioUrl={track?.preview_url}
+              playerWidthFull={true}
+            />
+          </div>
+        </div>
+        ) : (
+          <div
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+            isSelected
+              ? "bg-primary/10 border border-primary/30"
+              : "bg-muted/30 border border-transparent hover:bg-muted/50",
+          )}
+        >
+          <span
+            className={cn(
+              "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+              isSelected
+                ? "border-primary"
+                : "border-muted-foreground/40",
+            )}
+            onClick={() => {
+              onSelect();
+            }}
+          >
+            {isSelected && (
+              <span className="h-2 w-2 rounded-full bg-primary" />
+            )}
+          </span>
+          <div className="h-11 w-11 shrink-0 rounded-md bg-primary flex items-center justify-center">
+            <MicOff className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-foreground">
+                No music - Voice only
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
+            Just your script, with no background track. Recommended for 15-second ads and direct-response goals where clarity is the priority.
+            </p>
+          </div>
+        </div>
+
+        )
+      }
+
+    </div>
+  )
+}
+
+const VoiceCard = ({
+  voice,
+  isSelected,
+  onSelect,
+  isFavorite = false,
+  onToggleFavorite,
+  togglingFavorite = false,
+}: {
+  voice: VoxifyVoice;
+  isSelected: boolean;
+  onSelect: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  togglingFavorite?: boolean;
+}) => {
+  return (
+    <div key={voice?.voice_id} className="w-full">
+      <div
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+          isSelected
+            ? "bg-primary/10 border border-primary/30"
+            : "bg-muted/30 border border-transparent hover:bg-muted/50",
+        )}
+      >
+        <span
+          className={cn(
+            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+            isSelected
+              ? "border-primary"
+              : "border-muted-foreground/40",
+          )}
+          onClick={() => {
+            onSelect();
+          }}
+        >
+          {isSelected && (
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          )}
+        </span>
+        <div className="flex-1 min-w-0 pl-2">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
+            <span className="text-xs font-medium text-foreground shrink-0">
+              {voice?.name}
+            </span>
+            <p className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate capitalize">
+              {`${voice?.labels.gender} · ${voice?.labels.age} · ${voice?.labels.accent}`}
+            </p>
+          </div>
+          <p className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate capitalize">
+            {voice?.labels.description}
+          </p>
+        </div>
+        {onToggleFavorite ? (
+          <button
+            type="button"
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            disabled={togglingFavorite}
+            className={cn(
+              "shrink-0 transition-colors",
+              isFavorite ? "text-primary" : "text-muted-foreground hover:text-primary",
+              togglingFavorite && "opacity-50",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+          >
+            {togglingFavorite ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Heart className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+            )}
+          </button>
+        ) : isFavorite ? (
+          <div className="text-primary shrink-0" title="Favorite">
+            <Heart className="h-4 w-4" fill="currentColor" />
+          </div>
+        ) : null}
+        <div
+          className="shrink-0"
+          onClick={(e) => e.preventDefault()}
+        >
+          <InlineAudioPlayer
+            audioUrl={voice?.preview_url}
+            playerWidthFull={true}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RecommendationCard({ type, recommendation, index, editMode, handleEdit, handleCancelEdit, generateVoxifyAd, regenerateVoxifyAd, updateScript, handleSaveAd }: { type: "PROMPT" | "SCRIPT", recommendation: Recommendation, index: number, editMode: boolean, handleEdit: () => void, handleCancelEdit: () => void, generateVoxifyAd: () => void, regenerateVoxifyAd: (voice: object, track: object, musicVolume: number, voiceVolume: number) => void, updateScript: (script: { text_plain: string, text: string }) => void, handleSaveAd: (id: string, name: string, index: number) => Promise<void> }) {
   const [voiceVolume, setVoiceVolume] = useState(-20);
   const [musicVolume, setMusicVolume] = useState(-28);
@@ -196,6 +437,138 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
   const [isSaving, setIsSaving] = useState(false);
 
   const [tags, setTags] = useState<string[]>([]);
+  const [showVoiceLibraryModal, setShowVoiceLibraryModal] = useState(false);
+  const [showMusicLibraryModal, setShowMusicLibraryModal] = useState(false);
+
+  const [voicePickFromLibrary, setvoicePickFromLibrary] = useState<VoxifyVoice | null>(null);
+  const [musicPickFromLibrary, setmusicPickFromLibrary] = useState<VoxifyTrack | null>(null);
+  const [favVoices, setFavVoices] = useState<VoxifyVoice[]>([]);
+  const [favTracks, setFavTracks] = useState<VoxifyTrack[]>([]);
+  const [loadingFavs, setLoadingFavs] = useState(false);
+  const [togglingVoiceId, setTogglingVoiceId] = useState<string | null>(null);
+  const [togglingTrackId, setTogglingTrackId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editMode) return;
+
+    let cancelled = false;
+    const loadFavorites = async () => {
+      setLoadingFavs(true);
+      try {
+        const [voicesRes, tracksRes] = await Promise.all([
+          adsApi.getFavVoices({ page: 1, limit: 20 }),
+          adsApi.getFavTracks({ page: 1, limit: 20 }),
+        ]);
+
+        if (cancelled) return;
+
+        if (voicesRes.status === 200 && Array.isArray(voicesRes.data?.data)) {
+          setFavVoices(voicesRes.data.data.map(mapFavVoiceToVoxifyVoice));
+        } else {
+          setFavVoices([]);
+        }
+
+        if (tracksRes.status === 200 && Array.isArray(tracksRes.data?.data)) {
+          setFavTracks(tracksRes.data.data.map(mapFavTrackToVoxifyTrack));
+        } else {
+          setFavTracks([]);
+        }
+      } catch (err) {
+        logger.warn("Failed to load favorite voices/tracks", { err });
+        if (!cancelled) {
+          setFavVoices([]);
+          setFavTracks([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingFavs(false);
+      }
+    };
+
+    void loadFavorites();
+    return () => {
+      cancelled = true;
+    };
+  }, [editMode]);
+
+  const favVoiceIds = useMemo(
+    () => new Set(favVoices.map((v) => v.voice_id)),
+    [favVoices],
+  );
+  const favTrackIds = useMemo(
+    () => new Set(favTracks.map((t) => t.track_id)),
+    [favTracks],
+  );
+
+  const handleToggleFavVoice = async (voice: VoxifyVoice) => {
+    if (!voice?.voice_id || togglingVoiceId) return;
+    setTogglingVoiceId(voice.voice_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavVoice(
+        voxifyVoiceToFavPayload(voice),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.data.isFavorite) {
+        setFavVoices((prev) => {
+          if (prev.some((v) => v.voice_id === voice.voice_id)) return prev;
+          return [...prev, voice];
+        });
+      } else {
+        setFavVoices((prev) => prev.filter((v) => v.voice_id !== voice.voice_id));
+      }
+    } catch (err) {
+      logger.warn("toggleFavVoice failed", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingVoiceId(null);
+    }
+  };
+
+  const handleToggleFavTrack = async (track: VoxifyTrack) => {
+    if (!track?.track_id || togglingTrackId) return;
+    setTogglingTrackId(track.track_id);
+    try {
+      const { status, error, data, message } = await adsApi.toggleFavTrack(
+        voxifyTrackToFavPayload(track),
+      );
+      if (status !== 200 || error || !data?.data) {
+        toast({
+          title: "Could not update favorite",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.data.isFavorite) {
+        setFavTracks((prev) => {
+          if (prev.some((t) => t.track_id === track.track_id)) return prev;
+          return [...prev, track];
+        });
+      } else {
+        setFavTracks((prev) => prev.filter((t) => t.track_id !== track.track_id));
+      }
+    } catch (err) {
+      logger.warn("toggleFavTrack failed", { err });
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingTrackId(null);
+    }
+  };
 
   const handleConfirmSave = () => {
     setIsSaving(true);
@@ -267,6 +640,50 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
     })
   };
 
+  const showVoiceLibrary = () => {
+    setShowVoiceLibraryModal(true);
+  };
+
+  const showMusicLibrary = () => {
+    setShowMusicLibraryModal(true);
+  };
+
+  const handleRegenerateAd = () => {
+    handleCancelEdit();
+   
+    const isInVoiceRecommendation = recommendation.voices.find((v) => v.voice_id === selectedVoiceId);
+    const isInVoiceLibrary = voicePickFromLibrary?.voice_id === selectedVoiceId ? voicePickFromLibrary : null;
+    const isInFavVoices = favVoices.find((v) => v.voice_id === selectedVoiceId);
+
+    const isInTrackRecommendation = recommendation.tracks.find((t) => t.track_id === selectedTrackId);
+    const isInTrackLibrary = musicPickFromLibrary?.track_id === selectedTrackId ? musicPickFromLibrary : null;
+    const isInFavTracks = favTracks.find((t) => t.track_id === selectedTrackId);
+
+    const voice = currentVoice.voice_id === selectedVoiceId
+      ? currentVoice
+      : isInVoiceRecommendation
+        ? isInVoiceRecommendation
+        : isInVoiceLibrary
+          ? isInVoiceLibrary
+          : isInFavVoices ?? null;
+    const track = currentTrack?.track_id === selectedTrackId
+      ? currentTrack
+      : isInTrackRecommendation
+        ? isInTrackRecommendation
+        : isInTrackLibrary
+          ? isInTrackLibrary
+          : isInFavTracks ?? null;
+
+   if(!voice) {
+    toast({
+      title: "Voice not found",
+      description: "Please select a voice to regenerate the ad",
+      variant: "destructive",
+    })
+    return;
+   }
+    regenerateVoxifyAd(voice, track, voiceVolume, musicVolume);
+  }
   return (
     <div key={index}>
     {recommendation.generated ? (
@@ -335,204 +752,185 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
           {editMode ? (
             <div className="hidden sm:grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
+
+                <div className="flex items-center gap-1.5">
+                  <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                    Current voice
+                  </label>
+                </div>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                  {currentVoice && (
+                    <VoiceCard
+                      voice={currentVoice}
+                      isSelected={selectedVoiceId === currentVoice?.voice_id}
+                      isFavorite={favVoiceIds.has(currentVoice.voice_id)}
+                      togglingFavorite={togglingVoiceId === currentVoice.voice_id}
+                      onToggleFavorite={() => void handleToggleFavVoice(currentVoice)}
+                      onSelect={() => {
+                        setSelectedVoiceId(currentVoice?.voice_id);
+                      }}
+                    />
+                  )}
+                </div>
+
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                      Best matched voices
+                      Recommended voices
                     </label>
                     <MyTooltip infoText="Voices are filtered to match your script's language and dialect. The top result is our recommended match for your goal and tone — preview any voice by pressing play. Only voices compatible with your selected language are shown." />
                   </div>
-                  <div className="flex items-center gap-2 hidden">
-                    <VoiceFilterControls
-                      gender={recommendation.voice.labels.gender}
-                      age={recommendation.voice.labels.age}
-                      onGenderChange={() => {}}
-                      onAgeChange={() => {}}
-                    />
-                  </div>
                 </div>
-                <div className="space-y-3">
-                  {recommendation.voices?.map((voice) => (
-                    <div key={voice.voice_id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                          voice.voice_id ===
-                            selectedVoiceId
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                            voice.voice_id ===
-                              selectedVoiceId
-                              ? "border-primary"
-                              : "border-muted-foreground/40",
-                          )}
-                          onClick={() => {
-                            setSelectedVoiceId(voice.voice_id);
-                            setCurrentVoice(voice);
-                          }}
-                        >
-                          {voice.voice_id ===
-                            selectedVoiceId && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </span>
-                        <Avatar className="h-11 w-11 shrink-0 rounded-lg bg-transparent [&_img]:mix-blend-multiply">
-                          <AvatarImage
-                            src={null}
-                            alt={voice.name}
-                            className="object-cover bg-transparent"
-                          />
-                          <AvatarFallback className="text-[10px] font-medium bg-transparent text-foreground rounded-lg">
-                            {voice.name.slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
-                            <span className="text-xs font-medium text-foreground shrink-0">
-                              {voice.name}
-                            </span>
-                            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                              {`${voice.labels.gender} · ${voice.labels.age} · ${voice.labels.accent}`}
-                            </p>
-                            <p className="md:hidden text-[10px] text-muted-foreground truncate capitalize">
-                              {`${voice.labels.gender} · ${voice.labels.age} · ${voice.labels.accent}`}
-                            </p>
-                          </div>
-                          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                            {voice.labels.description}
-                          </p>
-                        </div>
-                        <div
-                          className="shrink-0"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <InlineAudioPlayer
-                            audioUrl={voice.preview_url}
-                            playerWidthFull={true}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                <div className="space-y-3 justify-between max-h-[350px] overflow-y-auto">
+                  {recommendation.voices?.filter((voice) => voice.voice_id !== currentVoice?.voice_id).map((voice) => (
+                    <VoiceCard
+                      key={voice.voice_id}
+                      voice={voice}
+                      isSelected={selectedVoiceId === voice.voice_id}
+                      isFavorite={favVoiceIds.has(voice.voice_id)}
+                      togglingFavorite={togglingVoiceId === voice.voice_id}
+                      onToggleFavorite={() => void handleToggleFavVoice(voice)}
+                      onSelect={() => {
+                        setSelectedVoiceId(voice.voice_id);
+                      }}
+                    />
                   ))}
                 </div>
+
               </div>
 
               <div className="space-y-2">
+
+                <div className="flex items-center gap-1.5">
+                  <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                    Current music
+                  </label>
+                </div>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                  <MusicCard
+                    track={currentTrack}
+                    isSelected={selectedTrackId === currentTrack?.track_id || (selectedTrackId === null && currentTrack === null)}
+                    isFavorite={!!currentTrack && favTrackIds.has(currentTrack.track_id)}
+                    togglingFavorite={!!currentTrack && togglingTrackId === currentTrack.track_id}
+                    onToggleFavorite={currentTrack ? () => void handleToggleFavTrack(currentTrack) : undefined}
+                    onSelect={() => {
+                      setSelectedTrackId(currentTrack?.track_id ?? null);
+                    }}
+                  />
+
+
+                </div>
+
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
-                      Best matched music
+                      Recommended music
                     </label>
                     <MyTooltip infoText="Tracks are matched to your script's emotional tone and pacing. Background music works best for brand-building and awareness ads — for short, direct-response ads, voice-only is often clearer and more effective." />
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                      null === selectedTrackId
-                        ? "bg-primary/10 border border-primary/30"
-                        : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                        null === selectedTrackId
-                          ? "border-primary"
-                          : "border-muted-foreground/40",
-                      )}
-                      onClick={() => {
-                        setSelectedTrackId(null);
-                        setCurrentTrack(null);
-                      }}
-                    >
-                      {null === selectedTrackId && (
-                        <span className="h-2 w-2 rounded-full bg-primary" />
-                      )}
-                    </span>
-                    <div className="h-11 w-11 shrink-0 rounded-md bg-primary flex items-center justify-center">
-                      <MicOff className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-foreground">
-                          No music - Voice only
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
-                      Just your script, with no background track. Recommended for 15-second ads and direct-response goals where clarity is the priority.
-                      </p>
-                    </div>
-                  </div>
+                <div className="space-y-3 max-h-[350px] overflow-y-auto">
 
-                  {recommendation.tracks?.map((track) => (
-                    <div key={track.track_id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                          track.track_id ===
-                            selectedTrackId
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-muted/30 border border-transparent hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "aspect-square h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
-                            track.track_id ===
-                              selectedTrackId
-                              ? "border-primary"
-                              : "border-muted-foreground/40",
-                          )}
-                          onClick={() => {
-                            setSelectedTrackId(track.track_id);
-                            setCurrentTrack(track);
-                          }}
-                        >
-                          {track.track_id ===
-                            selectedTrackId && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </span>
-                        <div className="h-11 w-11 shrink-0 rounded-md bg-muted flex items-center justify-center">
-                          <Music className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col md:flex-row md:items-center md:gap-2 min-w-0">
-                            <span className="text-xs font-medium text-foreground shrink-0">
-                              {track.title}
-                            </span>
-                            <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                              {`${track.genres.join(" · ")}`}
-                            </p>
-                            <p className="md:hidden text-[10px] text-muted-foreground truncate capitalize">
-                              {`${track.genres.join(" · ")}`}
-                            </p>
-                          </div>
-                          <p className="hidden md:block text-[10px] text-muted-foreground truncate capitalize">
-                            {track.artist_name}
-                          </p>
-                        </div>
-                        <div
-                          className="shrink-0"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          <InlineAudioPlayer
-                            audioUrl={track.preview_url}
-                            playerWidthFull={true}
-                          />
-                        </div>
-                      </div>
-                    </div>
+
+                  {
+                    currentTrack  && <MusicCard track={null} isSelected={selectedTrackId === null} onSelect={() => {
+                      setSelectedTrackId(null);
+                    }} />
+  
+                  }
+
+
+
+                  {recommendation.tracks?.filter((track) => track.track_id !== currentTrack?.track_id).map((track) => (
+                    <MusicCard
+                      key={track.track_id}
+                      track={track}
+                      isSelected={selectedTrackId === track.track_id}
+                      isFavorite={favTrackIds.has(track.track_id)}
+                      togglingFavorite={togglingTrackId === track.track_id}
+                      onToggleFavorite={() => void handleToggleFavTrack(track)}
+                      onSelect={() => {
+                        setSelectedTrackId(track.track_id);
+                      }}
+                    />
                   ))}
                 </div>
+
               </div>
+
+              <div className="space-y-4 col-span-2 sm:grid gap-5 sm:grid-cols-2">
+
+                <div className="flex flex-col gap-3 mt-5">
+                  {
+                    voicePickFromLibrary && (
+                      <div className="flex flex-col gap-2 w-full">
+                        <div className="flex items-center gap-1.5">
+                          <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                            Voice from library
+                          </label>
+                        </div>
+                          <VoiceCard
+                            voice={voicePickFromLibrary}
+                            isSelected={selectedVoiceId === voicePickFromLibrary?.voice_id}
+                            isFavorite={favVoiceIds.has(voicePickFromLibrary.voice_id)}
+                            togglingFavorite={togglingVoiceId === voicePickFromLibrary.voice_id}
+                            onToggleFavorite={() => void handleToggleFavVoice(voicePickFromLibrary)}
+                            onSelect={() => {
+                              setSelectedVoiceId(voicePickFromLibrary?.voice_id ?? null);
+                            }}
+                          />
+                      </div>
+                    )
+                  }
+                  <Button
+                    type="button"
+                    onClick={showVoiceLibrary}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    More voice options
+                  </Button>
+                </div>
+
+
+
+                <div className="flex flex-col gap-3 mt-5">
+                  {
+                    musicPickFromLibrary && (
+                      <div className="flex flex-col gap-2 w-full">
+                        <div className="flex items-center gap-1.5">
+                          <label className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-sm font-medium text-foreground">
+                            Music from library
+                          </label>
+                        </div>
+                          <MusicCard
+                            track={musicPickFromLibrary}
+                            isSelected={selectedTrackId === musicPickFromLibrary?.track_id}
+                            isFavorite={favTrackIds.has(musicPickFromLibrary.track_id)}
+                            togglingFavorite={togglingTrackId === musicPickFromLibrary.track_id}
+                            onToggleFavorite={() => void handleToggleFavTrack(musicPickFromLibrary)}
+                            onSelect={() => {
+                              setSelectedTrackId(musicPickFromLibrary?.track_id ?? null);
+                            }}
+                          />
+                      </div>
+                    )
+                  }
+                  <Button
+                    type="button"
+                    onClick={showMusicLibrary}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    More music options
+                  </Button>
+                </div>
+
+              </div>
+
+
 
               <div className="space-y-4 col-span-2">
                 <div className="flex items-center gap-1.5">
@@ -580,10 +978,7 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
 
               <div className="space-y-4 col-span-2 flex flex-col md:flex-row gap-2 items-end justify-end">
                 <Button onClick={handleCancelEdit} variant="outline">Cancel</Button>
-                <Button onClick={() => {
-                  handleCancelEdit();
-                  regenerateVoxifyAd(currentVoice, currentTrack, voiceVolume, musicVolume)
-                }} variant="default">Regenerate ad</Button>
+                <Button onClick={handleRegenerateAd} variant="default">Regenerate ad</Button>
               </div>
             </div>
           ) : (
@@ -610,7 +1005,12 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-medium text-foreground truncate flex items-center gap-2">
-                      Music: {recommendation?.track?.title} <MyTooltip infoText="This track was selected to complement the script's pacing and emotional tone. You can swap it in the Edit step, or remove it entirely." />
+                      {
+                        recommendation?.track ? (
+                        <span>Music: + {recommendation?.track?.title}  <MyTooltip infoText="This track was selected to complement the script's pacing and emotional tone. You can swap it in the Edit step, or remove it entirely." /></span>
+                        )
+                        : "No music - Voice only"
+                      } 
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate capitalize">
@@ -704,6 +1104,28 @@ function RecommendationCard({ type, recommendation, index, editMode, handleEdit,
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <VoiceLibrary
+      open={showVoiceLibraryModal}
+      onOpenChange={setShowVoiceLibraryModal}
+      onSelect={(voice) => {
+        setSelectedVoiceId(voice.voice_id);
+        //setCurrentVoice(voice);
+        setShowVoiceLibraryModal(false);
+        setvoicePickFromLibrary(voice);
+      }}
+    />
+
+    <MusicLibrary
+      open={showMusicLibraryModal}
+      onOpenChange={setShowMusicLibraryModal}
+      selectedTrackId={selectedTrackId}
+      onSelect={(track) => {
+        setSelectedTrackId(track.track_id);
+        setShowMusicLibraryModal(false);
+        setmusicPickFromLibrary(track);
+      }}
+    />
   </div>
   );
 }

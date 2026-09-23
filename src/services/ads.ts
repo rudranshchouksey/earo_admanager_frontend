@@ -43,6 +43,44 @@ export interface Voice {
   imageUrl: string;
 }
 
+/** Voice item from POST /api/v1/creatives/searchVoices (library payload). */
+export interface VoiceLibraryVoice {
+  voice_id: string;
+  voice_owner_id: string;
+  name: string;
+  description: string;
+  language: string;
+  accent: string;
+  gender: string;
+  age: string;
+  speech_style: string;
+  speech_rate: number;
+  preview_url: string;
+  category: string;
+  source: string;
+  is_favorite: boolean;
+}
+
+export interface VoiceLibrarySearchData {
+  voices: VoiceLibraryVoice[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface VoiceLibrarySearchResponse {
+  status: number;
+  message: string;
+  /** API returns `{ voices: [...] }`; older shapes may use a bare array. */
+  data: {
+    status: string;
+    items: VoiceLibraryVoice[];
+    total: number;
+    limit: number;
+    offset?: number;
+  };
+}
+
 export interface VoicesResponse {
   status: number;
   message: string;
@@ -58,13 +96,7 @@ export interface VoicesResponse {
 export interface MusicsResponse {
   status: number;
   message: string;
-  data: Music[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  data:   {status: string, items: Music[], total: number, limit: number, offset?: number};
 }
 
 export interface VoiceResponse {
@@ -80,18 +112,22 @@ export interface MusicResponse {
 }
 
 export interface Music {
-  id: string;
-  externalId: string;
+  track_id: string;
   title: string;
-  artist: string;
-  audioUrl: string;
-  imageUrl: string | null;
+  artist_name: string;
   genres: string[];
   moods: string[];
-  use_cases: string[];
   instruments: string[];
-  rhythms: string[];
-  tracks: MusicTrack[];
+  tags: string[];
+  tempo: number;
+  tempo_bucket: string;
+  start_key: string;
+  end_key: string;
+  duration_secs: number;
+  preview_url: string;
+  source: string;
+  provider: string;
+  is_favorite: boolean;
 }
 export interface MusicTrack {
   id: string;
@@ -128,6 +164,211 @@ export interface voiceFilter {
   query?: string;
   age?: string;
   useCase?: string;
+}
+
+export interface SearchVoicesPayload {
+  source?: string[];
+  language?: string[];
+  accent?: string[];
+  gender?: string[];
+  age?: string[];
+  speech_style?: string[];
+  q?: string;
+  favorites?: boolean;
+  facets?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchMusicsPayload {
+  source?: string[];
+  genre?: string[];
+  mood?: string[];
+  instrument?: string[];
+  tag?: string[];
+  tempo_bucket?: string[];
+  bpm_min?: number;
+  bpm_max?: number;
+  start_key?: string;
+  end_key?: string;
+  duration_min?: number;
+  duration_max?: number;
+  artist?: string;
+  q?: string;
+  favorites?: boolean;
+  facets?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface GetFavVoicesPayload {
+  page?: number;
+  limit?: number;
+  voiceId?: string;
+  language?: string[];
+  gender?: string[];
+  /** Comma-separated accent values, e.g. "British,American" */
+  accent?: string;
+  ageGroup?: string[];
+  style?: string[];
+  source?: string;
+  category?: string;
+  query?: string;
+}
+
+export interface FavVoice {
+  id: string;
+  user_id: string;
+  voice_id: string;
+  voice_owner_id: string;
+  name: string;
+  description: string;
+  language: string;
+  accent: string;
+  gender: string;
+  age: string;
+  speech_style: string;
+  speech_rate: number | null;
+  preview_url: string;
+  category: string;
+  source: string;
+  last_checked?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+}
+
+export interface GetFavVoicesResponse {
+  status: number;
+  message: string;
+  data: FavVoice[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface GetFavTracksPayload {
+  page?: number;
+  limit?: number;
+  trackId?: string;
+  genre?: string[];
+  /** Comma-separated mood values, e.g. "dark,epic" */
+  mood?: string;
+  instrument?: string[];
+  /** Comma-separated tag values, e.g. "horror,trailer" */
+  tag?: string;
+  tempoBucket?: string[];
+  source?: string[];
+  query?: string;
+}
+
+export interface FavTrack {
+  id: string;
+  user_id: string;
+  track_id: string;
+  title: string;
+  artist: string;
+  genre?: string;
+  mood?: string;
+  instrument?: string;
+  tag?: string;
+  tempo_bucket?: string;
+  bpm?: number;
+  duration?: number;
+  preview_url: string;
+  start_key?: string;
+  end_key?: string;
+  source?: string;
+  last_checked?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+}
+
+export interface GetFavTracksResponse {
+  status: number;
+  message: string;
+  data: FavTrack[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface ToggleFavVoicePayload {
+  voice_id: string;
+  voice_owner_id?: string | null;
+  name?: string | null;
+  description?: string | null;
+  language?: string | null;
+  accent?: string | null;
+  gender?: string | null;
+  age?: string | null;
+  speech_style?: string | null;
+  speech_rate?: number | null;
+  preview_url?: string | null;
+  category?: string | null;
+  source?: string | null;
+}
+
+export interface ToggleFavVoiceResponse {
+  status: number;
+  message: string;
+  data: (FavVoice & { isFavorite: true }) | { isFavorite: false; id: string; voice_id: string } | null;
+}
+
+export interface ToggleFavTrackPayload {
+  track_id: string;
+  title?: string | null;
+  artist?: string | null;
+  genre?: string | null;
+  mood?: string | null;
+  instrument?: string | null;
+  tag?: string | null;
+  tempo_bucket?: string | null;
+  bpm?: number | null;
+  duration?: number | null;
+  preview_url?: string | null;
+  start_key?: string | null;
+  end_key?: string | null;
+  source?: string | null;
+}
+
+export interface ToggleFavTrackResponse {
+  status: number;
+  message: string;
+  data: (FavTrack & { isFavorite: true }) | { isFavorite: false; id: string; track_id: string } | null;
+}
+
+export interface GetFavVoicePayload {
+  id?: string;
+  voiceId?: string;
+  voice_id?: string;
+}
+
+export interface GetFavVoiceResponse {
+  status: number;
+  message: string;
+  data: FavVoice | null;
+}
+
+export interface GetFavTrackPayload {
+  id?: string;
+  trackId?: string;
+  track_id?: string;
+}
+
+export interface GetFavTrackResponse {
+  status: number;
+  message: string;
+  data: FavTrack | null;
 }
 
 export interface AdStatusResponse {
@@ -549,6 +790,101 @@ export const adsApi = {
     request<MusicsResponse>("/api/v1/creatives/searchMusics", {
       method: "POST",
       body: filter,
+    }),
+
+
+  searchVoxifyVoices: (payload: SearchVoicesPayload) =>
+      request<VoiceLibrarySearchResponse>("/api/v1/creatives/searchVoxifyVoices", {
+        method: "POST",
+        body: payload,
+      }),
+  
+
+  searchVoices: (payload: SearchVoicesPayload) =>
+    request<VoiceLibrarySearchResponse>("/api/v1/creatives/searchVoices", {
+      method: "POST",
+      body: payload,
+    }),
+
+
+
+  searchVoxifyMusics: (payload: SearchMusicsPayload) =>
+    request<MusicsResponse>("/api/v1/creatives/searchVoxifyMusics", {
+      method: "POST",
+      body: payload,
+    }),
+
+      
+  searchMusics: (payload: SearchMusicsPayload) =>
+    request<MusicsResponse>("/api/v1/creatives/searchMusics", {
+      method: "POST",
+      body: payload,
+    }),
+
+  getFavVoices: (payload: GetFavVoicesPayload = {}) =>
+    request<GetFavVoicesResponse>("/api/v1/creatives/getFavVoices", {
+      method: "POST",
+      body: payload,
+    }),
+
+  getFavVoice: (payload: GetFavVoicePayload) =>
+    request<GetFavVoiceResponse>("/api/v1/creatives/getFavVoice", {
+      method: "POST",
+      body: payload,
+    }),
+
+  addFavVoice: (payload: ToggleFavVoicePayload) =>
+    request<GetFavVoiceResponse>("/api/v1/creatives/addFavVoice", {
+      method: "POST",
+      body: payload,
+    }),
+
+  removeFavVoice: (payload: { id?: string; voiceId?: string; voice_id?: string }) =>
+    request<{ status: number; message: string; data: { id: string } | null }>(
+      "/api/v1/creatives/removeFavVoice",
+      {
+        method: "POST",
+        body: payload,
+      },
+    ),
+
+  toggleFavVoice: (payload: ToggleFavVoicePayload) =>
+    request<ToggleFavVoiceResponse>("/api/v1/creatives/toggleFavVoice", {
+      method: "POST",
+      body: payload,
+    }),
+
+  getFavTracks: (payload: GetFavTracksPayload = {}) =>
+    request<GetFavTracksResponse>("/api/v1/creatives/getFavTracks", {
+      method: "POST",
+      body: payload,
+    }),
+
+  getFavTrack: (payload: GetFavTrackPayload) =>
+    request<GetFavTrackResponse>("/api/v1/creatives/getFavTrack", {
+      method: "POST",
+      body: payload,
+    }),
+
+  addFavTrack: (payload: ToggleFavTrackPayload) =>
+    request<GetFavTrackResponse>("/api/v1/creatives/addFavTrack", {
+      method: "POST",
+      body: payload,
+    }),
+
+  removeFavTrack: (payload: { id?: string; trackId?: string; track_id?: string }) =>
+    request<{ status: number; message: string; data: { id: string } | null }>(
+      "/api/v1/creatives/removeFavTrack",
+      {
+        method: "POST",
+        body: payload,
+      },
+    ),
+
+  toggleFavTrack: (payload: ToggleFavTrackPayload) =>
+    request<ToggleFavTrackResponse>("/api/v1/creatives/toggleFavTrack", {
+      method: "POST",
+      body: payload,
     }),
 
   getVoice: (externalId: string) =>
