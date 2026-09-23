@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, DollarSign, MousePointerClick, Target, Loader2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import StatCard from '@/components/dashboard/StatCard';
-import DashboardHero from '@/components/dashboard/DashboardHero';
-import ReadyAdCard from '@/components/dashboard/ReadyAdCard';
-import DraftCampaignCard, { DraftProgressBar } from '@/components/dashboard/DraftCampaignCard';
-import { NewUserGetStartedCard, NewUserStatsStrip } from '@/components/dashboard/NewUserGetStartedCard';
+import GettingStartedCard from '@/components/dashboard/GettingStartedCard';
+import WhatYouCanDoSection from '@/components/dashboard/WhatYouCanDoSection';
+import ReachStatsSection from '@/components/dashboard/ReachStatsSection';
+import AgencyGettingStartedCard from '@/components/dashboard/AgencyGettingStartedCard';
+import AgencyWhatYouCanDoSection from '@/components/dashboard/AgencyWhatYouCanDoSection';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { toast } from '@/components/ui/use-toast';
 import { auth } from '@/services/auth';
@@ -18,9 +16,10 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { reportsApi } from '@/services/reports';
 import { Campaign, campaignApi } from '@/services/campaign';
 import { adsApi, AdData } from '@/services/ads';
+import { walletApi } from '@/services/wallet';
 import { userApi } from '@/services/user';
 import { appNotifications } from '@/services/appNotifications';
-import { getDraftChecklist, draftChecklistCaption, DraftChecklist } from '@/lib/campaignCompletion';
+import { getDraftChecklist, DraftChecklist } from '@/lib/campaignCompletion';
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -35,12 +34,13 @@ export default function DashboardHome() {
   const [draftCampaign, setDraftCampaign] = useState<Campaign | null>(null);
   const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
   const [draftCount, setDraftCount] = useState(1);
-  const [advertiserName, setAdvertiserName] = useState('');
+  const [hasNoAdvertisers, setHasNoAdvertisers] = useState(false);
+  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [audioAds, setAudioAds] = useState<AdData[]>([]);
 
   const { t } = useTranslation();
-  const { role } = useSessionFlags();
+  const { role, isAgency } = useSessionFlags();
   const canEdit = role === 'ADMIN' || role === 'EDITOR' || role === 'EDITOR_RESTRICTED';
 
   const fetchStats = useCallback(async () => {
@@ -63,9 +63,20 @@ export default function DashboardHome() {
     setloadingStats(false);
   }, []);
 
+  // Each advertiser switch (or the advertisers/advertiser-selected notifications) fires
+  // a fresh load() call without waiting for any in-flight one to finish. Since this
+  // function does several sequential/parallel awaits, a slower older call can resolve
+  // after a newer one and clobber its state with stale data -- this token makes every
+  // call check it's still the most recent before committing state.
+  const loadRequestIdRef = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    const isStale = () => loadRequestIdRef.current !== requestId;
+
     setIsLoading(true);
     const { data: { session } } = await auth.getSession();
+    if (isStale()) return;
     if (!session) {
       setIsLoading(false);
       return;
@@ -76,6 +87,7 @@ export default function DashboardHome() {
     if (!advertiserId) {
       const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
         await advertiserApi.getAdvertisers(session.currentOrganizationId);
+      if (isStale()) return;
       if (advertisersStatus !== 200 || advertisersError) {
         toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
         setIsLoading(false);
@@ -86,27 +98,21 @@ export default function DashboardHome() {
         auth.setCurrentAdvertiserId(advertisersList[0].id, advertisersList[0].isPro);
         advertiserId = advertisersList[0].id;
       } else {
+        setHasNoAdvertisers(true);
         setIsLoading(false);
         return;
       }
     }
 
+    setHasNoAdvertisers(false);
+    setAudioAds([]);
+
     userApi.getUserProfile().then(({ data, status, error }) => {
       if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
     });
 
-    // Best-effort lookup of the current advertiser's display name, reusing the
-    // list already fetched above when we have it instead of refetching.
-    const getAdvertiserDisplayName = async (id: string): Promise<string> => {
-      const list =
-        advertisersList ??
-        (await advertiserApi.getAdvertisers(session.currentOrganizationId).then((r) =>
-          r.status === 200 && !r.error ? r.data.data : [],
-        ));
-      return list.find((a) => a.id === id)?.advertiserName ?? '';
-    };
-
     const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+    if (isStale()) return;
     if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
       // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
       // "any campaign" check above rather than a second status-filtered fetch. Only
@@ -127,18 +133,18 @@ export default function DashboardHome() {
         // timestamps). The checklist and "last edited" copy need the fuller record,
         // so fetch it via the same single-campaign endpoint CampaignWizard already
         // uses to hydrate a draft for editing.
-        const fullRes = await campaignApi.getCampaign({ id: latestCampaign.id, advertiserId });
+        const [fullRes, draftsMeta, cardsRes] = await Promise.all([
+          campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
+          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
+          walletApi.getCards(),
+        ]);
+        if (isStale()) return;
         const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
 
         setDraftCampaign(fullCampaign);
         setDraftChecklist(getDraftChecklist(fullCampaign));
-
-        const [draftsMeta, advertiserDisplayName] = await Promise.all([
-          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
-          getAdvertiserDisplayName(advertiserId),
-        ]);
         setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
-        setAdvertiserName(advertiserDisplayName);
+        setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
       } else {
         setDraftCampaign(null);
         setDraftChecklist(null);
@@ -154,12 +160,24 @@ export default function DashboardHome() {
     setDraftCampaign(null);
     setDraftChecklist(null);
 
-    const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
+    const [audioAdsRes, cardsRes] = await Promise.all([
+      adsApi.getAds({
+        advertiserId,
+        page: 1,
+        limit: 1,
+        isSaved: true,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      }),
+      walletApi.getCards(),
+    ]);
+    if (isStale()) return;
     const hasAudioAds =
       audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
     if (hasAudioAds) {
       setAudioAds(audioAdsRes.data.data);
     }
+    setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
 
     setIsNewUser(true);
     setIsNewWithAd(hasAudioAds);
@@ -194,133 +212,79 @@ export default function DashboardHome() {
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
 
-  const steps = [
-    { num: 1, title: 'Create your studio-quality ad (free)', desc: 'Describe your brand to instantly generate a perfect AI script, lifelike voice, and music mix. Refine for free until it\'s broadcast-ready.' },
-    { num: 2, title: 'Target listeners, not wasted ears', desc: 'Stop paying for broad reach. Pinpoint your ideal audience by age, gender, and interests across top podcasts and music streams.' },
-    { num: 3, title: 'Set your budget and scale', desc: 'Control your spend with daily budgets. Maximize your reach across your local neighborhood, city, or go global with one click.' },
-    { num: 4, title: 'Pay locally and go live', desc: 'Checkout securely using local credit cards, mobile wallets, or bank transfers with no friction. Your campaign goes live in minutes.' },
-  ];
-
-  const draftSubcopy = draftCampaign
-    ? [
-        draftCampaign.updatedAt ? `Last edited ${formatDistanceToNow(new Date(draftCampaign.updatedAt), { addSuffix: true })}` : null,
-        advertiserName || null,
-        `$${Number(draftCampaign.totalBudget ?? draftCampaign.budget ?? 0).toLocaleString()} budget`,
-      ].filter(Boolean).join(' · ')
-    : '';
-
   return (
     <div className="max-w-[1400px] mx-auto space-y-4">
-      {!isNewUser && !isNewWithAd && !hasDraftCampaign && (
+      {!isNewUser && !isNewWithAd && !hasDraftCampaign && !(isAgency && hasNoAdvertisers) && (
         <div>
           <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Welcome back. Here&apos;s your overview.</p>
         </div>
       )}
 
-      {/* Draft campaign nudge */}
-      {hasDraftCampaign && draftCampaign && draftChecklist && (
-        <DashboardHero
-          accentClassName="border-l-4 border-l-primary"
-          eyebrow={
-            <>
-              <span>You&apos;re almost there</span>
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-transparent normal-case">
-                Draft
-              </Badge>
-            </>
-          }
-          title={draftCampaign.campaignName || 'Untitled campaign'}
-          subcopy={draftSubcopy}
-          primaryAction={{
-            label: 'Resume campaign',
-            onClick: () => navigate(`/dashboard/campaigns/${draftCampaignId}`),
-          }}
-          secondaryAction={{
-            label: `See all ${draftCount} draft${draftCount === 1 ? '' : 's'}`,
-            onClick: () => navigate('/dashboard/campaigns?status=DRAFT'),
-          }}
-          rightCard={<DraftCampaignCard checklist={draftChecklist} />}
-          belowCard={
-            <div className="px-1 space-y-2">
-              <DraftProgressBar checklist={draftChecklist} />
-              <p className="text-xs text-muted-foreground">{draftChecklistCaption(draftChecklist)}</p>
-            </div>
-          }
-        />
-      )}
-
-      {/* Ready ad, no campaign yet */}
-      {!hasDraftCampaign && isNewWithAd && (
+      {/* Agency org with zero advertisers yet */}
+      {isAgency && hasNoAdvertisers && (
         <>
-          {canEdit && audioAds[0] && (
-            <DashboardHero
-              title="Your ad is ready. Put it on air."
-              subcopy="Pick your listeners, set a budget, launch. About two minutes."
-              primaryAction={{
-                label: 'Create campaign with this ad',
-                onClick: () => navigate(`/dashboard/campaigns/new?audioId=${audioAds[0].id}`),
-              }}
-              secondaryAction={{
-                label: 'Create another ad',
-                onClick: () => navigate('/dashboard/ads/new'),
-              }}
-              rightCard={
-                <ReadyAdCard ad={audioAds[0]} onEditAudio={() => navigate(`/dashboard/ads/${audioAds[0].id}`)} />
-              }
-            />
-          )}
+          <div className="space-y-1.5 px-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              {userName ? `WELCOME, ${userName.toUpperCase()}` : 'WELCOME'}
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
+              Set up your agency workspace
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Add your first advertiser to start managing campaigns on their behalf.
+            </p>
+          </div>
 
-          {/* Educational Section */}
-          <Card className="border border-border overflow-hidden rounded-[32px]">
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                <div className="md:col-span-2 relative min-h-[200px] flex items-end justify-start">
-                  <img
-                    src={'/headphone-woman.png'}
-                    alt="Woman enjoying audio with headphones"
-                    className="w-full h-full object-cover object-center"
-                  />
-                </div>
-
-                <div className="md:col-span-3 p-5 space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Idea to airwaves in 4 simple steps</h3>
-                  <div className="space-y-4">
-                    {steps.map((step) => (
-                      <div key={step.num} className="flex items-start gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center shrink-0 mt-0.5">
-                          <span className="text-sm font-semibold text-background">{step.num}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
+          <AgencyWhatYouCanDoSection />
+          <ReachStatsSection heading="Your clients' reach on Earo" />
         </>
       )}
 
-      {/* Brand-new user: no ad, no campaign */}
-      {!hasDraftCampaign && isNewUser && !isNewWithAd && (
-        <DashboardHero
-          eyebrow={<span>{userName ? `Welcome, ${userName}` : 'Welcome'}</span>}
-          title="Get your first audio ad live in minutes."
-          subcopy="Drop your website. We'll write, voice and mix it."
-          primaryAction={{ label: 'Create my audio ad', onClick: () => navigate('/dashboard/ads/new') }}
-          secondaryAction={{ label: 'Or build a campaign first', onClick: () => navigate('/dashboard/campaigns/new') }}
-          rightCard={<NewUserGetStartedCard />}
-          belowCard={<NewUserStatsStrip />}
-          showActions={canEdit}
-        />
+      {/* Pre-campaign states: brand-new, has-ad, or draft-campaign-in-progress */}
+      {!(isAgency && hasNoAdvertisers) && (isNewUser || hasDraftCampaign) && (
+        <>
+          <div className="space-y-1.5 px-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              {userName ? `WELCOME, ${userName.toUpperCase()}` : 'WELCOME'}
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
+              {hasDraftCampaign
+                ? "You're almost live."
+                : isNewWithAd
+                ? "Your ad is ready. Let's get it on air."
+                : 'Get your first audio ad live.'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {hasDraftCampaign
+                ? 'Finish setting up your campaign to start reaching listeners.'
+                : isNewWithAd
+                ? 'One more step to reach listeners across 50K+ podcasts and radio stations.'
+                : 'Three steps to reach listeners across 50K+ podcasts and radio stations.'}
+            </p>
+          </div>
+
+          <GettingStartedCard
+            hasAudioAd={isNewWithAd}
+            latestAudioAd={audioAds[0]}
+            hasPaymentMethod={hasPaymentMethod}
+            hasDraftCampaign={hasDraftCampaign}
+            draftCampaign={draftCampaign}
+            draftChecklist={draftChecklist}
+            draftCampaignId={draftCampaignId}
+            draftCount={draftCount}
+            canEdit={canEdit}
+            isAdmin={role === 'ADMIN'}
+          />
+
+          <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
+          <ReachStatsSection />
+        </>
       )}
 
       {/* Steady state */}
-      {!isNewUser && !hasDraftCampaign && (
+      {!(isAgency && hasNoAdvertisers) && !isNewUser && !hasDraftCampaign && (
         <>
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>
