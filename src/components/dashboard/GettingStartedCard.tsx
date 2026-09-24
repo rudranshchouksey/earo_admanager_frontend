@@ -19,7 +19,6 @@ interface GettingStartedCardProps {
   draftCampaign?: Campaign | null;
   draftChecklist?: DraftChecklist | null;
   draftCampaignId?: string | null;
-  draftCount?: number;
   canEdit: boolean;
   isAdmin: boolean;
 }
@@ -56,7 +55,6 @@ export default function GettingStartedCard({
   draftCampaign,
   draftChecklist,
   draftCampaignId,
-  draftCount = 1,
   canEdit,
   isAdmin,
 }: GettingStartedCardProps) {
@@ -69,7 +67,7 @@ export default function GettingStartedCard({
   // and the "resume your draft" checklist below would never render.
   const step2Done = hasAudioAd || Boolean(hasDraftCampaign && draftChecklist?.audioDone);
   const doneCount = 1 + (step2Done ? 1 : 0) + (hasPaymentMethod ? 1 : 0); // step 1 is always done, out of 4
-  const cardTitle = doneCount === 1 ? 'Getting started' : 'Almost there';
+  const cardTitle = doneCount === 1 ? 'Getting started' : 'Your progress';
 
   const step2Status: StepStatus = step2Done ? 'done' : 'active';
   const step3Status: StepStatus = hasPaymentMethod ? 'done' : step2Done ? 'active' : 'locked';
@@ -238,13 +236,6 @@ export default function GettingStartedCard({
                   {canEdit && (
                     <div className="flex flex-wrap items-center gap-4">
                       <Button onClick={() => navigate(`/dashboard/campaigns/${draftCampaignId}`)}>Resume campaign</Button>
-                      <button
-                        type="button"
-                        className="text-sm font-medium text-primary hover:underline"
-                        onClick={() => navigate('/dashboard/campaigns?status=DRAFT')}
-                      >
-                        See all {draftCount} draft{draftCount === 1 ? '' : 's'}
-                      </button>
                     </div>
                   )}
                 </div>

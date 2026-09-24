@@ -186,7 +186,7 @@ export default function AlertBar() {
                 });
               }
               localStorage.setItem(
-                "hasCancelledVerifyEmail" + userProfile.data.id,
+                "verify-email-" + userProfile.data.id,
                 "true",
               );
               setAlerts((prev) => prev.filter((a) => a.id !== "verify-email"));
