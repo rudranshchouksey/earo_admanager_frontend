@@ -1675,7 +1675,7 @@ export default function CampaignWizard() {
         }
       }
       
-      if(targeting.inventoryType?.toLowerCase().includes("streaming")){
+      //if(targeting.inventoryType?.toLowerCase().includes("streaming")){
         if(targeting.streamingAudiences && targeting.streamingAudiences.length > 0){
           audienceTargeting["groups"][0].rules.push({
             type: "BEHAVIOURAL_SEGMENTS",
@@ -1688,7 +1688,7 @@ export default function CampaignWizard() {
             ],
           });
         }
-      }
+      //}
 
 
       if(targeting.deviceTypes && targeting.deviceTypes.length > 0){
