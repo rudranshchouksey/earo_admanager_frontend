@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, DollarSign, MousePointerClick, Target, Loader2 } from 'lucide-react';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
 import StatCard from '@/components/dashboard/StatCard';
@@ -22,6 +22,20 @@ import { appNotifications } from '@/services/appNotifications';
 import { getDraftChecklist, DraftChecklist } from '@/lib/campaignCompletion';
 import { logger } from '@/lib/logger';
 
+// How many saved ads the draft-campaign path fetches to confirm the draft's attached ad
+// still exists (see load()).
+const DRAFT_ADS_LOOKUP_LIMIT = 50;
+
+// "Visa •••• 4242" for the completed payment step. Cards store last_4 as "**** **** **** 4242"
+// and type as Mamo's card brand; falls back to "Card" when the brand is missing.
+function formatCardLabel(card?: { type?: string | null; last_4?: string | null }): string | null {
+  const last4 = card?.last_4?.match(/(\d{4})\s*$/)?.[1];
+  if (!last4) return null;
+  const brand = card?.type?.trim();
+  const brandLabel = brand ? brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase() : 'Card';
+  return `${brandLabel} •••• ${last4}`;
+}
+
 export default function DashboardHome() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ impressions: 0, spend: 0, reach: 0, cpa: 0 });
@@ -29,13 +43,14 @@ export default function DashboardHome() {
   const [userName, setUserName] = useState('');
 
   const [isNewUser, setIsNewUser] = useState(false);
-  const [isNewWithAd, setIsNewWithAd] = useState(false);
   const [hasDraftCampaign, setHasDraftCampaign] = useState(false);
   const [draftCampaignId, setDraftCampaignId] = useState<string | null>(null);
   const [draftCampaign, setDraftCampaign] = useState<Campaign | null>(null);
   const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
   const [hasNoAdvertisers, setHasNoAdvertisers] = useState(false);
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
+  const [paymentCardLabel, setPaymentCardLabel] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [audioAds, setAudioAds] = useState<AdData[]>([]);
 
@@ -69,6 +84,12 @@ export default function DashboardHome() {
   // after a newer one and clobber its state with stale data -- this token makes every
   // call check it's still the most recent before committing state.
   const loadRequestIdRef = useRef(0);
+
+  const applyCards = useCallback((cardsRes: Awaited<ReturnType<typeof walletApi.getCards>>) => {
+    const cards = cardsRes.status === 200 && !cardsRes.error ? (cardsRes.data?.data ?? []) : [];
+    setHasPaymentMethod(cards.length > 0);
+    setPaymentCardLabel(formatCardLabel(cards[0]));
+  }, []);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
@@ -124,7 +145,6 @@ export default function DashboardHome() {
         const latestCampaign = campaings.data.data[0];
         const isDraft = latestCampaign.status?.toString().toUpperCase() === 'DRAFT';
         setIsNewUser(false);
-        setIsNewWithAd(false);
         setHasDraftCampaign(isDraft);
         setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
 
@@ -138,18 +158,29 @@ export default function DashboardHome() {
             campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
             walletApi.getCards(),
             // So the "Create your first audio ad" step can still show the audio player
-            // (replay/edit) once a draft campaign exists, not just before one does.
-            adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true, sortBy: 'createdAt', sortOrder: 'desc' }),
+            // (replay/edit) once a draft campaign exists, not just before one does. Also used
+            // to check the draft's attached ad still exists: getAds excludes soft-deleted ads,
+            // but a draft's audioId keeps pointing at an ad after it's deleted. The limit is
+            // generous so the attached ad is almost always in this page for a new user.
+            adsApi.getAds({ advertiserId, page: 1, limit: DRAFT_ADS_LOOKUP_LIMIT, isSaved: true, sortBy: 'createdAt', sortOrder: 'desc' }),
           ]);
           if (isStale()) return;
           const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
+          const adsLoaded = audioAdsRes.status === 200 && !audioAdsRes.error;
+          const savedAds = adsLoaded ? audioAdsRes.data.data : [];
+          const attachedAd = fullCampaign.audioId ? savedAds.find((ad) => ad.id === fullCampaign.audioId) : undefined;
+          // Only mark the attached ad as gone when we can be sure: the lookup succeeded and
+          // returned the whole list (fewer rows than the limit). Otherwise trust the draft.
+          const attachedAdDeleted =
+            !!fullCampaign.audioId && adsLoaded && !attachedAd && savedAds.length < DRAFT_ADS_LOOKUP_LIMIT;
+          const checklist = getDraftChecklist(fullCampaign);
 
           setDraftCampaign(fullCampaign);
-          setDraftChecklist(getDraftChecklist(fullCampaign));
-          setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
-          if (audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0) {
-            setAudioAds(audioAdsRes.data.data);
-          }
+          setDraftChecklist(attachedAdDeleted ? { ...checklist, audioDone: false } : checklist);
+          applyCards(cardsRes);
+          // Put the draft's attached ad first so the step-2 player shows the ad this campaign
+          // actually uses, falling back to the most recent saved ad.
+          setAudioAds(attachedAd ? [attachedAd, ...savedAds.filter((ad) => ad.id !== attachedAd.id)] : savedAds);
         } else {
           setDraftCampaign(null);
           setDraftChecklist(null);
@@ -182,10 +213,9 @@ export default function DashboardHome() {
       if (hasAudioAds) {
         setAudioAds(audioAdsRes.data.data);
       }
-      setHasPaymentMethod(cardsRes.status === 200 && !cardsRes.error && (cardsRes.data?.data?.length ?? 0) > 0);
+      applyCards(cardsRes);
 
       setIsNewUser(true);
-      setIsNewWithAd(hasAudioAds);
       setIsLoading(false);
     } catch (error) {
       // Auth-session failures (ApiAuthError) already trigger a redirect to /login via
@@ -198,11 +228,27 @@ export default function DashboardHome() {
         setIsLoading(false);
       }
     }
-  }, [fetchStats, t]);
+  }, [applyCards, fetchStats, t]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Back from the add-card flow opened on this page (gateway redirects to /dashboard?card=...,
+  // see paymentApi.addCard('dashboard')). Toast once, then drop the param so a refresh doesn't
+  // repeat it.
+  useEffect(() => {
+    const cardResult = searchParams.get('card');
+    if (cardResult !== 'added' && cardResult !== 'failed') return;
+    toast(
+      cardResult === 'added'
+        ? { title: 'Card added', description: 'Your debit or credit card has been saved.' }
+        : { title: 'Card not added', description: 'Something went wrong adding your card. Please try again.', variant: 'destructive' },
+    );
+    const next = new URLSearchParams(searchParams);
+    next.delete('card');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // List created/updated/deleted in Account → Advertisers tab
   useEffect(() => {
@@ -228,10 +274,14 @@ export default function DashboardHome() {
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
   const isAgencyOnboarding = isAgency && hasNoAdvertisers;
+  // Headline follows the checklist: a draft only reads as "almost live" while an ad exists.
+  // A draft outlives the deletion of its ad, and then the next step is creating an ad again.
+  const hasAudioAd = audioAds.length > 0;
+  const isDraftWithAd = hasDraftCampaign && hasAudioAd;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-4">
-      {!isNewUser && !isNewWithAd && !hasDraftCampaign && !isAgencyOnboarding && (
+      {!isNewUser && !hasDraftCampaign && !isAgencyOnboarding && (
         <div>
           <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Welcome back. Here&apos;s your overview.</p>
@@ -257,7 +307,8 @@ export default function DashboardHome() {
             <div className="lg:col-span-2">
               <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
             </div>
-            <div className="lg:col-span-1 space-y-4">
+            {/* Sidebar is supporting context only; hidden on mobile so the checklist stays the focus. */}
+            <div className="hidden md:block lg:col-span-1 space-y-4">
               <ReachStatsSection heading="Your clients' reach on Earo" />
               <AgencyWhatYouCanDoSection />
             </div>
@@ -273,16 +324,16 @@ export default function DashboardHome() {
               {userName ? `WELCOME, ${userName.toUpperCase()}` : 'WELCOME'}
             </p>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
-              {hasDraftCampaign
+              {isDraftWithAd
                 ? "You're almost live."
-                : isNewWithAd
+                : hasAudioAd
                 ? "Your ad is ready. Let's get it on air."
                 : 'Get your first audio ad live.'}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {hasDraftCampaign
+              {isDraftWithAd
                 ? 'Finish setting up your campaign to start reaching listeners.'
-                : isNewWithAd
+                : hasAudioAd
                 ? 'One more step to reach listeners across 50K+ podcasts and radio stations.'
                 : 'Three steps to reach listeners across 50K+ podcasts and radio stations.'}
             </p>
@@ -291,20 +342,23 @@ export default function DashboardHome() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <GettingStartedCard
-                hasAudioAd={isNewWithAd}
+                hasAudioAd={hasAudioAd}
                 latestAudioAd={audioAds[0]}
                 hasPaymentMethod={hasPaymentMethod}
+                paymentCardLabel={paymentCardLabel}
                 hasDraftCampaign={hasDraftCampaign}
                 draftCampaign={draftCampaign}
                 draftChecklist={draftChecklist}
                 draftCampaignId={draftCampaignId}
                 canEdit={canEdit}
                 isAdmin={role === 'ADMIN'}
+                onPaymentModalClose={() => void load()}
               />
             </div>
-            <div className="lg:col-span-1 space-y-4">
+            {/* Sidebar is supporting context only; hidden on mobile so the checklist stays the focus. */}
+            <div className="hidden md:block lg:col-span-1 space-y-4">
               <ReachStatsSection />
-              <WhatYouCanDoSection hasAudioAd={isNewWithAd} />
+              <WhatYouCanDoSection />
             </div>
           </div>
         </>
