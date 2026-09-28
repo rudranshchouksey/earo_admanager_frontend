@@ -280,7 +280,7 @@ export default function CampaignPaymentStep({
 
       <div className="space-y-2 mt-0 pt-0" style={{ marginTop: 0, paddingTop: 0 }}>
         <Label>Discount Coupon (optional)</Label>
-        {coupons && coupons.length > 0  && (campaignStatus === 'DRAFT' || campaignStatus === '') ? (
+        {coupons && coupons.length > 0 && (campaignStatus === 'DRAFT' || campaignStatus === '')  ? (
           <div className="space-y-2">
             {coupons.map((coupon) => (
               <div key={coupon.id} className="w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors border-border hover:border-[#C8E6C9] cursor-pointer">
@@ -291,10 +291,10 @@ export default function CampaignPaymentStep({
                       coupon.expiryDate && <p className="text-xs text-muted-foreground">{`Expires on ${new Date(coupon.expiryDate).toDateString()}`}</p>
                     }
                     {
-                      Number(coupon.minimumCampaignBudget) > 0 && <p className="text-xs text-muted-foreground">{`Minimum campaign budget: $${coupon.minimumCampaignBudget} ${coupon.minimumBudgetCurrency}`}</p>
+                      Number(coupon.minimumCampaignBudget) > 0 && <p className="text-xs text-muted-foreground">{`Minimum campaign budget: $${coupon.minimumCampaignBudget}${coupon.minimumBudgetCurrency ? ` ${coupon.minimumBudgetCurrency}` : ""}`}</p>
                     }
                     {
-                      Number(coupon.maxDiscountCap) > 0 && <p className="text-xs text-muted-foreground">{`Maximum discount cap: $${coupon.maxDiscountCap} ${coupon.maxDiscountCurrency}`}</p>
+                      Number(coupon.maxDiscountCap) > 0 && <p className="text-xs text-muted-foreground">{`Maximum discount cap: $${coupon.maxDiscountCap}${coupon.maxDiscountCurrency ? ` ${coupon.maxDiscountCurrency}` : ""}`}</p>
                     }
                   </div>
                 </div>
@@ -434,7 +434,7 @@ export default function CampaignPaymentStep({
         </div>
       </div>
       {
-        creditsDetails?.creditCycle?.amount > 0  && ( campaignStatus === 'DRAFT' || campaignStatus === '') ? (
+        creditsDetails?.creditCycle?.amount > 0  && (campaignStatus === 'DRAFT' || campaignStatus === '')  ? (
           <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
             <div className="flex flex-col justify-start items-start gap-1 mb-3">
               <Label className="text-sm font-medium">Pay by invoice</Label>
