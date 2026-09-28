@@ -90,7 +90,6 @@ export default function CampaignPaymentStep({
       return;
     }
 
-    setSettingPrimaryCardId(cardId);
     try {
       const { status, error, message } = await walletApi.setPrimaryCard(cardId);
       if (status !== 200 || error) {
@@ -101,6 +100,8 @@ export default function CampaignPaymentStep({
         });
         return;
       }
+      setSettingPrimaryCardId(cardId);
+
     } catch (err) {
       logger.captureException(err, { context: "Set primary card error:" });
       toast({
@@ -237,25 +238,20 @@ export default function CampaignPaymentStep({
 
       {cards && cards.length > 0 ? (
         <div className={`space-y-3 mb-5 ${creditsDetails.availableCredit > totalBudget ? 'hidden opacity-50 cursor-not-allowed' : ''}`}>
-          <Label>Pay using your saved card</Label>
+          <Label>Available Cards</Label>
           {cards?.map((card) => (
             <div key={card.id} className="flex items-center gap-2 w-full">
-              <Checkbox
-                checked={data?.cardId === card.cardId}
-                disabled={!!settingPrimaryCardId || shouldDisable}
-                onCheckedChange={() => void handleSelectCard(card.cardId)}
-              />
               <div className={`flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] ${ data?.cardId === card.cardId ? 'bg-[#E6F4EA]' : 'bg-background' } w-full`}>
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{card.last_4}</p>
-                    {(data?.cardId ? data.cardId === card.cardId : card.isPrimary) && (
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-primary">
-                        Primary
+                    {(data?.cardId ? data.cardId === card.cardId : card.isPrimary) ? (
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md font-medium uppercase tracking-wide">
+                        Primary Card
                       </span>
-                    )}
-                  </div>
+                    ) : <span className="text-xs text-muted-foreground cursor-pointer text-primary" onClick={() => void handleSelectCard(card.cardId)}>Make this primary</span>}
+                    </div>
                   <p className="text-xs text-muted-foreground">
                     {card.type}
                   </p>
