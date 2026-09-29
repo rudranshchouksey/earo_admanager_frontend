@@ -133,7 +133,7 @@ export default function DashboardHome() {
         if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
       });
 
-      const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+      const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1000 });
       if (isStale()) return;
       if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
         // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
@@ -142,20 +142,26 @@ export default function DashboardHome() {
         // plus a newer draft would be shown the draft nudge instead of steady-state --
         // an acceptable simplification since that mix is unlikely this early in a
         // user's lifecycle.
-        const latestCampaign = campaings.data.data[0];
-        const isDraft = latestCampaign.status?.toString().toUpperCase() === 'DRAFT';
-        setIsNewUser(false);
-        setHasDraftCampaign(isDraft);
-        setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
+        const nonDraftCampaign = campaings.data.data.find((campaign: Campaign) => campaign.status?.toString().toUpperCase() !== 'DRAFT');
+        if(nonDraftCampaign){
+          setIsLoading(false);
 
-        if (isDraft && latestCampaign.id) {
+          return;
+        }
+        const draftCampaign = campaings.data.data.find((campaign: Campaign) => campaign.status?.toString().toUpperCase() === 'DRAFT');
+
+        setIsNewUser(false);
+        setHasDraftCampaign(!nonDraftCampaign);
+        setDraftCampaignId(draftCampaign?.id ?? null);
+
+        if (draftCampaign && draftCampaign.id) {
           // The list endpoint above only returns a lean field set (it also backs the
           // paginated campaigns grid, so it deliberately omits audioId/adGroups/
           // timestamps). The checklist and "last edited" copy need the fuller record,
           // so fetch it via the same single-campaign endpoint CampaignWizard already
           // uses to hydrate a draft for editing.
           const [fullRes, cardsRes, audioAdsRes] = await Promise.all([
-            campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
+            campaignApi.getCampaign({ id: draftCampaign.id, advertiserId }),
             walletApi.getCards(),
             // So the "Create your first audio ad" step can still show the audio player
             // (replay/edit) once a draft campaign exists, not just before one does. Also used
@@ -187,7 +193,7 @@ export default function DashboardHome() {
         }
 
         setIsLoading(false);
-        if (!isDraft) await fetchStats();
+        if (nonDraftCampaign) await fetchStats();
         return;
       }
 
