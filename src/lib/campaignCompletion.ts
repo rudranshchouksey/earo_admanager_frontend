@@ -97,28 +97,3 @@ export function getDraftChecklist(campaign: Campaign): DraftChecklist {
     targetingDone: hasAnyTargetingSetOnCampaign(campaign),
   };
 }
-
-const CHECKLIST_LABELS: { key: keyof DraftChecklist; label: string }[] = [
-  { key: 'audioDone', label: 'Ad' },
-  { key: 'budgetDone', label: 'budget' },
-  { key: 'datesDone', label: 'dates' },
-  { key: 'targetingDone', label: 'targeting' },
-];
-
-function joinWithAnd(items: string[]): string {
-  if (items.length <= 1) return items.join('');
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
-const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
-/** e.g. "Ad, budget and dates set — targeting left." Handles all-done / none-done as edge cases. */
-export function draftChecklistCaption(checklist: DraftChecklist): string {
-  const done = CHECKLIST_LABELS.filter((item) => checklist[item.key]).map((item) => item.label);
-  const left = CHECKLIST_LABELS.filter((item) => !checklist[item.key]).map((item) => item.label);
-
-  if (left.length === 0) return "Everything's set — ready to launch.";
-  if (done.length === 0) return 'Nothing set up yet — pick up where you left off.';
-  return `${capitalize(joinWithAnd(done))} set — ${joinWithAnd(left)} left.`;
-}

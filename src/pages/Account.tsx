@@ -790,7 +790,7 @@ export default function Account() {
 
   const addPaymentMethod = async () => {
     setGeneratingPaymentLink(true);
-    const { data, error, status } = await paymentApi.addCard();
+    const { data, error, status } = await paymentApi.addCard(null, 'dashboard');
     if (error || status !== 200) {
       logger.captureException(error, { context: 'Add payment method card error:' });
       return;

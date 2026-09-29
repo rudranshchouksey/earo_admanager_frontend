@@ -6,8 +6,8 @@ import type { DraftChecklist } from '@/lib/campaignCompletion';
 const ITEMS: { key: keyof DraftChecklist; label: string }[] = [
   { key: 'audioDone', label: 'Audio ad attached' },
   { key: 'budgetDone', label: 'Budget set' },
-  { key: 'datesDone', label: 'Flight dates set' },
-  { key: 'targetingDone', label: 'Choose your listeners' },
+  { key: 'datesDone', label: 'Start and end dates set' },
+  { key: 'targetingDone', label: 'Choose your audience' },
 ];
 
 interface DraftCampaignCardProps {
@@ -28,7 +28,7 @@ export default function DraftCampaignCard({ checklist }: DraftCampaignCardProps)
             return (
               <div key={item.key} className="flex items-center gap-2.5">
                 {done ? (
-                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                  <CheckCircle2 className="h-5 w-5 text-foreground shrink-0" />
                 ) : (
                   <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
                 )}
@@ -46,19 +46,5 @@ export default function DraftCampaignCard({ checklist }: DraftCampaignCardProps)
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-export function DraftProgressBar({ checklist }: { checklist: DraftChecklist }) {
-  const doneCount = ITEMS.filter((item) => checklist[item.key]).length;
-  return (
-    <div className="flex gap-1">
-      {ITEMS.map((item, i) => (
-        <div
-          key={item.key}
-          className={cn('h-1.5 flex-1 rounded-full', i < doneCount ? 'bg-primary' : 'bg-muted')}
-        />
-      ))}
-    </div>
   );
 }
