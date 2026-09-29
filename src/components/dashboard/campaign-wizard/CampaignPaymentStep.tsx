@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreditCard, Wallet, Building2, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { Coupon, CreditDetails } from "@/services/wallet";
+import { Coupon, CreditDetails, walletApi } from "@/services/wallet";
 import { SavedTransaction } from "@/services/campaign";
+import { Button } from "@/components/ui/button";
+import { paymentApi } from "@/services/payment";
+import { logger } from "@/lib/logger";
+import PaymentModal from "../launch/PaymentModal";
 // import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentData {
@@ -37,6 +41,7 @@ interface Props {
   totalBudget: number;
   disabled: boolean;
   savedTransaction: SavedTransaction | null;
+  saveDraftCampaign: (redirectToCampaigns: boolean) => Promise<{data: any, status: number}>;
 }
 
 interface Cards {
@@ -45,6 +50,7 @@ interface Cards {
   last_4: string;
   cardHolderName: string;
   type: string;
+  isPrimary?: boolean;
 }
 
 export default function CampaignPaymentStep({
@@ -62,12 +68,51 @@ export default function CampaignPaymentStep({
   durationDays,
   disabled,
   savedTransaction,
+  saveDraftCampaign,
 }: Props) {
   const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
+  const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
+  const [settingPrimaryCardId, setSettingPrimaryCardId] = useState<string | null>(null);
   const [savedCards, setSavedCards] = useState([]);
+  const [paymentUrl, setPaymentUrl] = useState("");
+  const campaignId = useRef<string | null>(null);
 
   const shouldDisable = disabled || !(campaignStatus === "" || campaignStatus?.toLowerCase() === "draft");
+
+  const handleSelectCard = async (cardId: string) => {
+    if (shouldDisable || settingPrimaryCardId) return;
+
+    onChange({ ...data, cardId });
+
+    if (!cardId) {
+      void addPaymentMethod();
+      return;
+    }
+
+    try {
+      const { status, error, message } = await walletApi.setPrimaryCard(cardId);
+      if (status !== 200 || error) {
+        toast({
+          title: "Could not set primary card",
+          description: message || "Please try again",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSettingPrimaryCardId(cardId);
+
+    } catch (err) {
+      logger.captureException(err, { context: "Set primary card error:" });
+      toast({
+        title: "Could not set primary card",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setSettingPrimaryCardId(null);
+    }
+  };
 
   const handleApplyCoupon = (existingCouponCode: string | null = null) => {
 
@@ -150,6 +195,40 @@ export default function CampaignPaymentStep({
     );
   }
 
+  const addPaymentMethod = async () => {
+    setGeneratingPaymentLink(true);
+
+    const {data: saveDraftCampaignData, status: saveDraftCampaignStatus} = await saveDraftCampaign(false);
+    if(saveDraftCampaignStatus !== 200) {
+      toast({
+        title: "Error",
+        description: "Failed to save draft campaign",
+        variant: "destructive",
+      });
+      setGeneratingPaymentLink(false);
+      return;
+    }
+    console.log({saveDraftCampaignData});
+    campaignId.current = saveDraftCampaignData?.data?.id;
+    const { data, error, status } = await paymentApi.addCard(saveDraftCampaignData?.data?.id);
+    if (error || status !== 200) {
+      logger.captureException(error, { context: 'Add payment method card error:' });
+      setGeneratingPaymentLink(false);
+      return;
+    }
+
+    if(data?.data?.payment_url){
+      setPaymentUrl(data.data.payment_url);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to add payment method",
+        variant: "destructive",
+      });
+    }
+    setGeneratingPaymentLink(false);
+  }
+
   const finalAmountAfterCoupon = (creditsDetails.availableCredit - (data?.couponCode ? data.finalAmount : totalBudget));
 
 
@@ -159,14 +238,20 @@ export default function CampaignPaymentStep({
 
       {cards && cards.length > 0 ? (
         <div className={`space-y-3 mb-5 ${creditsDetails.availableCredit > totalBudget ? 'hidden opacity-50 cursor-not-allowed' : ''}`}>
-          <Label>Pay using your saved card</Label>
+          <Label>Available Cards</Label>
           {cards?.map((card) => (
             <div key={card.id} className="flex items-center gap-2 w-full">
-              <Checkbox checked={data?.cardId === card.cardId} onCheckedChange={() => onChange({ ...data, cardId: card.cardId })} />
               <div className={`flex items-center gap-3 p-3 rounded-lg border border-[#C8E6C9] ${ data?.cardId === card.cardId ? 'bg-[#E6F4EA]' : 'bg-background' } w-full`}>
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{card.last_4}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{card.last_4}</p>
+                    {(data?.cardId ? data.cardId === card.cardId : card.isPrimary) ? (
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md font-medium uppercase tracking-wide">
+                        Primary Card
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground cursor-pointer text-primary" onClick={() => void handleSelectCard(card.cardId)}>Make this primary</span>}
+                    </div>
                   <p className="text-xs text-muted-foreground">
                     {card.type}
                   </p>
@@ -175,21 +260,27 @@ export default function CampaignPaymentStep({
             </div>
           ))}
 
-          <div className="flex items-center gap-2 w-full">
-          <Checkbox checked={data?.cardId === ""} onCheckedChange={() => onChange({ ...data, cardId: "" })} />
-            <p className="text-sm font-medium pl-1">Use a new card</p>
+          <div className="flex items-center gap-2 w-full justify-start">
+            <Button variant="outline" className="min-w-32" size="sm" onClick={addPaymentMethod}>
+              Add New Card
+            </Button> 
           </div>
 
 
         </div>
       ) : (
-        <></>
+        <div className="flex flex-col items-center justify-center p-3 border border-border rounded-lg mb-3 gap-2">
+          <p className="text-xs font-medium">You don't have any cards saved</p>
+          <Button variant="outline" className="min-w-32" size="sm" onClick={addPaymentMethod}>
+            Add card
+          </Button> 
+        </div>
       )}
 
 
       <div className="space-y-2 mt-0 pt-0" style={{ marginTop: 0, paddingTop: 0 }}>
         <Label>Discount Coupon (optional)</Label>
-        {coupons && coupons.length > 0 ? (
+        {coupons && coupons.length > 0 && (campaignStatus === 'DRAFT' || campaignStatus === '')  ? (
           <div className="space-y-2">
             {coupons.map((coupon) => (
               <div key={coupon.id} className="w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors border-border hover:border-[#C8E6C9] cursor-pointer">
@@ -343,7 +434,7 @@ export default function CampaignPaymentStep({
         </div>
       </div>
       {
-        creditsDetails?.creditCycle?.amount > 0  && ( savedTransaction === null) ? (
+        creditsDetails?.creditCycle?.amount > 0  && (campaignStatus === 'DRAFT' || campaignStatus === '')  ? (
           <div className={`space-y-3 p-3 border border-border rounded-md ${creditsDetails.availableCredit > totalBudget ? '' : 'opacity-90 cursor-not-allowed'}`}>
             <div className="flex flex-col justify-start items-start gap-1 mb-3">
               <Label className="text-sm font-medium">Pay by invoice</Label>
@@ -376,6 +467,20 @@ export default function CampaignPaymentStep({
       }
 
 
+
+      {
+        paymentUrl && (
+          <PaymentModal
+            open={!!paymentUrl}
+            onOpenChange={() => setPaymentUrl("")}
+            paymentUrl={paymentUrl}
+            onCancel={() =>  {
+              setPaymentUrl("");
+              location.href = "/dashboard/campaigns/" + campaignId.current;
+            }}
+          />
+        )
+      }
 
     </div>
   );

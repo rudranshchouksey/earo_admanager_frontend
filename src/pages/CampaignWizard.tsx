@@ -52,6 +52,7 @@ interface Cards {
   last_4: string;
   cardHolderName: string;
   type: string;
+  isPrimary?: boolean;
 }
 
 const formatDate = (date: Date) => {
@@ -569,7 +570,7 @@ export default function CampaignWizard() {
 
 
 
-  const saveDraftCampaign = async () => {
+  const saveDraftCampaign = async (redirectToCampaigns: boolean = true) => {
     if(!setup.audioId){
       toast({
         title: "Error",
@@ -701,7 +702,8 @@ export default function CampaignWizard() {
         toast({
           title: "Draft Saved",
         })
-        navigate(`/dashboard/campaigns`);
+        if(redirectToCampaigns)
+          navigate(`/dashboard/campaigns`);
       } else {
         toast({
           title: "Error",
@@ -710,6 +712,12 @@ export default function CampaignWizard() {
         });
       }
 
+  
+      return {
+        data,
+        status
+      }  
+  
     } catch (err: any) {
       toast({
         title: "Error",
@@ -2006,10 +2014,12 @@ export default function CampaignWizard() {
         logger.captureException(error);
         return;
       }
-      if(data?.data && data?.data.length > 0){
-        setPayment({ ...payment, cardId: data?.data[0].cardId });
+      const nextCards = data?.data || [];
+      if (nextCards.length > 0) {
+        const primaryCard = nextCards.find((card: Cards) => card.isPrimary) ?? nextCards[0];
+        setPayment((prev) => ({ ...prev, cardId: primaryCard.cardId }));
       }
-      setCards(data?.data || []);
+      setCards(nextCards);
     }
 
     const getCreditsDetails = async () => {
@@ -2467,7 +2477,7 @@ export default function CampaignWizard() {
               </div>
             </CardHeader>
             <CardContent>
-              <CampaignPaymentStep coupons={myCoupons} campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} savedTransaction={savedTransaction} />
+              <CampaignPaymentStep saveDraftCampaign={saveDraftCampaign} coupons={myCoupons} campaignStatus={campaignStatus} totalBudget={Number(budget.totalBudget) || 0} creditsDetails={creditsDetails} cards={cards} campaignName={setup.campaignName} data={payment} onChange={setPayment} applyCoupon={applyCoupon} isApplyingCoupon={isApplyingCoupon} dailyBudget={Number(budget.dailyBudget) || 0} durationDays={durationDays || 7} disabled={role === 'VIEWER' || role === 'VIEWER_RESTRICTED'} savedTransaction={savedTransaction} />
             </CardContent>
           </Card>
 

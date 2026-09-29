@@ -43,6 +43,7 @@ import {
   EyeOff,
   Trash,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -89,6 +90,7 @@ interface Cards {
   last_4: string;
   cardHolderName: string;
   type: string;
+  isPrimary: boolean;
 }
 
 export default function Account() {
@@ -150,6 +152,7 @@ export default function Account() {
     totalPages: 1,
   });
   const [deletePaymentMethodAlertOpen, setDeletePaymentMethodAlertOpen] = useState(false);
+  const [settingPrimaryCardId, setSettingPrimaryCardId] = useState<string | null>(null);
   const [allAdvertisersSelected, setAllAdvertisersSelected] = useState(true);
   const [selectedAdvertisers, setSelectedAdvertisers] = useState<string[]>([]);
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
@@ -809,6 +812,37 @@ export default function Account() {
     setDeletePaymentMethodAlertOpen(true);
   };
 
+  const handleSetPrimaryCard = async (cardId: string) => {
+    if (!cardId || settingPrimaryCardId) return;
+    setSettingPrimaryCardId(cardId);
+    try {
+      const { status, error, message } = await walletApi.setPrimaryCard(cardId);
+      if (status !== 200 || error) {
+        toast({
+          title: t("common.error"),
+          description: message || "Could not set primary card",
+          variant: "destructive",
+        });
+        return;
+      }
+      setCards((prev) =>
+        prev.map((card) => ({
+          ...card,
+          isPrimary: card.cardId === cardId,
+        })),
+      );
+    } catch (err) {
+      logger.captureException(err, { context: "Set primary card error:" });
+      toast({
+        title: t("common.error"),
+        description: "Could not set primary card",
+        variant: "destructive",
+      });
+    } finally {
+      setSettingPrimaryCardId(null);
+    }
+  };
+
     let gridRows: number = 5;
 
     if (isAgency) {
@@ -1320,21 +1354,39 @@ export default function Account() {
                           <div key={card.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                             <div className="flex items-center justify-between w-full gap-3">
                               <div className="flex items-center gap-3">
-                              <CreditCard className="h-5 w-5 text-muted-foreground" />
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {card.last_4}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {card.type}
-                                </p>
+                                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">
+                                    {card.last_4}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {card.type}
+                                  </p>
+                                </div>
                               </div>
-                              </div>
-                              <span>
+                              <div className="flex items-center gap-2">
+                                {card.isPrimary ? (
+                                  <Badge className="bg-primary/10 text-primary border-0">
+                                    Primary
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!!settingPrimaryCardId}
+                                    onClick={() => void handleSetPrimaryCard(card.cardId)}
+                                  >
+                                    {settingPrimaryCardId === card.cardId ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      "Make primary"
+                                    )}
+                                  </Button>
+                                )}
                                 <Button variant="secondary" size="sm" onClick={deletePaymentMethod}>
                                   <Trash className="h-3 w-3" />
                                 </Button>
-                              </span>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -1380,6 +1432,74 @@ export default function Account() {
                     </div>
                   </CardContent>
                 </Card>
+
+
+                <Card>
+                    <CardHeader>
+                      <CardTitle>{t("account.invoice_history")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("account.invoice")}</TableHead>
+                            <TableHead>{t("account.amount")}</TableHead>
+                            <TableHead>For Month</TableHead>
+                            <TableHead>{t("account.status")}</TableHead>
+                            {/* <TableHead className="w-10"></TableHead> */}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          { invoiceHistory.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium text-primary">
+                                {row.invoiceId}
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                ${row.amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    row.paymentStatus === "paid"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {row.paymentStatus?.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              {/* <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => downloadInvoice(row.invoiceId)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </TableCell> */}
+                            </TableRow>
+                          ))}
+
+                          {
+                            invoiceHistory.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <p className="text-xs text-muted-foreground py-4">
+                                    No invoice history found
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            ) : <></>
+                          }
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
   
                 <Card>
                   <CardHeader>
@@ -1438,9 +1558,12 @@ export default function Account() {
                         <TableRow>
                           <TableHead>{t("account.date")}</TableHead>
                           <TableHead>{t("account.description")}</TableHead>
-                          <TableHead>Invoice Id</TableHead>
-                          <TableHead>{t("account.amount")}</TableHead>
+                          <TableHead>Transaction Id</TableHead>
+                          <TableHead>Gross Spend</TableHead>
+                          <TableHead>Discount</TableHead>
+                          <TableHead>Net Billable Amount</TableHead>
                           <TableHead>{t("account.status")}</TableHead>
+                          <TableHead>Download</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1470,7 +1593,13 @@ export default function Account() {
                             </p> : row.description
                             }</TableCell>
                             <TableCell className="text-sm font-medium">
-                              {row.creditInvoice?.invoiceId ?? '-'}
+                              {row.id ?? '-'}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              ${row.originalAmount.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              ${(Number(row.originalAmount) - Number(row.amount)).toLocaleString()}
                             </TableCell>
                             <TableCell className="text-sm font-medium">
                               ${row.amount.toLocaleString()}
@@ -1479,6 +1608,11 @@ export default function Account() {
                               <Badge variant="secondary" className="text-xs">
                                 {row.status}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => downloadInvoice(row.id)}>
+                                <Download className="h-3 w-3" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                             )
