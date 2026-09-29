@@ -437,7 +437,7 @@
   "account.spent_this_month": "Spent this month",
   "account.paid_this_month": "Paid this month",
   "account.payment_methods": "Payment Methods",
-  "account.add_payment_method": "Add Payment Method",
+  "account.add_payment_method": "Add debit or credit card",
   "account.default": "Default",
   "account.coupons": "Coupons",
   "account.enter_coupon": "Enter coupon code",

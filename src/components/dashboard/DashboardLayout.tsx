@@ -592,6 +592,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Volume2 className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_ad')}</span>
               </Button>
+              {/* Always available: with no ads yet, the wizard's ad picker links to ad creation (CampaignSetupStep). */}
               <Button size="sm" className="h-9 gap-2" onClick={navigateToCampaignNew}>
                 <Megaphone className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('layout.new_campaign')}</span>

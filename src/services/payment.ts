@@ -41,7 +41,9 @@ export interface PaymentHistory {
 
 export const paymentApi = {
     generatePaymentLink: (payload: { campaignId: string, amount: number }) => request<string>('/api/v1/payment/generatePaymentLink', { method: 'POST', body: payload }),
-    addCard: (campaignId: string | null = null) => request<AddCardResponse>('/api/v1/wallet-billing/addNewCard', { method: 'POST', body: {campaignId} }),
+    addCard: (campaignId: string | null = null, returnTo?: 'dashboard') => request<AddCardResponse>('/api/v1/wallet-billing/addNewCard', { method: 'POST', body: {campaignId, returnTo} }),
+    // returnTo 'dashboard' makes the gateway send the user back to /dashboard after Mamo's
+    // add-card flow instead of the Account page (the default when omitted).
     getPaymentHistory: ({page, limit, advertiserIds}) => request<PaymentHistoryResponse>('/api/v1/wallet-billing/getPaymentsHistory', { method: 'POST', body: {page, limit, advertiserIds} }),
     cancelPayment: (paymentLinkId: string) => request<{status: number, message: string}>('/api/v1/wallet-billing/invalidateActivePaymentLink', { method: 'POST', body: {paymentLinkId, status: "CANCELED"} }),
 }

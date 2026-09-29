@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, DollarSign, MousePointerClick, Target, Loader2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import CampaignActionsGrid from '@/components/dashboard/CampaignActionsGrid';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import StatCard from '@/components/dashboard/StatCard';
-import DashboardHero from '@/components/dashboard/DashboardHero';
-import ReadyAdCard from '@/components/dashboard/ReadyAdCard';
-import DraftCampaignCard, { DraftProgressBar } from '@/components/dashboard/DraftCampaignCard';
-import { NewUserGetStartedCard, NewUserStatsStrip } from '@/components/dashboard/NewUserGetStartedCard';
+import GettingStartedCard from '@/components/dashboard/GettingStartedCard';
+import WhatYouCanDoSection from '@/components/dashboard/WhatYouCanDoSection';
+import ReachStatsSection from '@/components/dashboard/ReachStatsSection';
+import AgencyGettingStartedCard from '@/components/dashboard/AgencyGettingStartedCard';
+import AgencyWhatYouCanDoSection from '@/components/dashboard/AgencyWhatYouCanDoSection';
 import { useSessionFlags } from '@/hooks/useSessionFlags';
 import { toast } from '@/components/ui/use-toast';
 import { auth } from '@/services/auth';
@@ -18,9 +16,25 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { reportsApi } from '@/services/reports';
 import { Campaign, campaignApi } from '@/services/campaign';
 import { adsApi, AdData } from '@/services/ads';
+import { walletApi } from '@/services/wallet';
 import { userApi } from '@/services/user';
 import { appNotifications } from '@/services/appNotifications';
-import { getDraftChecklist, draftChecklistCaption, DraftChecklist } from '@/lib/campaignCompletion';
+import { getDraftChecklist, DraftChecklist } from '@/lib/campaignCompletion';
+import { logger } from '@/lib/logger';
+
+// How many saved ads the draft-campaign path fetches to confirm the draft's attached ad
+// still exists (see load()).
+const DRAFT_ADS_LOOKUP_LIMIT = 50;
+
+// "Visa •••• 4242" for the completed payment step. Cards store last_4 as "**** **** **** 4242"
+// and type as Mamo's card brand; falls back to "Card" when the brand is missing.
+function formatCardLabel(card?: { type?: string | null; last_4?: string | null }): string | null {
+  const last4 = card?.last_4?.match(/(\d{4})\s*$/)?.[1];
+  if (!last4) return null;
+  const brand = card?.type?.trim();
+  const brandLabel = brand ? brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase() : 'Card';
+  return `${brandLabel} •••• ${last4}`;
+}
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -29,18 +43,19 @@ export default function DashboardHome() {
   const [userName, setUserName] = useState('');
 
   const [isNewUser, setIsNewUser] = useState(false);
-  const [isNewWithAd, setIsNewWithAd] = useState(false);
   const [hasDraftCampaign, setHasDraftCampaign] = useState(false);
   const [draftCampaignId, setDraftCampaignId] = useState<string | null>(null);
   const [draftCampaign, setDraftCampaign] = useState<Campaign | null>(null);
   const [draftChecklist, setDraftChecklist] = useState<DraftChecklist | null>(null);
-  const [draftCount, setDraftCount] = useState(1);
-  const [advertiserName, setAdvertiserName] = useState('');
+  const [hasNoAdvertisers, setHasNoAdvertisers] = useState(false);
+  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
+  const [paymentCardLabel, setPaymentCardLabel] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [audioAds, setAudioAds] = useState<AdData[]>([]);
 
   const { t } = useTranslation();
-  const { role } = useSessionFlags();
+  const { role, isAgency } = useSessionFlags();
   const canEdit = role === 'ADMIN' || role === 'EDITOR' || role === 'EDITOR_RESTRICTED';
 
   const fetchStats = useCallback(async () => {
@@ -63,112 +78,177 @@ export default function DashboardHome() {
     setloadingStats(false);
   }, []);
 
+  // Each advertiser switch (or the advertisers/advertiser-selected notifications) fires
+  // a fresh load() call without waiting for any in-flight one to finish. Since this
+  // function does several sequential/parallel awaits, a slower older call can resolve
+  // after a newer one and clobber its state with stale data -- this token makes every
+  // call check it's still the most recent before committing state.
+  const loadRequestIdRef = useRef(0);
+
+  const applyCards = useCallback((cardsRes: Awaited<ReturnType<typeof walletApi.getCards>>) => {
+    const cards = cardsRes.status === 200 && !cardsRes.error ? (cardsRes.data?.data ?? []) : [];
+    setHasPaymentMethod(cards.length > 0);
+    setPaymentCardLabel(formatCardLabel(cards[0]));
+  }, []);
+
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    const isStale = () => loadRequestIdRef.current !== requestId;
+
     setIsLoading(true);
-    const { data: { session } } = await auth.getSession();
-    if (!session) {
-      setIsLoading(false);
-      return;
-    }
-
-    let advertiserId = session.currentAdvertiserId;
-    let advertisersList: Advertiser[] | null = null;
-    if (!advertiserId) {
-      const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
-        await advertiserApi.getAdvertisers(session.currentOrganizationId);
-      if (advertisersStatus !== 200 || advertisersError) {
-        toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (isStale()) return;
+      if (!session) {
         setIsLoading(false);
         return;
       }
-      advertisersList = advertisersRes.data;
-      if (advertisersList.length > 0) {
-        auth.setCurrentAdvertiserId(advertisersList[0].id, advertisersList[0].isPro);
-        advertiserId = advertisersList[0].id;
-      } else {
+
+      let advertiserId = session.currentAdvertiserId;
+      let advertisersList: Advertiser[] | null = null;
+      if (!advertiserId) {
+        const { data: advertisersRes, status: advertisersStatus, error: advertisersError, message: advertisersMessage } =
+          await advertiserApi.getAdvertisers(session.currentOrganizationId);
+        if (isStale()) return;
+        if (advertisersStatus !== 200 || advertisersError) {
+          toast({ title: t('common.error'), description: advertisersMessage ?? 'Unable to load advertisers', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
+        advertisersList = advertisersRes.data;
+        if (advertisersList.length > 0) {
+          auth.setCurrentAdvertiserId(advertisersList[0].id, advertisersList[0].isPro);
+          advertiserId = advertisersList[0].id;
+        } else {
+          setHasNoAdvertisers(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      setHasNoAdvertisers(false);
+      setAudioAds([]);
+
+      userApi.getUserProfile().then(({ data, status, error }) => {
+        if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
+      });
+
+      const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
+      if (isStale()) return;
+      if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
+        // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
+        // "any campaign" check above rather than a second status-filtered fetch. Only
+        // looks at the single latest campaign, so a user with an older live campaign
+        // plus a newer draft would be shown the draft nudge instead of steady-state --
+        // an acceptable simplification since that mix is unlikely this early in a
+        // user's lifecycle.
+        const latestCampaign = campaings.data.data[0];
+        const isDraft = latestCampaign.status?.toString().toUpperCase() === 'DRAFT';
+        setIsNewUser(false);
+        setHasDraftCampaign(isDraft);
+        setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
+
+        if (isDraft && latestCampaign.id) {
+          // The list endpoint above only returns a lean field set (it also backs the
+          // paginated campaigns grid, so it deliberately omits audioId/adGroups/
+          // timestamps). The checklist and "last edited" copy need the fuller record,
+          // so fetch it via the same single-campaign endpoint CampaignWizard already
+          // uses to hydrate a draft for editing.
+          const [fullRes, cardsRes, audioAdsRes] = await Promise.all([
+            campaignApi.getCampaign({ id: latestCampaign.id, advertiserId }),
+            walletApi.getCards(),
+            // So the "Create your first audio ad" step can still show the audio player
+            // (replay/edit) once a draft campaign exists, not just before one does. Also used
+            // to check the draft's attached ad still exists: getAds excludes soft-deleted ads,
+            // but a draft's audioId keeps pointing at an ad after it's deleted. The limit is
+            // generous so the attached ad is almost always in this page for a new user.
+            adsApi.getAds({ advertiserId, page: 1, limit: DRAFT_ADS_LOOKUP_LIMIT, isSaved: true, sortBy: 'createdAt', sortOrder: 'desc' }),
+          ]);
+          if (isStale()) return;
+          const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
+          const adsLoaded = audioAdsRes.status === 200 && !audioAdsRes.error;
+          const savedAds = adsLoaded ? audioAdsRes.data.data : [];
+          const attachedAd = fullCampaign.audioId ? savedAds.find((ad) => ad.id === fullCampaign.audioId) : undefined;
+          // Only mark the attached ad as gone when we can be sure: the lookup succeeded and
+          // returned the whole list (fewer rows than the limit). Otherwise trust the draft.
+          const attachedAdDeleted =
+            !!fullCampaign.audioId && adsLoaded && !attachedAd && savedAds.length < DRAFT_ADS_LOOKUP_LIMIT;
+          const checklist = getDraftChecklist(fullCampaign);
+
+          setDraftCampaign(fullCampaign);
+          setDraftChecklist(attachedAdDeleted ? { ...checklist, audioDone: false } : checklist);
+          applyCards(cardsRes);
+          // Put the draft's attached ad first so the step-2 player shows the ad this campaign
+          // actually uses, falling back to the most recent saved ad.
+          setAudioAds(attachedAd ? [attachedAd, ...savedAds.filter((ad) => ad.id !== attachedAd.id)] : savedAds);
+        } else {
+          setDraftCampaign(null);
+          setDraftChecklist(null);
+        }
+
         setIsLoading(false);
+        if (!isDraft) await fetchStats();
         return;
       }
-    }
 
-    userApi.getUserProfile().then(({ data, status, error }) => {
-      if (status === 200 && !error && data?.data?.firstName) setUserName(data.data.firstName);
-    });
+      setHasDraftCampaign(false);
+      setDraftCampaignId(null);
+      setDraftCampaign(null);
+      setDraftChecklist(null);
 
-    // Best-effort lookup of the current advertiser's display name, reusing the
-    // list already fetched above when we have it instead of refetching.
-    const getAdvertiserDisplayName = async (id: string): Promise<string> => {
-      const list =
-        advertisersList ??
-        (await advertiserApi.getAdvertisers(session.currentOrganizationId).then((r) =>
-          r.status === 200 && !r.error ? r.data.data : [],
-        ));
-      return list.find((a) => a.id === id)?.advertiserName ?? '';
-    };
-
-    const campaings = await campaignApi.getCampaigns({ advertiserId, page: 1, limit: 1 });
-    if (campaings.status === 200 && !campaings.error && campaings.data.data.length > 0) {
-      // Most-recent campaign (default sort is createdAt desc) -- cheap reuse of the
-      // "any campaign" check above rather than a second status-filtered fetch. Only
-      // looks at the single latest campaign, so a user with an older live campaign
-      // plus a newer draft would be shown the draft nudge instead of steady-state --
-      // an acceptable simplification since that mix is unlikely this early in a
-      // user's lifecycle.
-      const latestCampaign = campaings.data.data[0];
-      const isDraft = latestCampaign.status?.toString().toUpperCase() === 'DRAFT';
-      setIsNewUser(false);
-      setIsNewWithAd(false);
-      setHasDraftCampaign(isDraft);
-      setDraftCampaignId(isDraft ? latestCampaign.id ?? null : null);
-
-      if (isDraft && latestCampaign.id) {
-        // The list endpoint above only returns a lean field set (it also backs the
-        // paginated campaigns grid, so it deliberately omits audioId/adGroups/
-        // timestamps). The checklist and "last edited" copy need the fuller record,
-        // so fetch it via the same single-campaign endpoint CampaignWizard already
-        // uses to hydrate a draft for editing.
-        const fullRes = await campaignApi.getCampaign({ id: latestCampaign.id, advertiserId });
-        const fullCampaign = fullRes.status === 200 && !fullRes.error && fullRes.data?.data ? fullRes.data.data : latestCampaign;
-
-        setDraftCampaign(fullCampaign);
-        setDraftChecklist(getDraftChecklist(fullCampaign));
-
-        const [draftsMeta, advertiserDisplayName] = await Promise.all([
-          campaignApi.getCampaigns({ advertiserId, status: 'DRAFT', page: 1, limit: 1 }),
-          getAdvertiserDisplayName(advertiserId),
-        ]);
-        setDraftCount(draftsMeta.status === 200 && !draftsMeta.error ? draftsMeta.data.meta.total : 1);
-        setAdvertiserName(advertiserDisplayName);
-      } else {
-        setDraftCampaign(null);
-        setDraftChecklist(null);
+      const [audioAdsRes, cardsRes] = await Promise.all([
+        adsApi.getAds({
+          advertiserId,
+          page: 1,
+          limit: 1,
+          isSaved: true,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        }),
+        walletApi.getCards(),
+      ]);
+      if (isStale()) return;
+      const hasAudioAds =
+        audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
+      if (hasAudioAds) {
+        setAudioAds(audioAdsRes.data.data);
       }
+      applyCards(cardsRes);
 
+      setIsNewUser(true);
       setIsLoading(false);
-      if (!isDraft) await fetchStats();
-      return;
+    } catch (error) {
+      // Auth-session failures (ApiAuthError) already trigger a redirect to /login via
+      // ProtectedRoute's onAuthStateChange listener, independent of this catch -- this is
+      // a backstop against any other unexpected failure mid-load leaving the page stuck
+      // on its spinner forever with no way out.
+      if (!isStale()) {
+        logger.captureException(error, { context: 'DashboardHome load error' });
+        toast({ title: t('common.error'), description: 'Unable to load dashboard', variant: 'destructive' });
+        setIsLoading(false);
+      }
     }
-
-    setHasDraftCampaign(false);
-    setDraftCampaignId(null);
-    setDraftCampaign(null);
-    setDraftChecklist(null);
-
-    const audioAdsRes = await adsApi.getAds({ advertiserId, page: 1, limit: 1, isSaved: true });
-    const hasAudioAds =
-      audioAdsRes.status === 200 && !audioAdsRes.error && audioAdsRes.data.data.length > 0;
-    if (hasAudioAds) {
-      setAudioAds(audioAdsRes.data.data);
-    }
-
-    setIsNewUser(true);
-    setIsNewWithAd(hasAudioAds);
-    setIsLoading(false);
-  }, [fetchStats, t]);
+  }, [applyCards, fetchStats, t]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Back from the add-card flow opened on this page (gateway redirects to /dashboard?card=...,
+  // see paymentApi.addCard('dashboard')). Toast once, then drop the param so a refresh doesn't
+  // repeat it.
+  useEffect(() => {
+    const cardResult = searchParams.get('card');
+    if (cardResult !== 'added' && cardResult !== 'failed') return;
+    toast(
+      cardResult === 'added'
+        ? { title: 'Card added', description: 'Your debit or credit card has been saved.' }
+        : { title: 'Card not added', description: 'Something went wrong adding your card. Please try again.', variant: 'destructive' },
+    );
+    const next = new URLSearchParams(searchParams);
+    next.delete('card');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // List created/updated/deleted in Account → Advertisers tab
   useEffect(() => {
@@ -193,134 +273,99 @@ export default function DashboardHome() {
   }
 
   const cpa = stats.reach > 0 ? (stats.spend / stats.reach).toFixed(2) : '0';
-
-  const steps = [
-    { num: 1, title: 'Create your studio-quality ad (free)', desc: 'Describe your brand to instantly generate a perfect AI script, lifelike voice, and music mix. Refine for free until it\'s broadcast-ready.' },
-    { num: 2, title: 'Target listeners, not wasted ears', desc: 'Stop paying for broad reach. Pinpoint your ideal audience by age, gender, and interests across top podcasts and music streams.' },
-    { num: 3, title: 'Set your budget and scale', desc: 'Control your spend with daily budgets. Maximize your reach across your local neighborhood, city, or go global with one click.' },
-    { num: 4, title: 'Pay locally and go live', desc: 'Checkout securely using local credit cards, mobile wallets, or bank transfers with no friction. Your campaign goes live in minutes.' },
-  ];
-
-  const draftSubcopy = draftCampaign
-    ? [
-        draftCampaign.updatedAt ? `Last edited ${formatDistanceToNow(new Date(draftCampaign.updatedAt), { addSuffix: true })}` : null,
-        advertiserName || null,
-        `$${Number(draftCampaign.totalBudget ?? draftCampaign.budget ?? 0).toLocaleString()} budget`,
-      ].filter(Boolean).join(' · ')
-    : '';
+  const isAgencyOnboarding = isAgency && hasNoAdvertisers;
+  // Headline follows the checklist: a draft only reads as "almost live" while an ad exists.
+  // A draft outlives the deletion of its ad, and then the next step is creating an ad again.
+  const hasAudioAd = audioAds.length > 0;
+  const isDraftWithAd = hasDraftCampaign && hasAudioAd;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-4">
-      {!isNewUser && !isNewWithAd && !hasDraftCampaign && (
+      {!isNewUser && !hasDraftCampaign && !isAgencyOnboarding && (
         <div>
           <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Welcome back. Here&apos;s your overview.</p>
         </div>
       )}
 
-      {/* Draft campaign nudge */}
-      {hasDraftCampaign && draftCampaign && draftChecklist && (
-        <DashboardHero
-          accentClassName="border-l-4 border-l-primary"
-          eyebrow={
-            <>
-              <span>You&apos;re almost there</span>
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-transparent normal-case">
-                Draft
-              </Badge>
-            </>
-          }
-          title={draftCampaign.campaignName || 'Untitled campaign'}
-          subcopy={draftSubcopy}
-          primaryAction={{
-            label: 'Resume campaign',
-            onClick: () => navigate(`/dashboard/campaigns/${draftCampaignId}`),
-          }}
-          secondaryAction={{
-            label: `See all ${draftCount} draft${draftCount === 1 ? '' : 's'}`,
-            onClick: () => navigate('/dashboard/campaigns?status=DRAFT'),
-          }}
-          rightCard={<DraftCampaignCard checklist={draftChecklist} />}
-          belowCard={
-            <div className="px-1 space-y-2">
-              <DraftProgressBar checklist={draftChecklist} />
-              <p className="text-xs text-muted-foreground">{draftChecklistCaption(draftChecklist)}</p>
-            </div>
-          }
-        />
-      )}
-
-      {/* Ready ad, no campaign yet */}
-      {!hasDraftCampaign && isNewWithAd && (
+      {/* Agency org with zero advertisers yet */}
+      {isAgencyOnboarding && (
         <>
-          {canEdit && audioAds[0] && (
-            <DashboardHero
-              title="Your ad is ready. Put it on air."
-              subcopy="Pick your listeners, set a budget, launch. About two minutes."
-              primaryAction={{
-                label: 'Create campaign with this ad',
-                onClick: () => navigate(`/dashboard/campaigns/new?audioId=${audioAds[0].id}`),
-              }}
-              secondaryAction={{
-                label: 'Create another ad',
-                onClick: () => navigate('/dashboard/ads/new'),
-              }}
-              rightCard={
-                <ReadyAdCard ad={audioAds[0]} onEditAudio={() => navigate(`/dashboard/ads/${audioAds[0].id}`)} />
-              }
-            />
-          )}
+          <div className="space-y-1.5 px-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              {userName ? `WELCOME, ${userName.toUpperCase()}` : 'WELCOME'}
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
+              Set up your agency workspace
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Add your first advertiser to start managing campaigns on their behalf.
+            </p>
+          </div>
 
-          {/* Educational Section */}
-          <Card className="border border-border overflow-hidden rounded-[32px]">
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                <div className="md:col-span-2 relative min-h-[200px] flex items-end justify-start">
-                  <img
-                    src={'/headphone-woman.png'}
-                    alt="Woman enjoying audio with headphones"
-                    className="w-full h-full object-cover object-center"
-                  />
-                </div>
-
-                <div className="md:col-span-3 p-5 space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Idea to airwaves in 4 simple steps</h3>
-                  <div className="space-y-4">
-                    {steps.map((step) => (
-                      <div key={step.num} className="flex items-start gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center shrink-0 mt-0.5">
-                          <span className="text-sm font-semibold text-background">{step.num}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <AgencyGettingStartedCard canEdit={role === 'ADMIN'} />
+            </div>
+            {/* Sidebar is supporting context only; hidden on mobile so the checklist stays the focus. */}
+            <div className="hidden md:block lg:col-span-1 space-y-4">
+              <ReachStatsSection heading="Your clients' reach on Earo" />
+              <AgencyWhatYouCanDoSection />
+            </div>
+          </div>
         </>
       )}
 
-      {/* Brand-new user: no ad, no campaign */}
-      {!hasDraftCampaign && isNewUser && !isNewWithAd && (
-        <DashboardHero
-          eyebrow={<span>{userName ? `Welcome, ${userName}` : 'Welcome'}</span>}
-          title="Get your first audio ad live in minutes."
-          subcopy="Drop your website. We'll write, voice and mix it."
-          primaryAction={{ label: 'Create my audio ad', onClick: () => navigate('/dashboard/ads/new') }}
-          secondaryAction={{ label: 'Or build a campaign first', onClick: () => navigate('/dashboard/campaigns/new') }}
-          rightCard={<NewUserGetStartedCard />}
-          belowCard={<NewUserStatsStrip />}
-          showActions={canEdit}
-        />
+      {/* Pre-campaign states: brand-new, has-ad, or draft-campaign-in-progress */}
+      {!isAgencyOnboarding && (isNewUser || hasDraftCampaign) && (
+        <>
+          <div className="space-y-1.5 px-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              {userName ? `WELCOME, ${userName.toUpperCase()}` : 'WELCOME'}
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
+              {isDraftWithAd
+                ? "You're almost live."
+                : hasAudioAd
+                ? "Your ad is ready. Let's get it on air."
+                : 'Get your first audio ad live.'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isDraftWithAd
+                ? 'Finish setting up your campaign to start reaching listeners.'
+                : hasAudioAd
+                ? 'One more step to reach listeners across 50K+ podcasts and radio stations.'
+                : 'Three steps to reach listeners across 50K+ podcasts and radio stations.'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <GettingStartedCard
+                hasAudioAd={hasAudioAd}
+                latestAudioAd={audioAds[0]}
+                hasPaymentMethod={hasPaymentMethod}
+                paymentCardLabel={paymentCardLabel}
+                hasDraftCampaign={hasDraftCampaign}
+                draftCampaign={draftCampaign}
+                draftChecklist={draftChecklist}
+                draftCampaignId={draftCampaignId}
+                canEdit={canEdit}
+                isAdmin={role === 'ADMIN'}
+                onPaymentModalClose={() => void load()}
+              />
+            </div>
+            {/* Sidebar is supporting context only; hidden on mobile so the checklist stays the focus. */}
+            <div className="hidden md:block lg:col-span-1 space-y-4">
+              <ReachStatsSection />
+              <WhatYouCanDoSection />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Steady state */}
-      {!isNewUser && !hasDraftCampaign && (
+      {!isAgencyOnboarding && !isNewUser && !hasDraftCampaign && (
         <>
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">This Month</h2>

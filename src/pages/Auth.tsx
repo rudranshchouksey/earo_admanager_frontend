@@ -398,7 +398,7 @@ export default function Auth() {
       variant: "default",
     });
 
-    createSessionAndNotify(data);
+    createSessionAndNotify(data, jobId);
     setShowMfaSelector(false);
     navigate("/dashboard");
     logger.info("navigating to dashboard");

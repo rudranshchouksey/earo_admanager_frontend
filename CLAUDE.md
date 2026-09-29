@@ -78,4 +78,5 @@ This app has no PostHog integration (see `admanager_landing` for that) — GTM/`
 - New API access → a `src/services/*` module routed through `request()` in `api.ts`.
 - Persona-gated UI → `useSessionFlags()`; backend-driven UI/flags/experiments → `useSDUI` & friends.
 - shadcn primitives in `src/components/ui/` — extend rather than re-import Radix directly.
+- Reuse before building: check this repo, then `admanager_landing/src/components/shared/`, before writing a new component. Components ported from the landing site live in `src/components/shared/` with a comment naming their source (see `../CLAUDE.md` → Cross-cutting notes).
 - Brand: primary `#36AB45` via Tailwind CSS vars (`tailwind.config.ts`, `src/index.css`).
