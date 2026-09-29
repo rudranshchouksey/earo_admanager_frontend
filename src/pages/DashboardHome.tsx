@@ -145,7 +145,7 @@ export default function DashboardHome() {
         const nonDraftCampaign = campaings.data.data.find((campaign: Campaign) => campaign.status?.toString().toUpperCase() !== 'DRAFT');
         if(nonDraftCampaign){
           setIsLoading(false);
-
+          await fetchStats();
           return;
         }
         const draftCampaign = campaings.data.data.find((campaign: Campaign) => campaign.status?.toString().toUpperCase() === 'DRAFT');
