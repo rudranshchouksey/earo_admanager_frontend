@@ -110,7 +110,7 @@ export default function GettingStartedCard({
   const addPaymentMethod = async () => {
     setGeneratingPaymentLink(true);
     try {
-      const { data, error, status } = await paymentApi.addCard('dashboard');
+      const { data, error, status } = await paymentApi.addCard(null, 'dashboard');
       if (!error && status === 200 && data?.data?.payment_url) {
         setPaymentUrl(data.data.payment_url);
         return;
