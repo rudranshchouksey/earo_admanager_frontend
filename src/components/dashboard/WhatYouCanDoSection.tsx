@@ -95,8 +95,8 @@ export default function WhatYouCanDoSection() {
           },
           {
             title: 'Manage your account',
-            description: 'Update your profile, billing details and payment methods.',
-            href: '/dashboard/account',
+            description: 'Update your profile and company details.',
+            href: '/dashboard/account/profile',
           },
         ]}
       />

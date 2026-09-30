@@ -7,7 +7,7 @@ export default function AgencyWhatYouCanDoSection() {
         {
           title: 'Advertisers',
           description: 'A separate workspace per client, all from one agency login.',
-          href: '/dashboard/account?page=advertisers',
+          href: '/dashboard/account/advertisers',
         },
         {
           title: 'Team',
