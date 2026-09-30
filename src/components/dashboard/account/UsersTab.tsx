@@ -114,7 +114,7 @@ export default function UsersTab() {
       status: "ACTIVE",
       role: "VIEWER",
       orgId: "",
-      AdvertiserAccounts: "SPECIFIC",
+      AdvertiserAccounts: "ALL",
       advertiserId: "",
       // SME Pro: pre-fill with all accounts (single advertiser)
     });
@@ -156,6 +156,7 @@ export default function UsersTab() {
       return;
     }
 
+    console.log(form);
 
     if(form.AdvertiserAccounts === "SPECIFIC" && !form.advertiserId) {
       toast({ title: "Please select at least one advertiser account", variant: "destructive" });
@@ -203,6 +204,8 @@ export default function UsersTab() {
       toast({ title: t("account.fill_required"), variant: "destructive" });
       return;
     }
+
+    console.log(form);
 
     if(form.role !== "ADMIN" &&  form.AdvertiserAccounts === "SPECIFIC" && !form.advertiserId) {
       toast({ title: "Please select at least one advertiser account", variant: "destructive" });
