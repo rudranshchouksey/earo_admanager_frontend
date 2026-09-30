@@ -18,4 +18,10 @@ export const appGridTheme = themeQuartz.withParams({
   wrapperBorderRadius: 8,
   oddRowBackgroundColor: 'hsl(220, 14%, 98%)',
   spacing: 6,
+  checkboxCheckedBackgroundColor: 'hsl(var(--primary))',
+  checkboxCheckedBorderColor: 'hsl(var(--primary))',
+  checkboxCheckedShapeColor: 'hsl(var(--primary-foreground))',
+  checkboxIndeterminateBackgroundColor: 'hsl(var(--primary))',
+  checkboxIndeterminateBorderColor: 'hsl(var(--primary))',
+  checkboxIndeterminateShapeColor: 'hsl(var(--primary-foreground))',
 });

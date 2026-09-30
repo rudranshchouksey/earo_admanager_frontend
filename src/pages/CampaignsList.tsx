@@ -1,15 +1,26 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target, Archive, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 import { AgGridReact } from 'ag-grid-react';
-import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent, type SortChangedEvent } from 'ag-grid-community';
+import { AllCommunityModule, ColDef, type CellClickedEvent, type GetRowIdParams, type ICellRendererParams, type RowSelectionOptions, type SelectionChangedEvent, type SortChangedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { Campaign, campaignApi } from '@/services/campaign';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +40,7 @@ const statusColors: Record<string, string> = {
   scheduled: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-primary/10 text-primary',
+  archived: 'bg-muted text-muted-foreground',
 };
 
 
@@ -55,7 +67,20 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
   );
 };
 
-const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED'];
+// Sorting is server-side, so AG Grid's own comparator is a no-op.
+const DEFAULT_COL_DEF: ColDef = { comparator: () => 0 };
+const getRowId = (p: GetRowIdParams<Campaign>) => p.data.id;
+// Drafts have no AdsWizz ID, so there's nothing to archive or report on yet.
+const ROW_SELECTION: RowSelectionOptions<Campaign> = {
+  mode: 'multiRow',
+  checkboxes: true,
+  headerCheckbox: true,
+  enableClickSelection: false,
+  isRowSelectable: (node) => node.data?.externalRefId != null,
+};
+const SELECTION_COLUMN_DEF: ColDef = { pinned: 'left', width: 44, resizable: false, suppressHeaderMenuButton: true };
+
+const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ARCHIVED'];
 
 export default function CampaignsList() {
   const navigate = useNavigate();
@@ -73,6 +98,8 @@ export default function CampaignsList() {
   const advertiserIdCacheRef = useRef<string | null>(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
+  const gridRef = useRef<AgGridReact<Campaign>>(null);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<Campaign[]>([]);
   const { t } = useTranslation();
   const [dashboardCardData, setDashboardCardData] = useState<CardTotals>({
     attributionCPAInUSD: 0,
@@ -101,6 +128,7 @@ export default function CampaignsList() {
 
   const fetchCampaigns = async () => {
     setLoading(true);
+    setSelectedCampaigns([]);
 
     const session = await auth.getSession();
     if (!session) {
@@ -196,6 +224,38 @@ export default function CampaignsList() {
   }, [fetchCampaigns])
 
 
+  const canManage = role === 'ADMIN' || role === 'EDITOR';
+  const canViewReport = selectedCampaigns.length === 1;
+  const canArchive = selectedCampaigns.every((c) => (c.status as string) !== 'ARCHIVED');
+  const [archiving, setArchiving] = useState(false);
+
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<Campaign>) => {
+    setSelectedCampaigns(e.api.getSelectedRows());
+  }, []);
+
+  const handleArchive = async () => {
+    const advertiserId = advertiserIdCacheRef.current;
+    if (!advertiserId) {
+      toast({ title: t('common.error'), description: 'Unable to archive campaigns', variant: 'destructive' });
+      return;
+    }
+    setArchiving(true);
+    const { error, status, message } = await campaignApi.archiveCampaigns(
+      selectedCampaigns.map((c) => c.externalRefId as number),
+      advertiserId,
+    );
+    setArchiving(false);
+    if (Number(status) !== 200 || error) {
+      toast({ title: t('common.error'), description: typeof message === 'string' ? message : 'Unable to archive campaigns', variant: 'destructive' });
+    } else {
+      toast({ title: `Archived ${selectedCampaigns.length} campaign${selectedCampaigns.length > 1 ? 's' : ''}` });
+    }
+    // Refetch either way (some may have archived on a partial failure), from page 1 in case
+    // the current page is now empty.
+    if (page !== 1) setPage(1);
+    else fetchCampaigns();
+  };
+
   const refresh = () => {
     setPage(1);
     fetchCampaigns();
@@ -266,6 +326,7 @@ export default function CampaignsList() {
 
   const colDefs = useMemo<ColDef[]>(() => [
     {
+      colId: 'actions',
       headerName: '', sortable: false, filter: false,
       width: 80,
       cellRenderer: (params: ICellRendererParams) => (
@@ -356,7 +417,10 @@ export default function CampaignsList() {
     },
   ], [navigate]);
 
-  const onRowClicked = useCallback((e: RowClickedEvent<Campaign>) => {
+  // The selection and action columns handle their own clicks; anywhere else opens the campaign.
+  const onCellClicked = useCallback((e: CellClickedEvent<Campaign>) => {
+    const colId = e.column.getColId();
+    if (colId === 'actions' || colId === 'ag-Grid-SelectionColumn') return;
     if (e.data) navigate(`/dashboard/campaigns/${e.data.id}`);
   }, [navigate]);
 
@@ -435,9 +499,56 @@ export default function CampaignsList() {
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="PAUSED">Paused</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>
+              <SelectItem value="ARCHIVED">Archived</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {selectedCampaigns.length > 0 && (
+          <div className="mx-6 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
+            <p className="text-sm font-medium text-foreground">
+              {selectedCampaigns.length} selected
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => navigate(`/dashboard/reports?campaign=${selectedCampaigns[0].id}`)}
+                disabled={!canViewReport}
+              >
+                <ChartAreaIcon className="h-3.5 w-3.5 mr-1.5" />
+                View report
+              </Button>
+              {canManage && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8" disabled={!canArchive || archiving}>
+                      <Archive className="h-3.5 w-3.5 mr-1.5" />
+                      Archive
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive {selectedCampaigns.length} campaign{selectedCampaigns.length > 1 ? 's' : ''}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Archived campaigns are hidden from this list. You can still find them with the Archived status filter.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleArchive}>Archive</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button variant="ghost" size="sm" className="h-8" onClick={() => gridRef.current?.api.deselectAll()}>
+                <X className="h-3.5 w-3.5 mr-1.5" />
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
         <CardContent>
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
@@ -463,13 +574,18 @@ export default function CampaignsList() {
             <>
               <div className="w-full h-[380px]">
                 <AgGridReact
+                  ref={gridRef}
                   theme={appGridTheme}
                   modules={[AllCommunityModule]}
                   rowData={campaigns}
+                  getRowId={getRowId}
+                  rowSelection={ROW_SELECTION}
+                  selectionColumnDef={SELECTION_COLUMN_DEF}
+                  onSelectionChanged={onSelectionChanged}
                   columnDefs={colDefs}
-                  defaultColDef={{ comparator: () => 0 }}
+                  defaultColDef={DEFAULT_COL_DEF}
                   suppressMultiSort
-                  onRowClicked={onRowClicked}
+                  onCellClicked={onCellClicked}
                   onSortChanged={onSortChanged}
                   suppressCellFocus
                   animateRows
