@@ -120,6 +120,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [organizationSearch, setOrganizationSearch] = useState('');
   const [requestedForAgency, setRequestedForAgency] = useState(false);
   const [scheduleCallOpen, setScheduleCallOpen] = useState(false);
+  const [openFooterGroupId, setOpenFooterGroupId] = useState<string | null>(null);
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -345,6 +346,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     children: getAccountSections({ role, isPro, isAgency }).map((section) => accountLinks[section]),
   };
 
+  // Footer groups open one at a time: they grow upward from the bottom edge, so
+  // stacking several would push the headings (and the clicked target) around.
+  const footerGroups = [accountGroup, billingGroup, supportGroup];
+  const activeFooterGroupId =
+    footerGroups.find((group) => group.children.some((child) => !child.external && isActive(child.path)))?.id ?? null;
+
+  // Auto-expand the group navigation lands in (deep link, breadcrumb, in-page link).
+  useEffect(() => {
+    if (activeFooterGroupId) setOpenFooterGroupId(activeFooterGroupId);
+  }, [activeFooterGroupId]);
+
+  const renderFooterGroup = (group: SidebarGroupItem, collapsed: boolean) => (
+    <SidebarNavGroup
+      key={group.id}
+      group={group}
+      collapsed={collapsed}
+      isActive={isActive}
+      onNavigate={closeMobileSidebar}
+      open={openFooterGroupId === group.id}
+      onOpenChange={(open) => setOpenFooterGroupId(open ? group.id : null)}
+    />
+  );
+
   // The mobile drawer always renders expanded, whatever the desktop rail state is,
   // and has no open/close toggle (the overlay and navigation close it).
   const renderSidebar = (collapsed: boolean, showToggle: boolean) => (
@@ -400,20 +424,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             onNavigate={closeMobileSidebar}
           />
         ))}
-        <div className="pt-2">
+        {/* Sits two nav-item heights below Reports. */}
+        <div className="pt-24">
           <SidebarTooltip label={t('layout.schedule_call')} enabled={collapsed}>
             <Button
               variant="outline"
               size="sm"
-              aria-label={t('layout.schedule_call')}
-              className={cn('h-9 w-full gap-2', collapsed && 'px-0')}
+              aria-label={collapsed ? t('layout.schedule_call') : undefined}
+              className={cn('w-full gap-2', collapsed ? 'h-9 px-0' : 'h-auto justify-start whitespace-normal py-2')}
               onClick={() => {
                 closeMobileSidebar();
                 setScheduleCallOpen(true);
               }}
             >
               <PhoneCall className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{t('layout.schedule_call')}</span>}
+              {!collapsed && (
+                <span className="flex flex-col items-start text-start">
+                  <span>{t('layout.schedule_call')}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{t('layout.schedule_call_subtitle')}</span>
+                </span>
+              )}
             </Button>
           </SidebarTooltip>
         </div>
@@ -421,9 +451,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Footer */}
       <div className="px-3 py-4 space-y-1">
-        <SidebarNavGroup group={accountGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
-        <SidebarNavGroup group={billingGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
-        <SidebarNavGroup group={supportGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
+        {footerGroups.map((group) => renderFooterGroup(group, collapsed))}
         {showAgencySignupBtn && !collapsed && (accountType === "Express" || (accountType === "Pro" && !requestedForAgency)) && (
           <div className="my-2 mx-1 rounded-lg border border-sidebar-border bg-background p-3">
             <Button

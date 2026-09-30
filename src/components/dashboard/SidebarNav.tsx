@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -102,16 +102,13 @@ interface SidebarNavGroupProps {
   collapsed: boolean;
   isActive: (path: string) => boolean;
   onNavigate: () => void;
+  /** Controlled by the parent so only one group is open at a time. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function SidebarNavGroup({ group, collapsed, isActive, onNavigate }: SidebarNavGroupProps) {
+export function SidebarNavGroup({ group, collapsed, isActive, onNavigate, open, onOpenChange }: SidebarNavGroupProps) {
   const childActive = group.children.some((child) => !child.external && isActive(child.path));
-  const [open, setOpen] = useState(childActive);
-
-  // Auto-expand when navigation lands inside this group (deep link, breadcrumb, in-page link).
-  useEffect(() => {
-    if (childActive) setOpen(true);
-  }, [childActive]);
 
   if (group.children.length === 0) return null;
 
@@ -137,7 +134,7 @@ export function SidebarNavGroup({ group, collapsed, isActive, onNavigate }: Side
 
   const Icon = group.icon;
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={open} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className={itemClass(childActive && !open, false)}>
         <Icon className="h-5 w-5 shrink-0" />
         <span className={cn('truncate text-start', childActive && 'text-sidebar-foreground')}>{group.label}</span>
