@@ -339,7 +339,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     label: t('layout.nav_account'),
     icon: Settings,
     badge: (
-      <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-foreground px-1.5 text-[10px] font-semibold text-background">
+      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[10px] font-semibold text-background">
         {accountType}
       </span>
     ),
