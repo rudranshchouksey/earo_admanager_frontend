@@ -424,8 +424,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             onNavigate={closeMobileSidebar}
           />
         ))}
-        {/* Sits two nav-item heights below Reports. */}
-        <div className="pt-24">
+      </nav>
+
+      {/* Footer */}
+      <div className="px-3 py-4 space-y-1">
+        {/* Sits directly above the Account group. */}
+        <div className="pb-2">
           <SidebarTooltip label={t('layout.schedule_call')} enabled={collapsed}>
             <Button
               variant="outline"
@@ -447,10 +451,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Button>
           </SidebarTooltip>
         </div>
-      </nav>
-
-      {/* Footer */}
-      <div className="px-3 py-4 space-y-1">
         {footerGroups.map((group) => renderFooterGroup(group, collapsed))}
         {showAgencySignupBtn && !collapsed && (accountType === "Express" || (accountType === "Pro" && !requestedForAgency)) && (
           <div className="my-2 mx-1 rounded-lg border border-sidebar-border bg-background p-3">
