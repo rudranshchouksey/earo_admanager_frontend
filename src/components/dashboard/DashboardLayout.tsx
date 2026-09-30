@@ -400,8 +400,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             onNavigate={closeMobileSidebar}
           />
         ))}
-        <SidebarNavGroup group={billingGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
-        <SidebarNavGroup group={supportGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
         <div className="pt-2">
           <SidebarTooltip label={t('layout.schedule_call')} enabled={collapsed}>
             <Button
@@ -424,6 +422,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Footer */}
       <div className="px-3 py-4 space-y-1">
         <SidebarNavGroup group={accountGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
+        <SidebarNavGroup group={billingGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
+        <SidebarNavGroup group={supportGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
         {showAgencySignupBtn && !collapsed && (accountType === "Express" || (accountType === "Pro" && !requestedForAgency)) && (
           <div className="my-2 mx-1 rounded-lg border border-sidebar-border bg-background p-3">
             <Button
