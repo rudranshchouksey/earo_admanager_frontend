@@ -350,7 +350,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const renderSidebar = (collapsed: boolean, showToggle: boolean) => (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo + open/close toggle */}
-      <div className={cn('flex items-center h-14 shrink-0 border-b border-sidebar-border px-4', collapsed ? 'justify-center' : 'justify-between')}>
+      <div className={cn('flex items-center h-14 shrink-0 px-4', collapsed ? 'justify-center' : 'justify-between')}>
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -422,7 +422,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
+      <div className="px-3 py-4 space-y-1">
         <SidebarNavGroup group={accountGroup} collapsed={collapsed} isActive={isActive} onNavigate={closeMobileSidebar} />
         {showAgencySignupBtn && !collapsed && (accountType === "Express" || (accountType === "Pro" && !requestedForAgency)) && (
           <div className="my-2 mx-1 rounded-lg border border-sidebar-border bg-background p-3">
