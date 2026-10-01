@@ -2119,7 +2119,7 @@ export default function CampaignWizard() {
     (async () => {
       try {
         const { data: { session } } = await auth.getSession();
-        const ad = await adsApi.getAd(audioId, session?.currentAdvertiserId || "");
+        const ad = await adsApi.getAd(audioId, session?.currentAdvertiserId || "", false);
         const adName = ad?.data?.data?.adName;
         if (adName) setSetup((prev) => ({ ...prev, adName }));
       } catch (err) {
@@ -2152,7 +2152,7 @@ export default function CampaignWizard() {
           let adId = data.data.audioId;
           let adName ="";
           if(adId){
-            const ad = await adsApi.getAd(data.data.audioId, session?.currentAdvertiserId || "");
+            const ad = await adsApi.getAd(data.data.audioId, session?.currentAdvertiserId || "", false);
             if(ad?.data?.data){
               adName = ad.data.data.adName || "";
             }
@@ -2509,7 +2509,7 @@ export default function CampaignWizard() {
               >
                 {saving
                   ? "Launching..."
-                  : "Pay & Launch"}
+                  : "Launch"}
               </Button>
               }
               
