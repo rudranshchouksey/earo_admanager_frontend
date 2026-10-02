@@ -225,7 +225,11 @@ export default function CampaignsList() {
 
 
   const canManage = role === 'ADMIN' || role === 'EDITOR';
-  const canViewReport = selectedCampaigns.length === 1;
+  // Reports leaves out drafts, rejected and archived campaigns, so only send the ones it can show.
+  const reportCampaignIds = selectedCampaigns
+    .filter((c) => c.id && !['DRAFT', 'REJECTED', 'ARCHIVED'].includes(String(c.status).toUpperCase()))
+    .map((c) => c.id as string);
+  const canViewReport = reportCampaignIds.length > 0;
   const canArchive = selectedCampaigns.every((c) => (c.status as string) !== 'ARCHIVED');
   const [archiving, setArchiving] = useState(false);
 
@@ -514,7 +518,7 @@ export default function CampaignsList() {
                 variant="outline"
                 size="sm"
                 className="h-8"
-                onClick={() => navigate(`/dashboard/reports?campaign=${selectedCampaigns[0].id}`)}
+                onClick={() => navigate(`/dashboard/reports?campaign=${reportCampaignIds.join(',')}`)}
                 disabled={!canViewReport}
               >
                 <ChartAreaIcon className="h-3.5 w-3.5 mr-1.5" />

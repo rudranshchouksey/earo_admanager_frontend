@@ -30,6 +30,12 @@ export interface SearchableDropdownProps {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  /** Extra classes for the popover panel (e.g. a width wider than the trigger). */
+  contentClassName?: string;
+  /** Popover alignment relative to the trigger. Defaults to "start". */
+  align?: "start" | "center" | "end";
+  /** Also match the search query against item ids. Turn off for opaque ids (e.g. UUIDs). Defaults to true. */
+  matchIds?: boolean;
   /**
    * Max rows rendered in the open list. Keeps long lists usable.
    * Defaults to 200.
@@ -56,6 +62,9 @@ export function SearchableDropdown({
   emptyMessage = "No results found",
   disabled = false,
   className,
+  contentClassName,
+  align = "start",
+  matchIds = true,
   maxVisibleItems = DEFAULT_MAX_VISIBLE,
   renderItem,
 }: SearchableDropdownProps) {
@@ -81,12 +90,12 @@ export function SearchableDropdown({
     if (!q) return items;
     return items.filter((item) => {
       if (item.label.toLowerCase().includes(q)) return true;
-      if (item.id.toLowerCase().includes(q)) return true;
+      if (matchIds && item.id.toLowerCase().includes(q)) return true;
       if (item.searchText?.toLowerCase().includes(q)) return true;
       if (item.code?.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [items, query]);
+  }, [items, query, matchIds]);
 
   const visibleItems = useMemo(() => {
     if (filteredItems.length <= maxVisibleItems) return filteredItems;
@@ -153,8 +162,8 @@ export function SearchableDropdown({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="z-[100] w-[var(--radix-popover-trigger-width)] p-0 bg-white"
-        align="start"
+        className={cn("z-[100] w-[var(--radix-popover-trigger-width)] p-0 bg-white", contentClassName)}
+        align={align}
         onWheel={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
       >
