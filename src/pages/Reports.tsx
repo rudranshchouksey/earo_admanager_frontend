@@ -27,7 +27,7 @@ import type { DateRange } from 'react-day-picker';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { Campaign, campaignApi, CampaignsResponse } from '@/services/campaign';
+import { Campaign, campaignApi, CampaignsResponse, isReportableCampaign } from '@/services/campaign';
 import { auth } from '@/services/auth';
 import {
   CampaignReport,
@@ -1187,11 +1187,14 @@ export default function Reports() {
     const ids = new Set(selectedCampaignIds);
     return allCampaigns.filter((c) => ids.has(c.id));
   }, [allCampaigns, selectedCampaignIds]);
-  const isSubset = pickedCampaigns.length > 0;
+  // Picking every campaign is the same as "All campaigns".
+  const isSubset = pickedCampaigns.length > 0 && pickedCampaigns.length < allCampaigns.length;
   const campaigns = isSubset ? pickedCampaigns : allCampaigns;
-  const activeCampaignIds = useMemo(() => pickedCampaigns.map((c) => c.id), [pickedCampaigns]);
-  // One campaign gets the detailed single-campaign layout; several (or all) get the comparison layout.
-  const isSingle = pickedCampaigns.length === 1;
+  const activeCampaignIds = useMemo(() => (isSubset ? pickedCampaigns.map((c) => c.id) : []), [pickedCampaigns, isSubset]);
+  // One campaign (including an account that only has one) gets the detailed layout; several get the comparison layout.
+  const isSingle = campaigns.length === 1;
+  // Set when "All campaigns" is unticked in the open dropdown: shows no ticks until one is picked.
+  const [clearedAll, setClearedAll] = useState(false);
   const isMobile = useIsMobile();
   // const { setExtraCrumbs } = usePageBreadcrumb();
   const [campaignsReport, setCampaignsReport] = useState<CampaignReport>();
@@ -1755,7 +1758,7 @@ export default function Reports() {
         }
 
         const excludeDrafts = (data?.data ?? []).filter(
-          (c: Campaign) => c.status.toLowerCase() !== 'draft' && c.status.toLowerCase() !== 'rejected',
+          isReportableCampaign,
         );
         setAllCampaigns(excludeDrafts);
       } finally {
@@ -1789,10 +1792,16 @@ export default function Reports() {
 
   // Drop URL IDs that aren't reportable for this advertiser (stale links, drafts, another advertiser).
   useEffect(() => {
-    if (loading || allCampaigns.length === 0 || selectedCampaignIds.length === activeCampaignIds.length) return;
+    // Also turns a list of every campaign back into a clean "All campaigns" URL.
+    if (loading || allCampaigns.length === 0) return;
+    const wanted = activeCampaignIds.join(',');
+    // Compare as sets: the same campaigns in another order don't need a rewrite (and a refetch).
+    const sameSet = selectedCampaignIds.length === activeCampaignIds.length
+      && selectedCampaignIds.every((id) => activeCampaignIds.includes(id));
+    if (sameSet) return;
     const next = new URLSearchParams(searchParams);
-    if (activeCampaignIds.length === 0) next.delete('campaign');
-    else next.set('campaign', activeCampaignIds.join(','));
+    if (wanted) next.set('campaign', wanted);
+    else next.delete('campaign');
     setSearchParams(next, { replace: true });
   }, [loading, allCampaigns.length, selectedCampaignIds, activeCampaignIds, searchParams, setSearchParams]);
 
@@ -1810,13 +1819,25 @@ export default function Reports() {
   }, [selectedCampaignName]);
 
   const handleCampaignChange = (ids: string[]) => {
-    // Ticking "All campaigns" clears the selection; ticking a campaign drops the "All" tick.
-    const pickedAll = ids.includes('all') && activeCampaignIds.length > 0;
-    const next = pickedAll ? [] : ids.filter((id) => id !== 'all');
-    const nextSet = new Set(next);
-    const nextPicked = allCampaigns.filter((c) => nextSet.has(c.id));
-    const nextCampaigns = nextPicked.length > 0 ? nextPicked : allCampaigns;
-    const range = defaultDateRange(nextCampaigns, nextPicked.length === 1);
+    // "All campaigns" is a real select-all: with it on, every campaign is ticked and unticking one
+    // leaves the rest. Ticking it (or the last missing campaign) selects all again. Unticking it
+    // clears every tick while the dropdown is open, so one campaign is two clicks away; the report
+    // keeps showing all until something is ticked, and closing the dropdown empty restores all.
+    const hasAll = ids.includes('all');
+    if (clearedAll) {
+      setClearedAll(false);
+      if (hasAll) return;
+    } else if (!isSubset && !hasAll) {
+      setClearedAll(true);
+      return;
+    }
+    const pickedSet = new Set(ids.filter((id) => id !== 'all'));
+    // allCampaigns order, so the URL matches what the cleanup effect expects and isn't rewritten.
+    const nextPicked = allCampaigns.filter((c) => pickedSet.has(c.id));
+    const selectAll = (isSubset && hasAll) || nextPicked.length === 0 || nextPicked.length >= allCampaigns.length;
+    const next = selectAll ? [] : nextPicked.map((c) => c.id);
+    const nextCampaigns = selectAll ? allCampaigns : nextPicked;
+    const range = defaultDateRange(nextCampaigns, nextCampaigns.length === 1);
     rangeKeyRef.current = nextCampaigns.map((c) => c.id).join(',');
     if (range) setDateRange(range);
 
@@ -1827,10 +1848,11 @@ export default function Reports() {
     setSearchParams(params, { replace: true });
   };
 
+  const allCampaignOptionIds = useMemo(() => ['all', ...allCampaigns.map((c) => c.id)], [allCampaigns]);
   const campaignOptions = useMemo(
     () => [
       { id: 'all', label: 'All campaigns' },
-      ...allCampaigns.map((c) => ({ id: c.id, label: c.campaignName })),
+      ...allCampaigns.map((c) => ({ id: c.id, label: c.campaignName ?? c.id })),
     ],
     [allCampaigns],
   );
@@ -2545,7 +2567,9 @@ export default function Reports() {
           <DateRangePicker value={dateRange} onChange={setDateRange} isMobile={isMobile} tzLabel={tzLabel} />
           <SearchableDropdown
             items={campaignOptions}
-            selectedIds={activeCampaignIds.length > 0 ? activeCampaignIds : ['all']}
+            selectedIds={clearedAll ? [] : isSubset ? activeCampaignIds : allCampaignOptionIds}
+            triggerLabel={isSubset ? undefined : 'All campaigns'}
+            onOpenChange={(open) => { if (!open) setClearedAll(false); }}
             onSelectionChange={handleCampaignChange}
             selectionMode="multi"
             placeholder="All campaigns"
@@ -2593,7 +2617,6 @@ export default function Reports() {
               ? periodComparison.spent.previous / (periodComparison.impressions.previous / 1000)
               : kpis.avgCpm;
             const cpmDeltaPct = prevCpm > 0 ? ((kpis.avgCpm - prevCpm) / prevCpm) * 100 : 0;
-            const isAll = !isSingle;
             return (
               <CampaignKpiSummary
                 status={{ label: pacing.statusLabel, tone: pacing.statusTone }}
@@ -2602,8 +2625,8 @@ export default function Reports() {
                 budget={{ spent: kpis.totalSpent, total: kpis.totalBudget }}
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
-                cpa={{ value:( isAll ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
-                cpm={{ value:( isAll ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                cpa={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                cpm={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
                 loading={reportLoading.campaignReport}
                 />
@@ -2637,19 +2660,19 @@ export default function Reports() {
             <CardContent>
               <ChartLoadingShell loading={reportLoading.campaignReport} minHeight={320}>
               <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={!isSingle && campaigns.length > 1 ? stackedChartData : dailyChartData}>
+                <ComposedChart data={campaigns.length > 1 ? stackedChartData : dailyChartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
                     content={
-                      !isSingle && campaigns.length > 1
+                      campaigns.length > 1
                         ? <StackedCampaignTooltip metric={reportMetric} />
                         : <AllMetricsTooltip selectedMetric={reportMetric} />
                     }
                     cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
                   />
-                  {!isSingle && campaigns.length > 1 ? (
+                  {campaigns.length > 1 ? (
                     campaigns.map((c, i) => (
                       <Bar
                         key={c.id ?? String(c.externalRefId)}

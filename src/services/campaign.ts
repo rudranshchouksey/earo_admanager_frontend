@@ -91,6 +91,10 @@ export interface Campaign {
   updatedAt?: string;
 }
 
+/** Reports leaves out drafts, rejected and archived campaigns (no delivery to report on). */
+export const isReportableCampaign = (c: Campaign) =>
+  !['draft', 'rejected', 'archived'].includes(String(c.status).toLowerCase());
+
 export interface CampaignsResponse {
   status: number;
   message: string;

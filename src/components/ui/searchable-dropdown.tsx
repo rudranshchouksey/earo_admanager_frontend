@@ -34,6 +34,10 @@ export interface SearchableDropdownProps {
   contentClassName?: string;
   /** Popover alignment relative to the trigger. Defaults to "start". */
   align?: "start" | "center" | "end";
+  /** Called when the popover opens or closes. */
+  onOpenChange?: (open: boolean) => void;
+  /** Overrides the trigger text (e.g. "All campaigns" when every item is ticked). */
+  triggerLabel?: string;
   /** Also match the search query against item ids. Turn off for opaque ids (e.g. UUIDs). Defaults to true. */
   matchIds?: boolean;
   /**
@@ -65,6 +69,8 @@ export function SearchableDropdown({
   contentClassName,
   align = "start",
   matchIds = true,
+  triggerLabel: triggerLabelOverride,
+  onOpenChange,
   maxVisibleItems = DEFAULT_MAX_VISIBLE,
   renderItem,
 }: SearchableDropdownProps) {
@@ -105,13 +111,14 @@ export function SearchableDropdown({
   const hiddenCount = Math.max(0, filteredItems.length - visibleItems.length);
 
   const triggerLabel =
-    selectedLabels.length === 0
+    triggerLabelOverride ??
+    (selectedLabels.length === 0
       ? placeholder
       : selectionMode === "single"
         ? selectedLabels[0]
         : selectedLabels.length === 1
           ? selectedLabels[0]
-          : `${selectedLabels.length} selected`;
+          : `${selectedLabels.length} selected`);
 
   const handleSelect = (rawValue: string) => {
     const match =
@@ -140,6 +147,7 @@ export function SearchableDropdown({
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) setQuery("");
+    onOpenChange?.(next);
   };
 
   return (

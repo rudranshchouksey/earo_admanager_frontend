@@ -22,7 +22,8 @@ import {
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type CellClickedEvent, type GetRowIdParams, type ICellRendererParams, type RowSelectionOptions, type SelectionChangedEvent, type SortChangedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
-import { Campaign, campaignApi } from '@/services/campaign';
+import { Campaign, campaignApi, isReportableCampaign } from '@/services/campaign';
+import { logger } from '@/lib/logger';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { auth } from '@/services/auth';
@@ -225,12 +226,12 @@ export default function CampaignsList() {
 
 
   const canManage = role === 'ADMIN' || role === 'EDITOR';
-  // Reports leaves out drafts, rejected and archived campaigns, so only send the ones it can show.
+  // Only send campaigns Reports can show.
   const reportCampaignIds = selectedCampaigns
-    .filter((c) => c.id && !['DRAFT', 'REJECTED', 'ARCHIVED'].includes(String(c.status).toUpperCase()))
+    .filter((c) => c.id && isReportableCampaign(c))
     .map((c) => c.id as string);
   const canViewReport = reportCampaignIds.length > 0;
-  const canArchive = selectedCampaigns.every((c) => (c.status as string) !== 'ARCHIVED');
+  const canArchive = selectedCampaigns.every((c) => String(c.status).toUpperCase() !== 'ARCHIVED');
   const [archiving, setArchiving] = useState(false);
 
   const onSelectionChanged = useCallback((e: SelectionChangedEvent<Campaign>) => {
@@ -244,15 +245,21 @@ export default function CampaignsList() {
       return;
     }
     setArchiving(true);
-    const { error, status, message } = await campaignApi.archiveCampaigns(
-      selectedCampaigns.map((c) => c.externalRefId as number),
-      advertiserId,
-    );
-    setArchiving(false);
-    if (Number(status) !== 200 || error) {
-      toast({ title: t('common.error'), description: typeof message === 'string' ? message : 'Unable to archive campaigns', variant: 'destructive' });
-    } else {
-      toast({ title: `Archived ${selectedCampaigns.length} campaign${selectedCampaigns.length > 1 ? 's' : ''}` });
+    try {
+      const { error, status, message } = await campaignApi.archiveCampaigns(
+        selectedCampaigns.map((c) => c.externalRefId as number),
+        advertiserId,
+      );
+      if (Number(status) !== 200 || error) {
+        toast({ title: t('common.error'), description: typeof message === 'string' ? message : 'Unable to archive campaigns', variant: 'destructive' });
+      } else {
+        toast({ title: `Archived ${selectedCampaigns.length} campaign${selectedCampaigns.length > 1 ? 's' : ''}` });
+      }
+    } catch (err) {
+      logger.captureException(err);
+      toast({ title: t('common.error'), description: 'Unable to archive campaigns', variant: 'destructive' });
+    } finally {
+      setArchiving(false);
     }
     // Refetch either way (some may have archived on a partial failure), from page 1 in case
     // the current page is now empty.
@@ -424,7 +431,8 @@ export default function CampaignsList() {
   // The selection and action columns handle their own clicks; anywhere else opens the campaign.
   const onCellClicked = useCallback((e: CellClickedEvent<Campaign>) => {
     const colId = e.column.getColId();
-    if (colId === 'actions' || colId === 'ag-Grid-SelectionColumn') return;
+    // The checkbox cell only swallows the click on rows that can be selected (not drafts).
+    if (colId === 'actions' || (colId === 'ag-Grid-SelectionColumn' && e.node.selectable)) return;
     if (e.data) navigate(`/dashboard/campaigns/${e.data.id}`);
   }, [navigate]);
 
