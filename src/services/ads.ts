@@ -733,10 +733,10 @@ export interface GenerateAudioAdResponse {
 }
 
 export const adsApi = {
-  getAd: (adId: string, advertiserId: string) =>
+  getAd: (adId: string, advertiserId: string, loadAssets: boolean = true) =>
     request<AdResponse>("/api/v1/creatives/getAd", {
       method: "POST",
-      body: { id: adId, advertiserId: advertiserId },
+      body: { id: adId, advertiserId: advertiserId, loadAssets: loadAssets },
     }),
 
   /** Fetches ads for a specific user */
