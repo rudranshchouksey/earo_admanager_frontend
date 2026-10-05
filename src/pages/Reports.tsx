@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableDropdown } from '@/components/ui/searchable-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ import type { DateRange } from 'react-day-picker';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCards, MobileStatRow } from '@/components/ui/mobile-data-card';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { Campaign, campaignApi, CampaignsResponse } from '@/services/campaign';
+import { Campaign, campaignApi, CampaignsResponse, isReportableCampaign } from '@/services/campaign';
 import { auth } from '@/services/auth';
 import {
   CampaignReport,
@@ -524,14 +525,30 @@ function formatLocationLabel(value?: string): string {
     .join(' ');
 }
 
-function resolveReportCampaignIds(allCampaigns: Campaign[], selectedCampaignId: string): number[] {
-  if (selectedCampaignId === 'all') {
-    return allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id));
+// Campaigns not yet synced to AdsWizz have no externalRefId (Number(null) is 0), so skip them.
+function resolveReportCampaignIds(campaigns: Campaign[]): number[] {
+  return campaigns.map((c) => Number(c.externalRefId)).filter((id) => Number.isFinite(id) && id > 0);
+}
+
+// Default report window: a single campaign's flight (capped at today), or earliest start → today for several.
+function defaultDateRange(campaigns: Campaign[], single: boolean): { from: Date; to: Date } | null {
+  const today = new Date();
+  if (single) {
+    const from = parseISO(campaigns[0]?.startDate || "");
+    const end = parseISO(campaigns[0]?.endDate || "");
+    const to = !isNaN(end.getTime()) && end < today ? end : today;
+    return isNaN(from.getTime()) ? null : { from, to };
   }
-  return allCampaigns
-    .filter((c) => c.id === selectedCampaignId)
-    .map((c) => Number(c.externalRefId))
-    .filter((id) => !Number.isNaN(id));
+  const earliest = campaigns
+    .map(c => parseISO(c.startDate || ""))
+    .filter(d => !isNaN(d.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  return earliest ? { from: earliest, to: today } : null;
+}
+
+// `?campaign=` holds a comma-separated list of campaign IDs; empty means all campaigns.
+function parseCampaignParam(value: string | null): string[] {
+  return (value ?? '').split(',').map((id) => id.trim()).filter(Boolean);
 }
 
 function mapCountryToChartRow(row: CountryReportRow): LocationChartRow {
@@ -1161,8 +1178,24 @@ export default function Reports() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(searchParams.get('campaign') || 'all');
   const [loading, setLoading] = useState(true);
+
+  // The URL is the source of truth for the selection, so Back/Forward and the sidebar link stay in sync.
+  const campaignParam = searchParams.get('campaign');
+  const selectedCampaignIds = useMemo(() => parseCampaignParam(campaignParam), [campaignParam]);
+  // Selected campaigns that exist in the loaded list; empty means nothing (valid) is selected.
+  const pickedCampaigns = useMemo(() => {
+    const ids = new Set(selectedCampaignIds);
+    return allCampaigns.filter((c) => ids.has(c.id));
+  }, [allCampaigns, selectedCampaignIds]);
+  // Picking every campaign is the same as "All campaigns".
+  const isSubset = pickedCampaigns.length > 0 && pickedCampaigns.length < allCampaigns.length;
+  const campaigns = isSubset ? pickedCampaigns : allCampaigns;
+  const activeCampaignIds = useMemo(() => (isSubset ? pickedCampaigns.map((c) => c.id) : []), [pickedCampaigns, isSubset]);
+  // One campaign (including an account that only has one) gets the detailed layout; several get the comparison layout.
+  const isSingle = campaigns.length === 1;
+  // Set when "All campaigns" is unticked in the open dropdown: shows no ticks until one is picked.
+  const [clearedAll, setClearedAll] = useState(false);
   const isMobile = useIsMobile();
   // const { setExtraCrumbs } = usePageBreadcrumb();
   const [campaignsReport, setCampaignsReport] = useState<CampaignReport>();
@@ -1221,10 +1254,10 @@ export default function Reports() {
   const [reportMetric, setReportMetric] = useState<MetricKey>('impressions');
   // LTR is only available per-campaign; reset if user switches back to All Campaigns
   useEffect(() => {
-    if (selectedCampaignId === 'all' && reportMetric === 'ltr') {
+    if (!isSingle && reportMetric === 'ltr') {
       setReportMetric('impressions');
     }
-  }, [selectedCampaignId, reportMetric]);
+  }, [isSingle, reportMetric]);
   
   const [countryMetric, setCountryMetric] = useState<MetricKey>('impressions');
   const [cityMetric, setCityMetric] = useState<MetricKey>('impressions');
@@ -1250,7 +1283,7 @@ export default function Reports() {
     setImpressionsShareByCampaigns(null);
     setCampaignPerformanceRows(null);
     setReportLoading(allCampaigns.length > 0 ? ALL_REPORT_LOADING : NO_REPORT_LOADING);
-  }, [selectedCampaignId, dateRange.from, dateRange.to, allCampaigns.length]);
+  }, [campaigns, dateRange.from, dateRange.to, allCampaigns.length]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1267,13 +1300,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds =
-          selectedCampaignId === 'all'
-            ? allCampaigns.map((c) => Number(c.externalRefId)).filter((id) => !Number.isNaN(id))
-            : allCampaigns
-                .filter((c) => c.id === selectedCampaignId)
-                .map((c) => Number(c.externalRefId))
-                .filter((id) => !Number.isNaN(id));
+        const campaignIds = resolveReportCampaignIds(campaigns);
 
         if (campaignIds.length === 0) return;
 
@@ -1310,7 +1337,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to, granularity]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to, granularity]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1327,7 +1354,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.GetCountryCityReport({
@@ -1358,7 +1385,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1375,7 +1402,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.GetContentInventory({
@@ -1406,7 +1433,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1423,7 +1450,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.GetAdDelivery({
@@ -1454,7 +1481,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0) {
@@ -1471,7 +1498,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.GetShowName({
@@ -1502,7 +1529,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1519,7 +1546,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.getImpressionsByFiltered({
@@ -1549,7 +1576,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1566,7 +1593,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.ImpressionsShareByCampaigns({
@@ -1597,7 +1624,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to]);
 
   useEffect(() => {
     if (allCampaigns.length === 0){
@@ -1614,7 +1641,7 @@ export default function Reports() {
         const { data: { session: sessionData } } = await auth.getSession();
         if (!sessionData?.currentAdvertiserId) return;
 
-        const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+        const campaignIds = resolveReportCampaignIds(campaigns);
         if (campaignIds.length === 0) return;
 
         const { data, status, error } = await reportsApi.getCampaignPerformance({
@@ -1645,7 +1672,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to, gridGranularity]);
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to, gridGranularity]);
 
   useEffect(() => {
     const loadAllReports = async () => {
@@ -1661,7 +1688,7 @@ export default function Reports() {
       }
 
 
-      const campaignIds = resolveReportCampaignIds(allCampaigns, selectedCampaignId);
+      const campaignIds = resolveReportCampaignIds(campaigns);
       if (campaignIds.length === 0) return;
 
       const getListeningHeatMap = async () => {
@@ -1703,7 +1730,7 @@ export default function Reports() {
 
     if (allCampaigns.length === 0) return;
     loadAllReports();
-  }, [allCampaigns, selectedCampaignId, dateRange.from, dateRange.to])
+  }, [allCampaigns, campaigns, dateRange.from, dateRange.to])
   
 
   useEffect(() => {
@@ -1732,7 +1759,7 @@ export default function Reports() {
         }
 
         const excludeDrafts = (data?.data ?? []).filter(
-          (c: Campaign) => c.status.toLowerCase() !== 'draft' && c.status.toLowerCase() !== 'rejected',
+          isReportableCampaign,
         );
         setAllCampaigns(excludeDrafts);
       } finally {
@@ -1752,37 +1779,35 @@ export default function Reports() {
     };
   }, []);
 
+  // Last campaign set the date range was defaulted for. handleCampaignChange sets the range in the
+  // same update as the selection, so the report effects fire once instead of twice per tick.
+  const rangeKeyRef = useRef<string | null>(null);
+  const campaignsKey = campaigns.map((c) => c.id).join(',');
   useEffect(() => {
-    if (allCampaigns.length === 0) return;
-    const today = new Date();
-    if (selectedCampaignId === 'all') {
-      const earliest = allCampaigns
-        .map(c => parseISO(c.startDate || ""))
-        .filter(d => !isNaN(d.getTime()))
-        .sort((a, b) => a.getTime() - b.getTime())[0];
-      if (earliest) setDateRange({ from: earliest, to: today });
-    } else {
-      const c = allCampaigns.find(x => x.id === selectedCampaignId);
-      if (c) {
-        const from = parseISO(c.startDate || "");
-        const end = parseISO(c.endDate || "");
-        const to = !isNaN(end.getTime()) && end < today ? end : today;
-        if (!isNaN(from.getTime())) setDateRange({ from, to });
-      }
-    }
+    if (allCampaigns.length === 0 || rangeKeyRef.current === campaignsKey) return;
+    rangeKeyRef.current = campaignsKey;
+    const range = defaultDateRange(campaigns, isSingle);
+    if (range) setDateRange(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCampaignId, allCampaigns]);
+  }, [campaignsKey, allCampaigns.length]);
 
-  const campaigns = useMemo(() => {
-    if (selectedCampaignId === 'all') return allCampaigns;
-    return allCampaigns.filter((c) => c.id === selectedCampaignId);
-  }, [allCampaigns, selectedCampaignId]);
+  // Drop URL IDs that aren't reportable for this advertiser (stale links, drafts, another advertiser).
+  useEffect(() => {
+    // Also turns a list of every campaign back into a clean "All campaigns" URL.
+    if (loading || allCampaigns.length === 0) return;
+    const wanted = activeCampaignIds.join(',');
+    // Compare as sets: the same campaigns in another order don't need a rewrite (and a refetch).
+    const sameSet = selectedCampaignIds.length === activeCampaignIds.length
+      && selectedCampaignIds.every((id) => activeCampaignIds.includes(id));
+    if (sameSet) return;
+    const next = new URLSearchParams(searchParams);
+    if (wanted) next.set('campaign', wanted);
+    else next.delete('campaign');
+    setSearchParams(next, { replace: true });
+  }, [loading, allCampaigns.length, selectedCampaignIds, activeCampaignIds, searchParams, setSearchParams]);
 
-  const selectedCampaign = useMemo(() => {
-    if (selectedCampaignId === 'all') return null;
-    return allCampaigns.find((c) => c.id === selectedCampaignId) || null;
-  }, [allCampaigns, selectedCampaignId]);
-  const selectedCampaignName = selectedCampaign?.name || null;
+  const selectedCampaign = isSingle ? campaigns[0] : null;
+  const selectedCampaignName = selectedCampaign?.campaignName || null;
 
   useEffect(() => {
     if (selectedCampaignName && selectedCampaignName.length > 20) {
@@ -1794,15 +1819,44 @@ export default function Reports() {
     }
   }, [selectedCampaignName]);
 
-  const handleCampaignChange = (value: string) => {
-    setSelectedCampaignId(value);
-    if (value === 'all') {
-      searchParams.delete('campaign');
-    } else {
-      searchParams.set('campaign', value);
+  const handleCampaignChange = (ids: string[]) => {
+    // "All campaigns" is a real select-all: with it on, every campaign is ticked and unticking one
+    // leaves the rest. Ticking it (or the last missing campaign) selects all again. Unticking it
+    // clears every tick while the dropdown is open, so one campaign is two clicks away; the report
+    // keeps showing all until something is ticked, and closing the dropdown empty restores all.
+    const hasAll = ids.includes('all');
+    if (clearedAll) {
+      setClearedAll(false);
+      if (hasAll) return;
+    } else if (!isSubset && !hasAll) {
+      setClearedAll(true);
+      return;
     }
-    setSearchParams(searchParams);
+    const pickedSet = new Set(ids.filter((id) => id !== 'all'));
+    // allCampaigns order, so the URL matches what the cleanup effect expects and isn't rewritten.
+    const nextPicked = allCampaigns.filter((c) => pickedSet.has(c.id));
+    const selectAll = (isSubset && hasAll) || nextPicked.length === 0 || nextPicked.length >= allCampaigns.length;
+    const next = selectAll ? [] : nextPicked.map((c) => c.id);
+    const nextCampaigns = selectAll ? allCampaigns : nextPicked;
+    const range = defaultDateRange(nextCampaigns, nextCampaigns.length === 1);
+    rangeKeyRef.current = nextCampaigns.map((c) => c.id).join(',');
+    if (range) setDateRange(range);
+
+    const params = new URLSearchParams(searchParams);
+    if (next.length === 0) params.delete('campaign');
+    else params.set('campaign', next.join(','));
+    // replace: ticking through the open dropdown shouldn't stack a history entry per click.
+    setSearchParams(params, { replace: true });
   };
+
+  const allCampaignOptionIds = useMemo(() => ['all', ...allCampaigns.map((c) => c.id)], [allCampaigns]);
+  const campaignOptions = useMemo(
+    () => [
+      { id: 'all', label: 'All campaigns' },
+      ...allCampaigns.map((c) => ({ id: c.id, label: c.campaignName ?? c.id })),
+    ],
+    [allCampaigns],
+  );
 
   const kpis = useMemo(() => {
     if(!campaignsReport) return { bookedImpressions: 0, totalImpressions: 0, totalReach: 0, totalSpent: 0, avgLtr: 0, totalConversions: 0, budgetUtil: 0, cpa: 0, totalBudget: 0, impressionsGoal: 0, avgCpm: 0 };
@@ -2514,17 +2568,21 @@ export default function Reports() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <DateRangePicker value={dateRange} onChange={setDateRange} isMobile={isMobile} tzLabel={tzLabel} />
-          <Select value={selectedCampaignId} onValueChange={handleCampaignChange}>
-            <SelectTrigger className="w-52 h-9 focus:ring-0 focus:ring-offset-0">
-              <SelectValue placeholder="All Campaigns" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Campaigns</SelectItem>
-              {allCampaigns.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.campaignName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableDropdown
+            items={campaignOptions}
+            selectedIds={clearedAll ? [] : isSubset ? activeCampaignIds : allCampaignOptionIds}
+            triggerLabel={isSubset ? undefined : 'All campaigns'}
+            onOpenChange={(open) => { if (!open) setClearedAll(false); }}
+            onSelectionChange={handleCampaignChange}
+            selectionMode="multi"
+            placeholder="All campaigns"
+            searchPlaceholder="Search campaigns..."
+            emptyMessage="No campaigns found"
+            matchIds={false}
+            className="w-52 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            contentClassName="w-[min(32rem,calc(100vw-2rem))]"
+            align="end"
+          />
         </div>
       </div>
 
@@ -2562,7 +2620,6 @@ export default function Reports() {
               ? periodComparison.spent.previous / (periodComparison.impressions.previous / 1000)
               : kpis.avgCpm;
             const cpmDeltaPct = prevCpm > 0 ? ((kpis.avgCpm - prevCpm) / prevCpm) * 100 : 0;
-            const isAll = selectedCampaignId === 'all';
             return (
               <CampaignKpiSummary
                 status={{ label: pacing.statusLabel, tone: pacing.statusTone }}
@@ -2571,8 +2628,11 @@ export default function Reports() {
                 budget={{ spent: kpis.totalSpent, total: kpis.totalBudget }}
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
-                cpa={{ value:isAll ? null : kpis.cpa, deltaPct: null, series: null }}
-                cpm={{ value:( isAll ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                
+                cpa={{ value:( !isSingle ? null : kpis.cpa, deltaPct: null, series: null }}
+                cpm={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                
+                
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
                 loading={reportLoading.campaignReport}
                 />
@@ -2583,7 +2643,7 @@ export default function Reports() {
           <Card>
             <CardHeader className="pb-2 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <CardTitle className="text-base">{selectedCampaignId === 'all' ? 'All campaign reports' : 'Campaign Report'}</CardTitle>
+                <CardTitle className="text-base">{isSingle ? 'Campaign Report' : isSubset ? 'Selected campaign reports' : 'All campaign reports'}</CardTitle>
                 <div className="flex items-center gap-2 flex-wrap">
                   {groupingConfig.options.length > 0 && (
                     <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
@@ -2599,26 +2659,26 @@ export default function Reports() {
                       </SelectContent>
                     </Select>
                   )}
-                  <MetricDropdown value={reportMetric} onChange={setReportMetric} extraKeys={selectedCampaignId === 'all' ? undefined : ['ltr']} />
+                  <MetricDropdown value={reportMetric} onChange={setReportMetric} extraKeys={isSingle ? ['ltr'] : undefined} />
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <ChartLoadingShell loading={reportLoading.campaignReport} minHeight={320}>
               <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={selectedCampaignId === 'all' && campaigns.length > 1 ? stackedChartData : dailyChartData}>
+                <ComposedChart data={campaigns.length > 1 ? stackedChartData : dailyChartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
                     content={
-                      selectedCampaignId === 'all' && campaigns.length > 1
+                      campaigns.length > 1
                         ? <StackedCampaignTooltip metric={reportMetric} />
                         : <AllMetricsTooltip selectedMetric={reportMetric} />
                     }
                     cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
                   />
-                  {selectedCampaignId === 'all' && campaigns.length > 1 ? (
+                  {campaigns.length > 1 ? (
                     campaigns.map((c, i) => (
                       <Bar
                         key={c.id ?? String(c.externalRefId)}
@@ -2644,7 +2704,7 @@ export default function Reports() {
           </Card>
 
           {/* ─── Per-Campaign Charts (All Campaigns view) ─── */}
-          {selectedCampaignId === 'all'  && (
+          {!isSingle && (
             <div className="grid grid-cols-1 gap-4">
               {/* LTR per campaign */}
               <Card>
@@ -2723,7 +2783,7 @@ export default function Reports() {
             </div>
           )}
 
-          {selectedCampaignId !== 'all' && (
+          {isSingle && (
             <>
               {/* ─── Bar Chart 2: Country ─── */}
               <HorizontalBarChartCard
@@ -2787,10 +2847,10 @@ export default function Reports() {
             </>
           )}
           {/* Campaign Overview Grid (All Campaigns view only) */}
-          {selectedCampaignId === 'all' && (
+          {!isSingle && (
             <Card>
               <CardHeader>
-                <CardTitle>All campaigns overview</CardTitle>
+                <CardTitle>{isSubset ? 'Selected campaigns overview' : 'All campaigns overview'}</CardTitle>
               </CardHeader>
               <CardContent>
                 <AgGridReact
@@ -2809,7 +2869,7 @@ export default function Reports() {
           {/* Performance Grid */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>{selectedCampaignId === 'all' ? 'All campaigns performance' : 'Campaign Performance'}</CardTitle>
+              <CardTitle>{isSingle ? 'Campaign Performance' : isSubset ? 'Selected campaigns performance' : 'All campaigns performance'}</CardTitle>
               <div className="flex items-center gap-2">
                 <Select value={gridGranularity} onValueChange={(v) => setGridGranularity(v as Granularity)}>
                   <SelectTrigger className="w-32 h-9 focus:ring-0 focus:ring-offset-0">
