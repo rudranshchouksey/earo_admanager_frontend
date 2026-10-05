@@ -374,7 +374,7 @@ export default function CampaignsList() {
           return null;
         }
       },
-      valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
+      valueFormatter: (p) => p.value != null ? `$${Number(p.value ?? 0)?.toFixed(2)}` : '—',
       sortable: false,
     },
   ], [navigate]);
@@ -424,7 +424,7 @@ export default function CampaignsList() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard label="Total Impressions" value={dashboardCardData.impressions.toLocaleString()} icon={Eye} loading={loadingDashboardData} />
-        <StatCard label="Total Spend" value={`$${dashboardCardData.totalSpend?.toFixed(2).toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
+        <StatCard label="Total Spend" value={`$${dashboardCardData.totalSpend?.toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
         <StatCard label="Total Reach" value={dashboardCardData.demandAudioReachUniqueUsers.toLocaleString()} icon={MousePointerClick} loading={loadingDashboardData} />
         <StatCard label="CPA" value={`$${dashboardCardData.attributionCPAInUSD.toFixed(2)}`} icon={Target} loading={loadingDashboardData} />
   

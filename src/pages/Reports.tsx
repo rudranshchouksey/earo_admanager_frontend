@@ -465,6 +465,7 @@ function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
       cardTotals: aggregateCardTotalsFromDailyRows(dailyRows),
       PerformanceTotals: dailyRows,
       data: dailyRows,
+      campaignDetails: payload[0] as CampaignReport['campaignDetails'],
     };
   }
 
@@ -485,7 +486,7 @@ function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
   if (!rawData || rawData.length === 0) {
     const cardTotals = record.cardTotals as CampaignReportCardTotals | undefined;
     if (cardTotals) {
-      return { cardTotals, PerformanceTotals: [], data: [] };
+      return { cardTotals, PerformanceTotals: [], data: [], campaignDetails: record.campaignDetails as CampaignReport['campaignDetails'] };
     }
     return null;
   }
@@ -494,7 +495,7 @@ function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
   if (dailyRows.length === 0) {
     const cardTotals = record.cardTotals as CampaignReportCardTotals | undefined;
     if (cardTotals) {
-      return { cardTotals, PerformanceTotals: [], data: [] };
+      return { cardTotals, PerformanceTotals: [], data: [], campaignDetails: record.campaignDetails as CampaignReport['campaignDetails'] };
     }
     return null;
   }
@@ -503,7 +504,7 @@ function parseCampaignReportsPayload(payload: unknown): CampaignReport | null {
     (record.cardTotals as CampaignReportCardTotals | undefined) ??
     aggregateCardTotalsFromDailyRows(dailyRows);
 
-  return { cardTotals, PerformanceTotals: dailyRows, data: dailyRows };
+  return { cardTotals, PerformanceTotals: dailyRows, data: dailyRows, campaignDetails: record.campaignDetails as CampaignReport['campaignDetails'] };
 }
 
 type LocationChartRow = {
@@ -1869,6 +1870,8 @@ export default function Reports() {
     const budgetUtil = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
     let campaignGoal = 0;
     const bookedImpressions = campaignsReport.cardTotals.totalImpressions ?? 0;
+    const cpm = campaignsReport?.campaignDetails?.cpm ?? 0;
+
 
     try{
 
@@ -1893,7 +1896,7 @@ export default function Reports() {
     const impressionsGoal = campaignGoal;
 
 
-    const cpa = ((totalBudget/impressionsGoal)*1000);
+    const cpa = cpm;
 
     const avgCpm = campaignsReport.cardTotals.demandECPM ?? 0;
     return { bookedImpressions, totalImpressions, totalReach, totalSpent, avgLtr, totalConversions, budgetUtil, cpa, totalBudget, impressionsGoal, avgCpm };
@@ -2478,7 +2481,7 @@ export default function Reports() {
         name: d.name,
         impressions: d.value,
         reach: d.reach ? Number(d.reach) : 0,
-        spend: d.spent ? Number(d.spent) : 0,
+        spend: d.spent ? Number(d.spent).toFixed(2) : '0.00',
         ltr: d.ltr ? Number(d.ltr) : 0,
         color: COLORS[i % COLORS.length],
       };
@@ -2527,7 +2530,7 @@ export default function Reports() {
                           </td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.impressions.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.reach.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">${r.spend ? Number(r.spend).toFixed(2) : '0.00'}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-foreground">{r.spend}</td>
                           <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{r.ltr ? Number(r.ltr).toFixed(0) : '0'}%</td>
                         </tr>
                       ))}
@@ -2625,8 +2628,11 @@ export default function Reports() {
                 budget={{ spent: kpis.totalSpent, total: kpis.totalBudget }}
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
-                cpa={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                
+                cpa={{ value:( !isSingle ? null : kpis.cpa, deltaPct: null, series: null }}
                 cpm={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                
+                
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
                 loading={reportLoading.campaignReport}
                 />
