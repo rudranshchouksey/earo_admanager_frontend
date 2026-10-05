@@ -101,6 +101,7 @@ export interface CreditInvoice {
     deletedAt: string | null;
     invoiceMonth: string;
     paymentStatus: string;
+    url: string;
 }
 
 export interface CreditInvoiceResponse {
