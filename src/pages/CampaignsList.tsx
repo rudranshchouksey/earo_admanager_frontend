@@ -1,29 +1,17 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target, Archive, X } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ColDef, type CellClickedEvent, type GetRowIdParams, type ICellRendererParams, type RowSelectionOptions, type SelectionChangedEvent, type SortChangedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
 import { Campaign, campaignApi, isReportableCampaign } from '@/services/campaign';
-import { logger } from '@/lib/logger';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { auth } from '@/services/auth';
@@ -41,7 +29,6 @@ const statusColors: Record<string, string> = {
   scheduled: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-primary/10 text-primary',
-  archived: 'bg-muted text-muted-foreground',
 };
 
 
@@ -71,17 +58,17 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
 // Sorting is server-side, so AG Grid's own comparator is a no-op.
 const DEFAULT_COL_DEF: ColDef = { comparator: () => 0 };
 const getRowId = (p: GetRowIdParams<Campaign>) => p.data.id;
-// Drafts have no AdsWizz ID, so there's nothing to archive or report on yet.
+// The only bulk action is View report, so only campaigns Reports can show are selectable.
 const ROW_SELECTION: RowSelectionOptions<Campaign> = {
   mode: 'multiRow',
   checkboxes: true,
   headerCheckbox: true,
   enableClickSelection: false,
-  isRowSelectable: (node) => node.data?.externalRefId != null,
+  isRowSelectable: (node) => !!node.data?.id && isReportableCampaign(node.data),
 };
 const SELECTION_COLUMN_DEF: ColDef = { pinned: 'left', width: 44, resizable: false, suppressHeaderMenuButton: true };
 
-const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ARCHIVED'];
+const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED'];
 
 export default function CampaignsList() {
   const navigate = useNavigate();
@@ -225,47 +212,11 @@ export default function CampaignsList() {
   }, [fetchCampaigns])
 
 
-  const canManage = role === 'ADMIN' || role === 'EDITOR';
-  // Only send campaigns Reports can show.
-  const reportCampaignIds = selectedCampaigns
-    .filter((c) => c.id && isReportableCampaign(c))
-    .map((c) => c.id as string);
-  const canViewReport = reportCampaignIds.length > 0;
-  const canArchive = selectedCampaigns.every((c) => String(c.status).toUpperCase() !== 'ARCHIVED');
-  const [archiving, setArchiving] = useState(false);
+  const reportCampaignIds = selectedCampaigns.map((c) => c.id as string);
 
   const onSelectionChanged = useCallback((e: SelectionChangedEvent<Campaign>) => {
     setSelectedCampaigns(e.api.getSelectedRows());
   }, []);
-
-  const handleArchive = async () => {
-    const advertiserId = advertiserIdCacheRef.current;
-    if (!advertiserId) {
-      toast({ title: t('common.error'), description: 'Unable to archive campaigns', variant: 'destructive' });
-      return;
-    }
-    setArchiving(true);
-    try {
-      const { error, status, message } = await campaignApi.archiveCampaigns(
-        selectedCampaigns.map((c) => c.externalRefId as number),
-        advertiserId,
-      );
-      if (Number(status) !== 200 || error) {
-        toast({ title: t('common.error'), description: typeof message === 'string' ? message : 'Unable to archive campaigns', variant: 'destructive' });
-      } else {
-        toast({ title: `Archived ${selectedCampaigns.length} campaign${selectedCampaigns.length > 1 ? 's' : ''}` });
-      }
-    } catch (err) {
-      logger.captureException(err);
-      toast({ title: t('common.error'), description: 'Unable to archive campaigns', variant: 'destructive' });
-    } finally {
-      setArchiving(false);
-    }
-    // Refetch either way (some may have archived on a partial failure), from page 1 in case
-    // the current page is now empty.
-    if (page !== 1) setPage(1);
-    else fetchCampaigns();
-  };
 
   const refresh = () => {
     setPage(1);
@@ -511,7 +462,6 @@ export default function CampaignsList() {
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="PAUSED">Paused</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>
-              <SelectItem value="ARCHIVED">Archived</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -527,33 +477,10 @@ export default function CampaignsList() {
                 size="sm"
                 className="h-8"
                 onClick={() => navigate(`/dashboard/reports?campaign=${reportCampaignIds.join(',')}`)}
-                disabled={!canViewReport}
               >
                 <ChartAreaIcon className="h-3.5 w-3.5 mr-1.5" />
                 View report
               </Button>
-              {canManage && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8" disabled={!canArchive || archiving}>
-                      <Archive className="h-3.5 w-3.5 mr-1.5" />
-                      Archive
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Archive {selectedCampaigns.length} campaign{selectedCampaigns.length > 1 ? 's' : ''}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Archived campaigns are hidden from this list. You can still find them with the Archived status filter.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleArchive}>Archive</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
               <Button variant="ghost" size="sm" className="h-8" onClick={() => gridRef.current?.api.deselectAll()}>
                 <X className="h-3.5 w-3.5 mr-1.5" />
                 Clear

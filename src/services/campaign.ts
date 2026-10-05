@@ -171,10 +171,6 @@ export const campaignApi = {
   getCampaignStats: () => 
     request('/api/v1/campaigns/stats'),
 
-  /** Archives campaigns by their AdsWizz IDs (drafts have none and can't be archived) */
-  archiveCampaigns: (externalRefIds: number[], advertiserId: string) =>
-    request<{ status: number; message?: string }>('/api/v1/campaigns/archiveUnarchiveCampaign', { method: 'POST', body: { externalRefId: externalRefIds, action: 'archive', advertiserId } }),
-
   activateCampaign: (chargeId: string, paymentLinkId: string) =>
     request<Campaign>('/api/v1/campaigns/activateCampaign', { method: 'POST', body: { chargeId, payment_link_id: paymentLinkId } }),
 
