@@ -86,6 +86,12 @@ export interface CampaignReport {
     cardTotals: CampaignReportCardTotals;
     PerformanceTotals: CampaignReportDailyRow[];
     data: CampaignReportDailyRow[];
+    campaignDetails: {
+        campaignName: string;
+        totalBudget: number;
+        externalRefId: number;
+        cpm: number;
+    }
 }
 
 /** Nested tree node from getCampaignReports (time bucket with optional campaign breakdown). */

@@ -1452,8 +1452,14 @@ export default function Account() {
                         <TableBody>
                           { invoiceHistory.map((row, i) => (
                             <TableRow key={i}>
-                              <TableCell className="text-sm font-medium text-primary">
-                                {row.invoiceId}
+                              <TableCell className="text-sm font-medium text-primary">                                
+                                {
+                                  row.url ? (
+                                    <a href={row.url} target="_blank" rel="noopener noreferrer">
+                                      {row.invoiceId}
+                                    </a>
+                                  ) : row.invoiceId
+                                }
                               </TableCell>
                               <TableCell className="text-sm font-medium">
                                 ${row.amount.toLocaleString()}
@@ -1610,6 +1616,15 @@ export default function Account() {
                               </Badge>
                             </TableCell>
                             <TableCell>
+                              {
+                                row.url ? (
+                                  <a href={row.url} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <></>
+                                )
+                              }
                               <Button variant="outline" size="sm" onClick={() => downloadInvoice(row.id)}>
                                 <Download className="h-3 w-3" />
                               </Button>
