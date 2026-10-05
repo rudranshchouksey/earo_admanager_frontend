@@ -24,6 +24,7 @@ export interface PaymentHistoryResponse {
 
 export interface PaymentHistory {
     id: string;
+    url: string;
     originalAmount: number;
     campaignId: string;
     type: string;
