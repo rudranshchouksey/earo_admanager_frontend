@@ -1,11 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,8 +30,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   Copy,
   CreditCard,
-  DollarSign,
-  Receipt,
   CheckCircle,
   AlertCircle,
   FileText,
@@ -62,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { useSessionFlags } from "@/hooks/useSessionFlags";
+import { getAccountSections, getBillingSections } from "@/lib/accountSections";
 import UsersTab from "@/components/dashboard/account/UsersTab";
 import AdvertisersTab, { AdvertiserCreateObj, AdvertiserUpdateObj } from "@/components/dashboard/account/AdvertisersTab";
 import { Advertiser, advertiserApi } from "@/services/advertiser";
@@ -71,7 +68,7 @@ import { organizationApi, OrganizationDetails, OrganizationDetailsResponse, Orga
 import { CreditCycle, CreditDetails, CreditInvoice, WalletTransaction, walletApi } from "@/services/wallet";
 import PaymentModal from "@/components/dashboard/launch/PaymentModal";
 import { paymentApi, PaymentHistory } from "@/services/payment";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { campaignApi } from "@/services/campaign";
 import { Country, targetingApi } from "@/services/targeting";
 import { useGeoLocation } from "@/hooks/useGeoLocation";
@@ -92,6 +89,22 @@ interface Cards {
   type: string;
   isPrimary: boolean;
 }
+
+// Renders one Account/Billing section; the sidebar is the navigation, so there is no tab list.
+// Access is decided once, by the route guard below (src/lib/accountSections.ts).
+function SectionPanel({ active, className, children }: { active: boolean; className?: string; children: React.ReactNode }) {
+  return active ? <div className={className}>{children}</div> : null;
+}
+
+const SECTION_TITLE_KEYS: Record<string, string> = {
+  profile: "layout.nav_profile",
+  users: "layout.nav_users",
+  advertisers: "layout.nav_advertisers",
+  company: "layout.nav_company",
+  "payment-method": "layout.nav_payment_method",
+  payments: "layout.nav_payments",
+  invoices: "layout.nav_invoices",
+};
 
 export default function Account() {
   const [profile, setProfile] = useState<UserProfile>({
@@ -632,19 +645,15 @@ export default function Account() {
 
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const page = searchParams.get("page");
   const message = searchParams.get("message");
-  const [activeTab, setActiveTab] = useState("profile");
-
-  useEffect(() => {
-    if (page === "advertisers" && isAgency) {
-      setActiveTab("advertisers");
-    }
-
-    if(page === "billing") {
-      setActiveTab("billing");
-    }
-  }, [page, isAgency]);
+  // The sidebar is the navigation: /dashboard/account/:section and /dashboard/billing/:section.
+  const { section } = useParams();
+  const location = useLocation();
+  const isBillingRoute = location.pathname.startsWith("/dashboard/billing");
+  const sections: string[] = isBillingRoute
+    ? getBillingSections({ role, isPro, isAgency })
+    : getAccountSections({ role, isPro, isAgency });
+  const activeTab = section ?? sections[0];
 
   useEffect(() => {
     if(message) {
@@ -865,55 +874,34 @@ export default function Account() {
 
 
 
+  // Unknown section, or one this role/plan can't open: go to the first allowed one
+  // (Profile when no billing section is allowed), keeping any ?message= toast.
+  if (!sections.includes(activeTab)) {
+    const fallback = sections[0]
+      ? `/dashboard/${isBillingRoute ? "billing" : "account"}/${sections[0]}`
+      : "/dashboard/account/profile";
+    return <Navigate to={{ pathname: fallback, search: location.search }} replace />;
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <Helmet>
-        <title>EARO | Account</title>
+        <title>{`EARO | ${t(isBillingRoute ? "layout.nav_billing" : "layout.nav_account")}`}</title>
       </Helmet>
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          {t("account.title")}
+          {t(SECTION_TITLE_KEYS[activeTab])}
         </h1>
-        <p className="text-muted-foreground mt-1">{t("account.subtitle")}</p>
+        <p className="text-muted-foreground mt-1">
+          {t(isBillingRoute ? "account.billing_subtitle" : "account.subtitle")}
+        </p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        key={isPro ? "pro" : "express"}
-      >
-        <TabsList
-          className={`flex flex-row  justify-around w-full `}
-        >
-          {(
-            <TabsTrigger value="profile" className=" min-w-[200px]">
-              {t("account.tab_profile")} 
-            </TabsTrigger>
-          )}
-          {isPro && role === "ADMIN" && (
-            <TabsTrigger value="users" className=" min-w-[200px]">{t("account.tab_users")}</TabsTrigger>
-          )}
-          {isAgency && (role === 'ADMIN' || role === 'EDITOR') && (
-            <TabsTrigger value="advertisers" className=" min-w-[200px]">
-              {t("account.tab_advertisers")}
-            </TabsTrigger>
-          )}
-          {
-            role === 'ADMIN' && <TabsTrigger value="company" className=" min-w-[200px]">{t("account.tab_company")}</TabsTrigger>
-
-          }
-          {
-            role === 'ADMIN' && <TabsTrigger value="billing" className=" min-w-[200px]">{t("account.tab_billing")}</TabsTrigger>
-          }
-          {/* <TabsTrigger value="tracking">
-            {t("account.tab_tracking")}
-          </TabsTrigger> */}
-
-        </TabsList>
+      <>
 
         {/* PROFILE TAB (Express only) */}
         {/* {!isPro && ( */}
-          <TabsContent value="profile" className="mt-4 space-y-4">
+          <SectionPanel active={activeTab === "profile"} className="mt-4 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>{t("account.personal_info")}</CardTitle>
@@ -1030,27 +1018,21 @@ export default function Account() {
               </CardContent>
             </Card>
 
-          </TabsContent>
+          </SectionPanel>
         {/* // )} */}
 
         {/* USERS TAB (Pro only) */}
-        {isPro && role === "ADMIN" && (
-          <TabsContent value="users" className="mt-4">
+          <SectionPanel active={activeTab === "users"} className="mt-4">
             <UsersTab />
-          </TabsContent>
-        )}
+          </SectionPanel>
 
         {/* ADVERTISERS TAB (Pro Agency only) */}
-        {isAgency && ( role === 'ADMIN' || role === 'EDITOR' ) && (
-          <TabsContent value="advertisers" className="mt-4">
+          <SectionPanel active={activeTab === "advertisers"} className="mt-4">
             <AdvertisersTab advertisers={advertisers} createAdvertiser={createAdvertiser} updateAdvertiser={updateAdvertiser} />
-          </TabsContent>
-        )}
+          </SectionPanel>
 
         {/* COMPANY TAB */}
-        {
-          role === 'ADMIN' && (
-          <TabsContent value="company" className="mt-4 space-y-4">
+          <SectionPanel active={activeTab === "company"} className="mt-4 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>{t("account.company_details")}</CardTitle>
@@ -1266,83 +1248,10 @@ export default function Account() {
                 </form>
               </CardContent>
             </Card>
-          </TabsContent>
-          )
-        }
-        {/* TRACKING TAB */}
-        <TabsContent value="tracking" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("account.conversion_tracking")}</CardTitle>
-              <CardDescription>
-                {t("account.conversion_tracking_desc")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-dashed border-border p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  {t("account.no_conversion_events")}
-                </p>
-                <Button variant="outline" size="sm">
-                  {t("account.create_pixel_event")}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("account.pixels_hint")}
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          </SectionPanel>
 
-        {/* BILLING TAB */}
-        {
-          role === 'ADMIN' && (
-            <TabsContent value="billing" className="mt-4 space-y-4">
-            <Tabs defaultValue="prepaid">
-              <TabsList
-                className={`grid w-full grid-cols-2`}
-              >
-                <TabsTrigger value="prepaid">{t("account.prepaid")}</TabsTrigger>
-                  <TabsTrigger value="postpaid">
-                    {t("account.postpaid")}
-                  </TabsTrigger>
-              </TabsList>
-  
-              {/* PREPAID SUB-TAB */}
-              <TabsContent value="prepaid" className="mt-4 space-y-4">
-                <div className="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-foreground">
-                          $1,240.00
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("account.spent_this_month")}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Receipt className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-foreground">
-                          $2,500.00
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("account.paid_this_month")}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-  
+        {/* BILLING SECTIONS */}
+            <SectionPanel active={activeTab === "payment-method"} className="mt-4 space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("account.payment_methods")}</CardTitle>
@@ -1432,7 +1341,9 @@ export default function Account() {
                     </div>
                   </CardContent>
                 </Card>
+            </SectionPanel>
 
+            <SectionPanel active={activeTab === "payments"} className="mt-4 space-y-4">
 
                 <Card>
                     <CardHeader>
@@ -1689,151 +1600,6 @@ export default function Account() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-  
-              {/* POSTPAID SUB-TAB (Pro only) */}
-                <TabsContent value="postpaid" className="mt-4 space-y-4">
-                  <Card>
-                    {
-                      creditsDetails?.creditCycle ? (
-                        <>
-                                            <CardHeader>
-                      <CardTitle>{t("account.credit_approval")}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3 rounded-lg border border-border p-4">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            Credit of ${Math.round(creditsDetails?.creditCycle?.amount).toLocaleString()}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Auto renews on 1st of every month
-                          </p>
-                        </div>
-                        <Badge className="ml-auto bg-green-100 text-green-700 border-0">
-                          {creditsDetails?.creditCycle?.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                        </>                        
-                      ) : <>
-                      
-                      <CardContent className="text-center p-4">
-                        <p className="text-sm text-muted-foreground">
-                          No credit cycle found
-                        </p>
-                      </CardContent>
-                      </>
-                    }
-                  </Card>
-
-                  {
-                    creditsDetails?.creditCycle ? (
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.approved_credit_limit")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        ${parseInt(creditsDetails?.creditCycle?.amount+"").toLocaleString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.credit_usage")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        ${ (creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)?.toLocaleString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {t("account.credit_utilization")}
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        { (((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100).toFixed(2)}%
-                      </p>
-                      <Progress value={(((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100)} className="mt-2 h-2" />
-                    </CardContent>
-                  </Card>
-                </div>
-                    ) : <></>
-                  }
-  
-  
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{t("account.invoice_history")}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t("account.invoice")}</TableHead>
-                            <TableHead>{t("account.amount")}</TableHead>
-                            <TableHead>For Month</TableHead>
-                            <TableHead>{t("account.status")}</TableHead>
-                            {/* <TableHead className="w-10"></TableHead> */}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          { invoiceHistory.map((row, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="text-sm font-medium text-primary">
-                                {row.invoiceId}
-                              </TableCell>
-                              <TableCell className="text-sm font-medium">
-                                ${row.amount.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    row.paymentStatus === "paid"
-                                      ? "secondary"
-                                      : "outline"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {row.paymentStatus?.toUpperCase()}
-                                </Badge>
-                              </TableCell>
-                              {/* <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => downloadInvoice(row.invoiceId)}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              </TableCell> */}
-                            </TableRow>
-                          ))}
-
-                          {
-                            invoiceHistory.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center">
-                                  <p className="text-xs text-muted-foreground py-4">
-                                    No invoice history found
-                                  </p>
-                                </TableCell>
-                              </TableRow>
-                            ) : <></>
-                          }
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
 
                   <Card>
                     <CardHeader>
@@ -1967,15 +1733,139 @@ export default function Account() {
                       </div>
                     </CardContent>
                   </Card>
+            </SectionPanel>
 
+            <SectionPanel active={activeTab === "invoices"} className="mt-4 space-y-4">
+                  {creditsDetails?.creditCycle && (
+                  <Card>
+                                            <CardHeader>
+                      <CardTitle>{t("account.credit_approval")}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3 rounded-lg border border-border p-4">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Credit of ${Math.round(creditsDetails?.creditCycle?.amount).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Auto renews on 1st of every month
+                          </p>
+                        </div>
+                        <Badge className="ml-auto bg-green-100 text-green-700 border-0">
+                          {creditsDetails?.creditCycle?.status}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  )}
 
-                  
-                </TabsContent>
-            </Tabs>
-          </TabsContent>  
-          )
-        }
-      </Tabs>
+                  {
+                    creditsDetails?.creditCycle ? (
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.approved_credit_limit")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        ${parseInt(creditsDetails?.creditCycle?.amount+"").toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.credit_usage")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        ${ (creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)?.toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {t("account.credit_utilization")}
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        { (((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100).toFixed(2)}%
+                      </p>
+                      <Progress value={(((creditsDetails?.creditCycle.amount - creditsDetails?.availableCredit)/creditsDetails?.creditCycle.amount)*100)} className="mt-2 h-2" />
+                    </CardContent>
+                  </Card>
+                </div>
+                    ) : <></>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t("account.invoice_history")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("account.invoice")}</TableHead>
+                            <TableHead>{t("account.amount")}</TableHead>
+                            <TableHead>For Month</TableHead>
+                            <TableHead>{t("account.status")}</TableHead>
+                            {/* <TableHead className="w-10"></TableHead> */}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          { invoiceHistory.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium text-primary">
+                                {row.invoiceId}
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                ${row.amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    row.paymentStatus === "paid"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {row.paymentStatus?.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              {/* <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => downloadInvoice(row.invoiceId)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </TableCell> */}
+                            </TableRow>
+                          ))}
+
+                          {
+                            invoiceHistory.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <p className="text-xs text-muted-foreground py-4">
+                                    No invoice history found
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            ) : <></>
+                          }
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+            </SectionPanel>
+      </>
 
       <SetupMFAModal
         open={isMfaModalOpen}

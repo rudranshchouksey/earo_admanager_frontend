@@ -71,7 +71,7 @@ export default function AgencyGettingStartedCard({ canEdit }: AgencyGettingStart
               </div>
               {canEdit && (
                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                  <Button onClick={() => navigate('/dashboard/account?page=advertisers')}>Add advertiser</Button>
+                  <Button onClick={() => navigate('/dashboard/account/advertisers')}>Add advertiser</Button>
                   <span className="text-xs text-muted-foreground">~2 minutes</span>
                 </div>
               )}

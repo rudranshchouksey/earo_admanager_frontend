@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mail, MessageSquare, Check } from 'lucide-react';
+import { Mail, MessageSquare, Check, PhoneCall } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supportApi } from '@/services/support';
 import { logger } from "@/lib/logger";
+import ScheduleCallDialog from './ScheduleCallDialog';
 
 
 const TOPICS = [
@@ -48,6 +49,7 @@ export default function Support() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
+  const [scheduleCallOpen, setScheduleCallOpen] = useState(false);
 
   useEffect(() => {
     // supabase.auth.getSession().then(({ data: { session } }) => {
@@ -134,6 +136,20 @@ export default function Support() {
                   <p className="text-sm text-muted-foreground">Mon–Fri, 9:00–18:00 GST</p>
                 </div>
               </div>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <PhoneCall className="h-5 w-5 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Prefer to talk?</p>
+                    <p className="text-sm text-muted-foreground">Book a call with our team.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setScheduleCallOpen(true)}>
+                    Schedule a call
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -189,6 +205,8 @@ export default function Support() {
           </Card>
         </div>
       </div>
+
+      <ScheduleCallDialog open={scheduleCallOpen} onOpenChange={setScheduleCallOpen} />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import CampaignsList from "./pages/CampaignsList";
 import CampaignWizard from "./pages/CampaignWizard";
 import Reports from "./pages/Reports";
 import Account from "./pages/Account";
+import AccountRedirect from "./pages/AccountRedirect";
 import ResetPassword from "./pages/ResetPassword";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
@@ -46,7 +47,10 @@ const App = () => (
                   <Route path="campaigns/new" element={<CampaignWizard />} />
                   <Route path="campaigns/:id" element={<CampaignWizard />} />
                   <Route path="reports" element={<Reports />} />
-                 <Route path="account" element={<Account />} />
+                 <Route path="account" element={<AccountRedirect to="/dashboard/account/profile" />} />
+                 <Route path="account/:section" element={<Account />} />
+                 <Route path="billing" element={<AccountRedirect to="/dashboard/billing/payment-method" />} />
+                 <Route path="billing/:section" element={<Account />} />
                  <Route path="support" element={<Support />} />
                </Route>
                <Route path="paymentSuccess" element={<PaymentSuccess />} />

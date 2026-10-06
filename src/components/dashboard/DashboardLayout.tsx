@@ -8,19 +8,26 @@ import {
   Settings,
   LogOut,
   Menu,
-  ChevronLeft,
+  PanelLeft,
   ChevronRight,
-  Headphones,
-  Download,
-  Globe,
   Mail,
   CircleHelp,
   ChevronDown,
   BookOpen,
+  CreditCard,
+  Wallet,
+  Receipt,
+  FileText,
+  User,
+  Users,
+  Building2,
+  Briefcase,
+  PhoneCall,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -44,7 +51,9 @@ import logoFull from '@/assets/logo-full.png';
 import logo from '@/assets/logo.png';
 import { userApi } from '@/services/user';
 import UpgradePlanModal from './UpgradePlanModal';
-import ScheduleCallButton from './ScheduleCallButton';
+import ScheduleCallDialog from './ScheduleCallDialog';
+import { SidebarNavGroup, SidebarNavLink, SidebarTooltip, type SidebarGroupItem, type SidebarLinkItem } from './SidebarNav';
+import { getAccountSections, getBillingSections, type AccountSection, type BillingSection } from '@/lib/accountSections';
 import { logger } from "@/lib/logger";
 
 const BREADCRUMB_KEYS: Record<string, string> = {
@@ -54,6 +63,15 @@ const BREADCRUMB_KEYS: Record<string, string> = {
   campaigns: 'layout.nav_campaigns',
   reports: 'layout.nav_reports',
   account: 'layout.nav_account',
+  billing: 'layout.nav_billing',
+  'payment-method': 'layout.nav_payment_method',
+  payments: 'layout.nav_payments',
+  invoices: 'layout.nav_invoices',
+  profile: 'layout.nav_profile',
+  users: 'layout.nav_users',
+  advertisers: 'layout.nav_advertisers',
+  company: 'layout.nav_company',
+  support: 'layout.nav_contact',
 };
 
 type Organization = {
@@ -85,7 +103,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<string>('');
   const { isPro, isAgency, role, isSuperAdmin } = useSessionFlags();
   const { t } = useTranslation();
@@ -102,7 +119,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [organizationSearchOpen, setOrganizationSearchOpen] = useState(false);
   const [organizationSearch, setOrganizationSearch] = useState('');
   const [requestedForAgency, setRequestedForAgency] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [scheduleCallOpen, setScheduleCallOpen] = useState(false);
+  const [openFooterGroupId, setOpenFooterGroupId] = useState<string | null>(null);
 
   const onSelectRole = async (role: OnboardingRole) => {
     setShowAgencySignup(false);
@@ -131,7 +149,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { path: '/dashboard/campaigns', label: t('layout.nav_campaigns'), icon: Megaphone },
     { path: '/dashboard/reports', label: t('layout.nav_reports'), icon: BarChart3 },
   ];
-  const accountItem = { path: '/dashboard/account', label: t('layout.nav_account'), icon: Settings };
+
+  const billingLinks: Record<BillingSection, SidebarLinkItem> = {
+    'payment-method': { path: '/dashboard/billing/payment-method', label: t('layout.nav_payment_method'), icon: CreditCard },
+    payments: { path: '/dashboard/billing/payments', label: t('layout.nav_payments'), icon: Receipt },
+    invoices: { path: '/dashboard/billing/invoices', label: t('layout.nav_invoices'), icon: FileText },
+  };
+  const billingGroup: SidebarGroupItem = {
+    id: 'billing',
+    label: t('layout.nav_billing'),
+    icon: Wallet,
+    children: getBillingSections({ role, isPro, isAgency }).map((section) => billingLinks[section]),
+  };
+
+  const supportGroup: SidebarGroupItem = {
+    id: 'support',
+    label: t('layout.nav_support'),
+    icon: CircleHelp,
+    children: [
+      { path: 'https://help.earo.ai', label: t('layout.nav_help_center'), icon: BookOpen, external: true },
+      { path: '/dashboard/support', label: t('layout.nav_contact'), icon: Mail },
+    ],
+  };
 
 
   const getAdvertisers = useCallback(async (organizationId: string, preferredAdvertiserId?: string) => {
@@ -239,7 +278,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         setOrganizations(data.data.organizations);
       }
 
-      setUserEmail(data.data.email ?? null);
       if(data.data?.onboardingComplete) setOnboardingCompleted(data.data.onboardingComplete);
     }
     getProfile();
@@ -247,7 +285,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   
   useEffect(() => {
     auth.getSession().then(({ data: { session } }) => {
-      setUserEmail(session?.user?.email ?? null);
       setSession(session);
       if(session.user.app_metadata.isAgency || session.user.app_metadata.isSuperAdmin) {
         // Prefer the stored advertiserId (from last selection) on reload.
@@ -289,153 +326,158 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.location.href = '/dashboard/campaigns/new';
   }
 
-  const sidebarContent = (
+  const closeMobileSidebar = () => setSidebarOpen(false);
+
+  const accountLinks: Record<AccountSection, SidebarLinkItem> = {
+    profile: { path: '/dashboard/account/profile', label: t('layout.nav_profile'), icon: User },
+    users: { path: '/dashboard/account/users', label: t('layout.nav_users'), icon: Users },
+    advertisers: { path: '/dashboard/account/advertisers', label: t('layout.nav_advertisers'), icon: Briefcase },
+    company: { path: '/dashboard/account/company', label: t('layout.nav_company'), icon: Building2 },
+  };
+  const accountGroup: SidebarGroupItem = {
+    id: 'account',
+    label: t('layout.nav_account'),
+    icon: Settings,
+    badge: (
+      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[10px] font-semibold text-background">
+        {accountType}
+      </span>
+    ),
+    children: getAccountSections({ role, isPro, isAgency }).map((section) => accountLinks[section]),
+  };
+
+  // Footer groups open one at a time: they grow upward from the bottom edge, so
+  // stacking several would push the headings (and the clicked target) around.
+  const footerGroups = [accountGroup, billingGroup, supportGroup];
+  const activeFooterGroupId =
+    footerGroups.find((group) => group.children.some((child) => !child.external && isActive(child.path)))?.id ?? null;
+
+  // Auto-expand the group navigation lands in (deep link, breadcrumb, in-page link).
+  useEffect(() => {
+    if (activeFooterGroupId) setOpenFooterGroupId(activeFooterGroupId);
+  }, [activeFooterGroupId]);
+
+  const renderFooterGroup = (group: SidebarGroupItem, collapsed: boolean) => (
+    <SidebarNavGroup
+      key={group.id}
+      group={group}
+      collapsed={collapsed}
+      isActive={isActive}
+      onNavigate={closeMobileSidebar}
+      open={openFooterGroupId === group.id}
+      onOpenChange={(open) => setOpenFooterGroupId(open ? group.id : null)}
+    />
+  );
+
+  // The mobile drawer always renders expanded, whatever the desktop rail state is,
+  // and has no open/close toggle (the overlay and navigation close it).
+  const renderSidebar = (collapsed: boolean, showToggle: boolean) => (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* Logo */}
-      <div className={`flex items-center h-14 shrink-0 border-b border-sidebar-border ${collapsed ? 'justify-center px-4' : 'px-4'}`}>
+      {/* Logo + open/close toggle */}
+      <div className={cn('flex items-center h-14 shrink-0 px-4', collapsed ? 'justify-center' : 'justify-between')}>
         {collapsed ? (
-          <img src={logo} alt="EARO" className="h-7 w-auto" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setCollapsed(false)}
+                aria-label={t('layout.open_sidebar')}
+                className="group flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              >
+                {/* Square logo by default; swaps to the panel icon on hover/focus. */}
+                <img src={logo} alt="EARO" className="h-7 w-auto group-hover:hidden group-focus-visible:hidden" />
+                <PanelLeft className="hidden h-5 w-5 group-hover:block group-focus-visible:block" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{t('layout.open_sidebar')}</TooltipContent>
+          </Tooltip>
         ) : (
-          <img src={logoFull} alt="EARO" className="h-7" />
+          <>
+            <img src={logoFull} alt="EARO" className="h-7" />
+            {showToggle && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(true)}
+                    aria-label={t('layout.close_sidebar')}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  >
+                    <PanelLeft className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t('layout.close_sidebar')}</TooltipContent>
+              </Tooltip>
+            )}
+          </>
         )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => (
-          <Link
+          <SidebarNavLink
             key={item.path}
-            to={item.path}
-            onClick={() => setSidebarOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isActive(item.path)
-                ? 'bg-sidebar-accent text-sidebar-foreground'
-                : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-            }`}
-          >
-            <item.icon className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </Link>
+            item={item}
+            active={isActive(item.path)}
+            collapsed={collapsed}
+            onNavigate={closeMobileSidebar}
+          />
         ))}
       </nav>
 
-
       {/* Footer */}
-      <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
-        <Link
-          to={accountItem.path}
-          onClick={() => setSidebarOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isActive(accountItem.path)
-              ? 'bg-sidebar-accent text-sidebar-foreground'
-              : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-          }`}
-        >
-          <accountItem.icon className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>{accountItem.label}</span>} 
-          {!collapsed && <div className='inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 text-[10px] px-1.5 py-0 h-4 bg-primary text-primary-foreground'>{accountType}</div>}
-        </Link>
-        {!collapsed && userEmail && (
-          <p className="px-3 text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
-        )}
-         {showAgencySignupBtn && !collapsed &&  (accountType === "Express" || (accountType === "Pro" && !requestedForAgency) )  &&(
-          // <span className="text-sm text-blue-500 text-center px-3 underline cursor-pointer" onClick={() => setShowAgencySignup(true) }>Upgrade to Agency?</span>
-          <div className="mt-2 mx-1 rounded-lg bg-muted/60 p-3 space-y-2">
-          <Button
-            size="sm"
-            className="h-7 w-full text-[11px] font-semibold"
-            onClick={() => setShowAgencySignup(true)}
-          >
-            Upgrade
-          </Button>
+      <div className="px-3 py-4 space-y-1">
+        {/* Sits directly above the Account group. */}
+        <div className="pb-2">
+          <SidebarTooltip label={t('layout.schedule_call')} enabled={collapsed}>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={collapsed ? t('layout.schedule_call') : undefined}
+              className={cn('w-full gap-2', collapsed ? 'h-9 px-0' : 'h-auto justify-start whitespace-normal py-2')}
+              onClick={() => {
+                closeMobileSidebar();
+                setScheduleCallOpen(true);
+              }}
+            >
+              <PhoneCall className="h-4 w-4 shrink-0" />
+              {!collapsed && (
+                <span className="flex flex-col items-start text-start">
+                  <span>{t('layout.schedule_call')}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{t('layout.schedule_call_subtitle')}</span>
+                </span>
+              )}
+            </Button>
+          </SidebarTooltip>
         </div>
-        )} 
-
-
-        {collapsed ? (
-          <>
-            <Link
-              to="/dashboard/help"
-              onClick={() => setSidebarOpen(false)}
-              title="Help Center"
-              className={`flex items-center justify-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/dashboard/help')
-                  ? 'bg-sidebar-accent text-sidebar-foreground'
-                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-              }`}
+        {footerGroups.map((group) => renderFooterGroup(group, collapsed))}
+        {showAgencySignupBtn && !collapsed && (accountType === "Express" || (accountType === "Pro" && !requestedForAgency)) && (
+          <div className="my-2 mx-1 rounded-lg border border-sidebar-border bg-background p-3">
+            <Button
+              size="sm"
+              className="h-7 w-full text-[11px] font-semibold"
+              onClick={() => setShowAgencySignup(true)}
             >
-              <CircleHelp className="h-5 w-5 shrink-0" />
-            </Link>
-            <Link
-              to="/dashboard/support"
-              onClick={() => setSidebarOpen(false)}
-              title="Contact Support"
-              className={`flex items-center justify-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/dashboard/support')
-                  ? 'bg-sidebar-accent text-sidebar-foreground'
-                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-              }`}
-            >
-              <Mail className="h-5 w-5 shrink-0" />
-            </Link>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => setHelpOpen((v) => !v)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/dashboard/help') || isActive('/dashboard/support')
-                  ? 'bg-sidebar-accent text-sidebar-foreground'
-                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-              }`}
-              aria-expanded={helpOpen}
-            >
-              <CircleHelp className="h-5 w-5 shrink-0" />
-              <span className="flex-1 text-left">Help & Support</span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${helpOpen ? '' : '-rotate-90'}`} />
-            </button>
-            {helpOpen && (
-              <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
-                <Link
-                  to="https://help.earo.ai"
-                  target="_blank"
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive('/dashboard/help')
-                      ? 'bg-sidebar-accent text-sidebar-foreground'
-                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-                  }`}
-                >
-                  <BookOpen className="h-4 w-4 shrink-0" />
-                  <span>Help Center</span>
-                </Link>
-                <Link
-                  to="/dashboard/support"
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive('/dashboard/support')
-                      ? 'bg-sidebar-accent text-sidebar-foreground'
-                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-                  }`}
-                >
-                  <Mail className="h-4 w-4 shrink-0" />
-                  <span>Contact Support</span>
-                </Link>
-              </div>
-            )}
-          </>
+              Upgrade
+            </Button>
+          </div>
         )}
 
 
-
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 w-full transition-colors"
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>{t('layout.sign_out')}</span>}
-        </button>
+        <SidebarTooltip label={t('layout.sign_out')} enabled={collapsed}>
+          <button
+            onClick={handleSignOut}
+            aria-label={collapsed ? t('layout.sign_out') : undefined}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 w-full transition-colors',
+              collapsed && 'justify-center',
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>{t('layout.sign_out')}</span>}
+          </button>
+        </SidebarTooltip>
       </div>
     </div>
   );
@@ -448,22 +490,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           collapsed ? 'w-[68px]' : 'w-60'
         }`}
       >
-        {sidebarContent}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute bottom-20 -right-3 hidden lg:flex h-6 w-6 items-center justify-center rounded-full bg-sidebar border border-sidebar-border text-sidebar-foreground/50 hover:text-sidebar-foreground"
-          style={{ left: collapsed ? 55 : 228 }}
-        >
-          <ChevronLeft className={`h-3 w-3 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
-        </button>
+        {renderSidebar(collapsed, true)}
       </aside>
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-60 bg-sidebar">
-            {sidebarContent}
+          <aside className="absolute start-0 top-0 bottom-0 w-60 bg-sidebar">
+            {renderSidebar(false, false)}
           </aside>
         </div>
       )}
@@ -560,7 +595,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {(isAgency || organizations?.length > 1 || isSuperAdmin) && (
             <Select value={selectedAdvertiser} onValueChange={(value) => {
               if(value === "add-advertiser") {
-                navigate('/dashboard/account?page=advertisers');
+                navigate('/dashboard/account/advertisers');
               } else {
                 setSelectedAdvertiser(value);
               }
@@ -576,7 +611,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 ))}
                 {
                   (role === "ADMIN" || role === "EDITOR" || role === "EDITOR_RESTRICTED") && (
-                    <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account?page=advertisers')}>
+                    <SelectItem value="add-advertiser" className="text-xs cursor-pointer text-foreground underline" onClick={() => navigate('/dashboard/account/advertisers')}>
                       Add Advertiser                 
                     </SelectItem>  
                   )
@@ -646,7 +681,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      <ScheduleCallButton />
+      <ScheduleCallDialog open={scheduleCallOpen} onOpenChange={setScheduleCallOpen} />
     </div>
   );
 }

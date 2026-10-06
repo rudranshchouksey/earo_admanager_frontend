@@ -43,33 +43,33 @@ function loadFallbackFlags(): SessionFlags {
   return { isPro: false, isNewUser: false, isAgency: false, isSuperAdmin: false, role: 'VIEWER_RESTRICTED' };
 }
 
+function flagsFromSession(session: AuthSession | null): SessionFlags {
+  const meta = session?.user?.app_metadata;
+  if (!meta) return loadFallbackFlags();
+  const organizationId = session?.currentOrganizationId;
+  const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
+  const isAgency = Boolean(organization?.orgType === 'AGENCY');
+  return {
+    isPro: isAgency || meta.isPro,
+    isNewUser: meta.userState === 'new',
+    isSuperAdmin: meta.isSuperAdmin,
+    // Prefer canonical boolean; fall back to orgType match for older sessions.
+    isAgency: isAgency,
+    role: organization?.role as 'ADMIN' | 'EDITOR' | 'VIEWER' | 'EDITOR_RESTRICTED' | 'VIEWER_RESTRICTED' || 'VIEWER_RESTRICTED'
+  };
+}
+
 /**
  * Reads isPro, isNewUser, and isAgency from the session's app_metadata.
  * Falls back to localStorage for users without session metadata (e.g. demo).
  */
 export function useSessionFlags(): SessionFlags {
-  const [flags, setFlags] = useState<SessionFlags>(loadFallbackFlags);
+  // Seed from the stored session synchronously so the first render already has the
+  // real role/plan (route guards such as the Account section redirect rely on this).
+  const [flags, setFlags] = useState<SessionFlags>(() => flagsFromSession(getStoredSession()));
 
   useEffect(() => {
-    const applySession = (session: AuthSession | null) => {
-      const meta = session?.user?.app_metadata;
-      const organizationId = session?.currentOrganizationId;
-      const organization = meta?.organizations?.find((org) => org.orgId === organizationId);
-
-      if (meta) {
-        const isAgency = Boolean(organization?.orgType === 'AGENCY');
-        setFlags({
-          isPro: isAgency || meta.isPro,
-          isNewUser: meta.userState === 'new',
-          isSuperAdmin: meta.isSuperAdmin,
-          // Prefer canonical boolean; fall back to orgType match for older sessions.
-          isAgency: isAgency,
-          role: organization?.role as 'ADMIN' | 'EDITOR' | 'VIEWER' | 'EDITOR_RESTRICTED' | 'VIEWER_RESTRICTED' || 'VIEWER_RESTRICTED'
-        });
-      } else {
-        setFlags(loadFallbackFlags());
-      }
-    };
+    const applySession = (session: AuthSession | null) => setFlags(flagsFromSession(session));
 
     auth.getSession().then(({ data: { session } }) => applySession(session));
 

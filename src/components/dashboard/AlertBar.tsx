@@ -262,7 +262,7 @@ export default function AlertBar() {
               message: "Please complete your profile and company details",
               alert_type: "error",
               cta_label: "Complete Profile",
-              cta_url: "/dashboard/account",
+              cta_url: "/dashboard/account/profile",
               userId: userProfile.data.id,
             }
           );
