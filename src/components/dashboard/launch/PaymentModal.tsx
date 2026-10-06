@@ -44,43 +44,66 @@ export default function PaymentModal({
   useEffect(() => {
     if (!open || !paymentUrl) return;
 
+    const elementId = mountId.current;
+    const SCRIPT_URL = "https://assets.mamopay.com/stable/checkout-inline-2.0.0.min.js";
+    let cancelled = false;
+    let frame = 0;
+    let attempts = 0;
 
-  
-    const addIframeToWebsite = (elementID: string, paymentLinkUrl: string) => {
-        const SCRIPT_URL = "https://assets.mamopay.com/stable/checkout-inline-2.0.0.min.js";
-    
-        // 1. Check if the script is already present to avoid duplicates
-        if (document.querySelector(`script[src="${SCRIPT_URL}"]`)) {
+    // `class MamoPay` is a classic-script global, not a property of globalThis.
+    const mamoReady = () => typeof MamoPay !== "undefined";
 
-            const mamoPay = new MamoPay();
+    const attach = () => {
+      if (cancelled || !mamoReady()) return;
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      if (el.querySelector("iframe")) {
+        setIframeLoading(false);
+        return;
+      }
+      new MamoPay().addIframeToWebsite(elementId, paymentUrl);
+      setIframeLoading(false);
+    };
 
-            mamoPay.addIframeToWebsite(elementID, paymentLinkUrl);
+    const waitAndAttach = () => {
+      if (cancelled) return;
+      const el = document.getElementById(elementId);
+      // Dialog content is portaled, so the mount node can appear a frame after `open`.
+      if (!el) {
+        if (attempts++ < 120) frame = requestAnimationFrame(waitAndAttach);
+        else setIframeLoading(false);
+        return;
+      }
+      if (mamoReady()) {
+        attach();
+        return;
+      }
 
-            return;
-        }
-    
-        const scriptTag = document.createElement("script");
-        scriptTag.src = SCRIPT_URL;
-        scriptTag.async = true;
-    
-        
-        scriptTag.onload = () => {
-            // MamoPay is attached to the window object by the script
-            const mamoPay = new MamoPay();
-            mamoPay.addIframeToWebsite(elementID, paymentLinkUrl);
+      let script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_URL}"]`);
+      if (!script) {
+        script = document.createElement("script");
+        script.src = SCRIPT_URL;
+        script.async = true;
+        script.onload = () => attach();
+        script.onerror = () => {
+          if (!cancelled) setIframeLoading(false);
+          logger.error("Failed to load the Mamo Pay SDK.");
         };
-    
-        scriptTag.onerror = () => {
-            logger.error("Failed to load the Mamo Pay SDK.");
-        };
-    
-        document.head.appendChild(scriptTag);
-    }
+        document.head.appendChild(script);
+        return;
+      }
 
-    addIframeToWebsite(mountId.current, paymentUrl);
+      script.addEventListener("load", attach, { once: true });
+      // The tag can already be loaded; `load` will not fire again.
+      frame = requestAnimationFrame(attach);
+    };
+
+    setIframeLoading(true);
+    frame = requestAnimationFrame(waitAndAttach);
 
     return () => {
-    //   setIframeLoading(false);
+      cancelled = true;
+      cancelAnimationFrame(frame);
     };
   }, [open, paymentUrl]);
 
@@ -95,7 +118,7 @@ export default function PaymentModal({
         )}
       >
         <div className="w-full flex justify-end">
-        <span className="text-md font-semibold py-2 cursor-pointer"  onClick={handleCancel}>Cancel Payment</span>
+        <span className="text-md font-semibold py-2 cursor-pointer"  onClick={handleCancel}>Cancel</span>
         </div>
         {paymentUrl ? (
           <div className="relative min-h-[min(70vh,640px)] w-full flex-1 bg-muted/20">

@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CreditCard, Wallet, Building2, TriangleAlert } from "lucide-react";
+import { CreditCard, Loader2, Wallet, Building2, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Coupon, CreditDetails, walletApi } from "@/services/wallet";
 import { SavedTransaction } from "@/services/campaign";
@@ -261,8 +261,14 @@ export default function CampaignPaymentStep({
           ))}
 
           <div className="flex items-center gap-2 w-full justify-start">
-            <Button variant="outline" className="min-w-32" size="sm" onClick={addPaymentMethod}>
-              Add New Card
+            <Button
+              variant="outline"
+              className="min-w-32"
+              size="sm"
+              onClick={addPaymentMethod}
+              disabled={generatingPaymentLink}
+            >
+              {generatingPaymentLink ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add New Payment Method"}
             </Button> 
           </div>
 
@@ -270,9 +276,15 @@ export default function CampaignPaymentStep({
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center p-3 border border-border rounded-lg mb-3 gap-2">
-          <p className="text-xs font-medium">You don't have any cards saved</p>
-          <Button variant="outline" className="min-w-32" size="sm" onClick={addPaymentMethod}>
-            Add card
+          <p className="text-xs text-center font-medium">Your card won't be charged today. We charge automatically as your ad actually runs, up to your daily budget — in increments of $25–$50 of real impressions — up to once per day. Pause anytime.</p>
+          <Button
+            variant="outline"
+            className="min-w-32"
+            size="sm"
+            onClick={addPaymentMethod}
+            disabled={generatingPaymentLink}
+          >
+            {generatingPaymentLink ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Payment Method"}
           </Button> 
         </div>
       )}
@@ -339,6 +351,13 @@ export default function CampaignPaymentStep({
         <label className="text-sm font-bold text-foreground">
           Charge Summary
         </label>
+        {
+          cards && cards.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+            Your card won't be charged today. We charge automatically as your ad actually runs, up to your daily budget — in increments of $25–$50 of real impressions — up to once per day. Pause anytime.
+            </p>    
+          ): <></>
+        }
         <div className="flex items-center justify-between gap-2">
           <div>
             <label className="text-sm text-foreground">

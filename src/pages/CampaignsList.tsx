@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target } from 'lucide-react';
+import { Plus, Megaphone, Search, Filter, Download, Pencil, RefreshCcw, ChartAreaIcon, Eye, DollarSign, MousePointerClick, Target, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 
 import { AgGridReact } from 'ag-grid-react';
-import { AllCommunityModule, ColDef, type ICellRendererParams, type RowClickedEvent, type SortChangedEvent } from 'ag-grid-community';
+import { AllCommunityModule, ColDef, type CellClickedEvent, type GetRowIdParams, type ICellRendererParams, type RowSelectionOptions, type SelectionChangedEvent, type SortChangedEvent } from 'ag-grid-community';
 import { appGridTheme } from '@/components/ui/ag-grid-theme';
-import { Campaign, campaignApi } from '@/services/campaign';
+import { Campaign, campaignApi, isReportableCampaign } from '@/services/campaign';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { auth } from '@/services/auth';
@@ -55,6 +55,19 @@ const UtilizationRenderer = (params: ICellRendererParams) => {
   );
 };
 
+// Sorting is server-side, so AG Grid's own comparator is a no-op.
+const DEFAULT_COL_DEF: ColDef = { comparator: () => 0 };
+const getRowId = (p: GetRowIdParams<Campaign>) => p.data.id;
+// The only bulk action is View report, so only campaigns Reports can show are selectable.
+const ROW_SELECTION: RowSelectionOptions<Campaign> = {
+  mode: 'multiRow',
+  checkboxes: true,
+  headerCheckbox: true,
+  enableClickSelection: false,
+  isRowSelectable: (node) => !!node.data?.id && isReportableCampaign(node.data),
+};
+const SELECTION_COLUMN_DEF: ColDef = { pinned: 'left', width: 44, resizable: false, suppressHeaderMenuButton: true };
+
 const VALID_STATUS_FILTERS = ['all', 'DRAFT', 'PROCESSING', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED'];
 
 export default function CampaignsList() {
@@ -73,6 +86,8 @@ export default function CampaignsList() {
   const advertiserIdCacheRef = useRef<string | null>(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
+  const gridRef = useRef<AgGridReact<Campaign>>(null);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<Campaign[]>([]);
   const { t } = useTranslation();
   const [dashboardCardData, setDashboardCardData] = useState<CardTotals>({
     attributionCPAInUSD: 0,
@@ -101,6 +116,7 @@ export default function CampaignsList() {
 
   const fetchCampaigns = async () => {
     setLoading(true);
+    setSelectedCampaigns([]);
 
     const session = await auth.getSession();
     if (!session) {
@@ -196,6 +212,12 @@ export default function CampaignsList() {
   }, [fetchCampaigns])
 
 
+  const reportCampaignIds = selectedCampaigns.map((c) => c.id as string);
+
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<Campaign>) => {
+    setSelectedCampaigns(e.api.getSelectedRows());
+  }, []);
+
   const refresh = () => {
     setPage(1);
     fetchCampaigns();
@@ -266,6 +288,7 @@ export default function CampaignsList() {
 
   const colDefs = useMemo<ColDef[]>(() => [
     {
+      colId: 'actions',
       headerName: '', sortable: false, filter: false,
       width: 80,
       cellRenderer: (params: ICellRendererParams) => (
@@ -351,12 +374,16 @@ export default function CampaignsList() {
           return null;
         }
       },
-      valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : '—',
+      valueFormatter: (p) => p.value != null ? `$${Number(p.value ?? 0)?.toFixed(2)}` : '—',
       sortable: false,
     },
   ], [navigate]);
 
-  const onRowClicked = useCallback((e: RowClickedEvent<Campaign>) => {
+  // The selection and action columns handle their own clicks; anywhere else opens the campaign.
+  const onCellClicked = useCallback((e: CellClickedEvent<Campaign>) => {
+    const colId = e.column.getColId();
+    // The checkbox cell only swallows the click on rows that can be selected (not drafts).
+    if (colId === 'actions' || (colId === 'ag-Grid-SelectionColumn' && e.node.selectable)) return;
     if (e.data) navigate(`/dashboard/campaigns/${e.data.id}`);
   }, [navigate]);
 
@@ -397,7 +424,7 @@ export default function CampaignsList() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard label="Total Impressions" value={dashboardCardData.impressions.toLocaleString()} icon={Eye} loading={loadingDashboardData} />
-        <StatCard label="Total Spend" value={`$${dashboardCardData.totalSpend?.toFixed(2).toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
+        <StatCard label="Total Spend" value={`$${dashboardCardData.totalSpend?.toLocaleString()}`} icon={DollarSign} loading={loadingDashboardData} />
         <StatCard label="Total Reach" value={dashboardCardData.demandAudioReachUniqueUsers.toLocaleString()} icon={MousePointerClick} loading={loadingDashboardData} />
         <StatCard label="CPA" value={`$${dashboardCardData.attributionCPAInUSD.toFixed(2)}`} icon={Target} loading={loadingDashboardData} />
   
@@ -438,6 +465,29 @@ export default function CampaignsList() {
             </SelectContent>
           </Select>
         </div>
+
+        {selectedCampaigns.length > 0 && (
+          <div className="mx-6 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
+            <p className="text-sm font-medium text-foreground">
+              {selectedCampaigns.length} selected
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => navigate(`/dashboard/reports?campaign=${reportCampaignIds.join(',')}`)}
+              >
+                <ChartAreaIcon className="h-3.5 w-3.5 mr-1.5" />
+                View report
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8" onClick={() => gridRef.current?.api.deselectAll()}>
+                <X className="h-3.5 w-3.5 mr-1.5" />
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
         <CardContent>
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
@@ -463,13 +513,18 @@ export default function CampaignsList() {
             <>
               <div className="w-full h-[380px]">
                 <AgGridReact
+                  ref={gridRef}
                   theme={appGridTheme}
                   modules={[AllCommunityModule]}
                   rowData={campaigns}
+                  getRowId={getRowId}
+                  rowSelection={ROW_SELECTION}
+                  selectionColumnDef={SELECTION_COLUMN_DEF}
+                  onSelectionChanged={onSelectionChanged}
                   columnDefs={colDefs}
-                  defaultColDef={{ comparator: () => 0 }}
+                  defaultColDef={DEFAULT_COL_DEF}
                   suppressMultiSort
-                  onRowClicked={onRowClicked}
+                  onCellClicked={onCellClicked}
                   onSortChanged={onSortChanged}
                   suppressCellFocus
                   animateRows

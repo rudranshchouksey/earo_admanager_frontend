@@ -1344,6 +1344,80 @@ export default function Account() {
             </SectionPanel>
 
             <SectionPanel active={activeTab === "payments"} className="mt-4 space-y-4">
+
+                <Card>
+                    <CardHeader>
+                      <CardTitle>{t("account.invoice_history")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("account.invoice")}</TableHead>
+                            <TableHead>{t("account.amount")}</TableHead>
+                            <TableHead>For Month</TableHead>
+                            <TableHead>{t("account.status")}</TableHead>
+                            {/* <TableHead className="w-10"></TableHead> */}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          { invoiceHistory.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-sm font-medium text-primary">                                
+                                {
+                                  row.url ? (
+                                    <a href={row.url} target="_blank" rel="noopener noreferrer">
+                                      {row.invoiceId}
+                                    </a>
+                                  ) : row.invoiceId
+                                }
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                ${row.amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-sm">{row.invoiceMonth}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    row.paymentStatus === "paid"
+                                      ? "secondary"
+                                      : "outline"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {row.paymentStatus?.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              {/* <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => downloadInvoice(row.invoiceId)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </TableCell> */}
+                            </TableRow>
+                          ))}
+
+                          {
+                            invoiceHistory.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <p className="text-xs text-muted-foreground py-4">
+                                    No invoice history found
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            ) : <></>
+                          }
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+  
                 <Card>
                   <CardHeader>
                     <CardTitle>
@@ -1453,6 +1527,15 @@ export default function Account() {
                               </Badge>
                             </TableCell>
                             <TableCell>
+                              {
+                                row.url ? (
+                                  <a href={row.url} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <></>
+                                )
+                              }
                               <Button variant="outline" size="sm" onClick={() => downloadInvoice(row.id)}>
                                 <Download className="h-3 w-3" />
                               </Button>
