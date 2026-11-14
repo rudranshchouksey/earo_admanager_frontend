@@ -2629,8 +2629,8 @@ export default function Reports() {
                 reach={{ value: kpis.totalReach, impressions: kpis.totalImpressions, trend: reachTrend, series: reachSeries }}
                 ltr={{ value: kpis.avgLtr, industryAvg: 90, status: ltrStatus }}
                 
-                cpa={{ value:( !isSingle ? null : kpis.cpa, deltaPct: null, series: null }}
-                cpm={{ value:( !isSingle ? null : kpis.totalBudget/kpis.impressionsGoal)*1000, deltaPct: null, series: null }}
+                cpa={{ value:( !isSingle ? null : kpis.cpa), deltaPct: null, series: null }}
+                cpm={{ value: !isSingle ? null : (kpis.totalBudget / kpis.impressionsGoal) * 1000, deltaPct: null, series: null }}
                 
                 
                 // cpm={isAll ? { value: kpis.avgCpm, deltaPct: cpmDeltaPct, series: cpmSeries } : undefined}
